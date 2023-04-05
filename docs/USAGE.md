@@ -2,7 +2,6 @@
 
 # Usage
 
-## MS3D
 ### Preliminary
 Even if you already have generated infos from OpenPCDet, you need to re-generate the infos for nuScenes and Lyft (gt database not required) because we updated infos to include sequence metadata and we use 16 sweeps.
 
