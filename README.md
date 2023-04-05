@@ -26,7 +26,7 @@ By combining multiple detectors from different sources (Source 1-4), MS3D can al
 
 ## Installation
 
-Please refer to [INSTALL.md](docs/INSTALL.md) for the installation of `MS3D`.
+Please refer to [INSTALL.md](docs/INSTALL.md) for the installation of MS3D.
 
 ## Getting Started
 
