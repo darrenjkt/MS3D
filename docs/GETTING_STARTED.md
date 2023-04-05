@@ -48,16 +48,16 @@ MS3D
     - ...
 ```
 
-After generating all detections, place their result.pkl paths in a file. Specify the file path in the config ACCUM1.PATH and ACCUM16.PATH. You can reference this file: [waymo paths](../tools/cfgs/target-waymo/det_16f_paths.txt).
+After generating all detections, place their result.pkl paths in a file. Specify the file path in the config ACCUM1.PATH and ACCUM16.PATH. You can reference this file: [waymo paths](../tools/cfgs/target-waymo/raw_dets/det_16f_paths.txt).
 ```
 MS_DETECTOR_PS:
     FUSION: kde_fusion
     ACCUM1:
-        PATH: '/MS3D/tools/cfgs/target-nuscenes/det_1f_paths.txt'
+        PATH: '/MS3D/tools/cfgs/target-nuscenes/raw_dets/det_1f_paths.txt'
         DISCARD: 4
         RADIUS: 2.0
     ACCUM16:
-        PATH: '/MS3D/tools/cfgs/target-nuscenes/det_16f_paths.txt'
+        PATH: '/MS3D/tools/cfgs/target-nuscenes/raw_dets/det_16f_paths.txt'
         DISCARD: 3
         RADIUS: 1.0
 ```

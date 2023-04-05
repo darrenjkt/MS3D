@@ -172,7 +172,7 @@ SELF_TRAIN:
     MS_DETECTOR_PS:
         FUSION: kde_fusion
         ACCUM1:
-            PATH: '/MS3D/tools/cfgs/target-lyft/det_1f_paths_5hz.txt' 
+            PATH: '/MS3D/tools/cfgs/target-lyft/det_1f_paths.txt' 
             DISCARD: 4
             RADIUS: 2.0
         ACCUM16:

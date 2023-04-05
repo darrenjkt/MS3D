@@ -21,7 +21,7 @@ USE_SHARED_MEMORY: False  # it will load the data to shared memory to speed up (
 SHARED_MEMORY_FILE_LIMIT: 35000  # set it based on the size of your shared memory
 
 DATA_AUGMENTOR:
-    DISABLE_AUG_LIST: ['placeholder']
+    DISABLE_AUG_LIST: ['placeholder','gt_sampling']
     AUG_CONFIG_LIST:
         - NAME: gt_sampling
           USE_ROAD_PLANE: False

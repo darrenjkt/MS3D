@@ -1,7 +1,7 @@
 CLASS_NAMES: ['car','truck', 'bus']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
         used_feature_list: ['x', 'y', 'z'],

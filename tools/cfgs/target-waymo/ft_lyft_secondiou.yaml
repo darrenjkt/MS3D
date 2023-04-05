@@ -195,11 +195,11 @@ SELF_TRAIN:
     MS_DETECTOR_PS:
         FUSION: kde_fusion
         ACCUM1:
-            PATH: '/MS3D/tools/cfgs/target-waymo/det_1f_paths_s190_5hz.txt' 
+            PATH: '/MS3D/tools/cfgs/target-waymo/det_1f_paths.txt' 
             DISCARD: 4
             RADIUS: 2.0
         ACCUM16:
-            PATH: '/MS3D/tools/cfgs/target-waymo/det_16f_paths_s190_1hz.txt'
+            PATH: '/MS3D/tools/cfgs/target-waymo/det_16f_paths.txt'
             DISCARD: 3
             RADIUS: 1.0
         MIN_STATIC_SCORE: 0.85
