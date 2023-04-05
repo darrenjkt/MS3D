@@ -25,7 +25,7 @@ INFO_PATH: {
 POINT_CLOUD_RANGE: [-80.0, -80.0, -5.0, 80.0, 80.0, 3.0]
 
 DATA_AUGMENTOR:
-    DISABLE_AUG_LIST: ['placeholder']
+    DISABLE_AUG_LIST: ['placeholder','gt_sampling']
     AUG_CONFIG_LIST:
         - NAME: gt_sampling
           DB_INFO_PATH:

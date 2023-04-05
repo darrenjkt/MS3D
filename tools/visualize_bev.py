@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from pathlib import Path
 import sys
-sys.path.append('/OpenPCDet')
+sys.path.append('/MS3D')
 from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.utils import common_utils
 from pcdet.datasets import build_dataloader
@@ -15,18 +15,12 @@ from pcdet.utils import box_fusion_utils
 from pcdet.utils import compatibility_utils as compat
 
 """
-python visualize_bev.py --cfg_file cfgs/source-waymo/secondiou.yaml \
-  --pkl ../output/source-kitti/centerpoint/default/eval/epoch_no_number/val/oncetrain/result.pkl \
-        ../output/source-kitti/secondiou/default/eval/epoch_no_number/val/oncetrain/result.pkl \
-        ../output/source-nuscenes/centerpoint/default/eval/epoch_no_number/val/oncetrain/result.pkl \
-        ../output/source-nuscenes/secondiou/default/eval/epoch_no_number/val/oncetrain/result.pkl \
-        ../output/source-waymo/centerpoint/default/eval/epoch_no_number/val/oncetrain/result.pkl \
-        ../output/source-waymo/secondiou/default/eval/epoch_no_number/val/oncetrain/result.pkl
+python visualize_bev.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
+                        --dets_txt /MS3D/tools/cfgs/target-nuscenes/raw_dets/det_1f_paths.txt
 
-or
-
-python visualize_bev.py --cfg_file cfgs/source-waymo/secondiou.yaml \
-                        --dets_txt /OpenPCDet/tools/cfgs/source_detectors_train_tta.txt
+python visualize_bev.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
+  --pkl ../output/target-nuscenes/waymo_centerpoint/ms3d/eval/epoch_no_number/val/nuscenes_customtrain_1f_no_tta/result.pkl \
+        ../output/target-nuscenes/waymo_centerpoint/ms3d/eval/epoch_no_number/val/nuscenes_customtrain_1f_tta-rwf/result.pkl                                 
 """
 
 def plot_boxes(ax, boxes_lidar, color=[0,0,1], 
@@ -74,35 +68,31 @@ def main():
     parser.add_argument('--idx', type=int, default=0,
                         help='If you wish to only display a certain frame index')
     args = parser.parse_args()
-    log_file = 'temp.txt'
-
-    # Define which classes to display for gt_boxes
-    # classes = ['Vehicle']
-    classes = ['car','bus','truck']
-
+    
     # Get target dataset
     cfg_from_yaml_file(args.cfg_file, cfg)
-    logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
+    logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
     if cfg.get('DATA_CONFIG_TAR', False):
-        tgt_dataset_cfg = cfg.DATA_CONFIG_TAR
-        src_class_names = cfg.DATA_CONFIG_TAR.CLASS_NAMES
+        dataset_cfg = cfg.DATA_CONFIG_TAR
+        classes = cfg.DATA_CONFIG_TAR.CLASS_NAMES
+        cfg.DATA_CONFIG_TAR.USE_PSEUDO_LABEL=False
+        if dataset_cfg.get('USE_TTA', False):
+            dataset_cfg.USE_TTA=False
     else:
-        tgt_dataset_cfg = cfg.DATA_CONFIG
-        src_class_names = cfg.CLASS_NAMES
-    tgt_dataset_cfg.DATA_SPLIT.test='train'
-    if tgt_dataset_cfg.get('USE_TTA', False):
-        tgt_dataset_cfg.USE_TTA=False
+        dataset_cfg = cfg.DATA_CONFIG
+        classes = cfg.CLASS_NAMES
+    dataset_cfg.DATA_SPLIT.test='train'
 
-    # tgt_dataset_cfg.SEQUENCE_CONFIG.ENABLED = True
-    # if tgt_dataset_cfg.SEQUENCE_CONFIG.ENABLED:
-    #     tgt_dataset_cfg.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-15,0]
-    #     # tgt_dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp']
-    #     tgt_dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp']
-    #     tgt_dataset_cfg.POINT_FEATURE_ENCODING.used_feature_list=['x','y','z']        
-    cfg.DATA_CONFIG_TAR.USE_PSEUDO_LABEL=False
+    # dataset_cfg.SEQUENCE_CONFIG.ENABLED = True
+    # if dataset_cfg.SEQUENCE_CONFIG.ENABLED:
+    #     dataset_cfg.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-15,0]
+    #     # dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp']
+    #     dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp']
+    #     dataset_cfg.POINT_FEATURE_ENCODING.used_feature_list=['x','y','z']        
+    
     target_set, _, _ = build_dataloader(
-                dataset_cfg=tgt_dataset_cfg,
-                class_names=src_class_names,
+                dataset_cfg=dataset_cfg,
+                class_names=classes,
                 batch_size=1, logger=logger, training=False, dist=False
             )
 
@@ -192,9 +182,9 @@ def main():
     bnext.on_clicked(callback.next)
     bprev = Button(axprev, 'Previous')
     bprev.on_clicked(callback.prev)
-    fjump = Button(axjumpf, 'F_Jump')
+    fjump = Button(axjumpf, 'Jump +50')
     fjump.on_clicked(callback.fjump50)
-    bjump = Button(axjumpb, 'B_Jump')
+    bjump = Button(axjumpb, 'Jump -50')
     bjump.on_clicked(callback.bjump50)
 
     ax.set_aspect('equal')

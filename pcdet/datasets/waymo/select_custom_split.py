@@ -18,7 +18,7 @@ def check_sequence_name_with_all_version(sequence_file):
             sequence_file = found_sequence_file
     return sequence_file
 
-root_path = Path('/OpenPCDet/data/waymo')
+root_path = Path('/MS3D/data/waymo')
 split_dir = root_path / 'ImageSets' / 'train.txt'
 sample_sequence_list = [x.strip() for x in open(split_dir).readlines()]
 waymo_infos = []

@@ -16,9 +16,9 @@ a. Clone this repository.
 ```shell
 git clone https://github.com/darrenjkt/MS3D.git
 ```
-b. Docker
+b. Using Docker
 
-We highly recommend running this repository on docker for an out-of-box functionality. We provide a docker image and [Dockerfile](../docker/Dockerfile). You can pull the docker image with:
+We highly recommend running this repository on docker for out-of-box usage. You can build our [Dockerfile](../docker/Dockerfile) or pull our provided docker image.
 ```
 docker pull darrenjkt/openpcdet:v0.6.0
 ```
@@ -26,9 +26,17 @@ For easy running of the image we provide a script. Change the file paths, number
 
 ```
 bash docker/run.sh
+docker exec -it ${CONTAINER_NAME} /bin/bash
 ```
 
-c. Install this `pcdet` library and its dependent libraries by running the following command:
+c. Install `pcdet` and the tracker with the following commands
 ```shell
 python setup.py develop
+cd tracker && pip install -e . --user
+```
+Note that if you want to use dynamic voxelization (e.g. Voxel-RCNN), you need to install torch-scatter with the following commands:
+```shell
+pip install torch==1.8.1 torchvision==0.9.1
+pip install torch-scatter -f https://data.pyg.org/whl/torch-1.8.1+cu111.html
+python setup.py develop # rebuild repository
 ```

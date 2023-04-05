@@ -3,7 +3,7 @@ from nuscenes.utils import splits
 import nuscenes_utils
 from pathlib import Path
 
-data_path = Path('/OpenPCDet') / 'data' / 'nuscenes' / 'v1.0-trainval'
+data_path = Path('/MS3D') / 'data' / 'nuscenes' / 'v1.0-trainval'
 version = 'v1.0-trainval'
 nusc = NuScenes(version=version, dataroot=data_path, verbose=True)
 

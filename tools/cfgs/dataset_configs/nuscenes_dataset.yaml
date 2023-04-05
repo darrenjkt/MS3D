@@ -22,7 +22,7 @@ POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 BALANCED_RESAMPLING: True 
 MIN_POINTS_OF_GT: 1
 DATA_AUGMENTOR:
-    DISABLE_AUG_LIST: ['placeholder']
+    DISABLE_AUG_LIST: ['placeholder','gt_sampling']
     AUG_CONFIG_LIST:
         - NAME: gt_sampling
           DB_INFO_PATH:

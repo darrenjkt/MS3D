@@ -1,0 +1,16 @@
+/MS3D/output/target-lyft/waymo_centerpoint/ms3d/eval/epoch_no_number/val/train_16f_2hz_no_tta/result.pkl
+/MS3D/output/target-lyft/waymo_centerpoint/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwf/result.pkl
+/MS3D/output/target-lyft/waymo_centerpoint/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwr/result.pkl
+/MS3D/output/target-lyft/waymo_centerpoint/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwf-rwr/result.pkl
+/MS3D/output/target-lyft/waymo_secondiou/ms3d/eval/epoch_no_number/val/train_16f_2hz_no_tta/result.pkl
+/MS3D/output/target-lyft/waymo_secondiou/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwf/result.pkl
+/MS3D/output/target-lyft/waymo_secondiou/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwr/result.pkl
+/MS3D/output/target-lyft/waymo_secondiou/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwf-rwr/result.pkl
+/MS3D/output/target-lyft/nuscenes_centerpoint/ms3d/eval/epoch_no_number/val/train_16f_2hz_no_tta/result.pkl
+/MS3D/output/target-lyft/nuscenes_centerpoint/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwf/result.pkl
+/MS3D/output/target-lyft/nuscenes_centerpoint/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwr/result.pkl
+/MS3D/output/target-lyft/nuscenes_centerpoint/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwf-rwr/result.pkl
+/MS3D/output/target-lyft/nuscenes_secondiou/ms3d/eval/epoch_no_number/val/train_16f_2hz_no_tta/result.pkl
+/MS3D/output/target-lyft/nuscenes_secondiou/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwf/result.pkl
+/MS3D/output/target-lyft/nuscenes_secondiou/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwr/result.pkl
+/MS3D/output/target-lyft/nuscenes_secondiou/ms3d/eval/epoch_no_number/val/train_16f_2hz_tta-rwf-rwr/result.pkl

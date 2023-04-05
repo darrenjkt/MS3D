@@ -1,7 +1,7 @@
 CLASS_NAMES: ['car','truck','bus']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset.yaml    
+    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml    
     MAX_SWEEPS: 10
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
