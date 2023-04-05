@@ -19,10 +19,20 @@ By combining multiple detectors from different sources (Source 1-4), MS3D can al
 ## Overview
 1. [Installation](docs/INSTALL.md)
 2. [Dataset Preparation](docs/DATASET_PREPARATION.md)
-3. [Usage](docs/USAGE.md)
+3. [Getting Started](docs/GETTING_STARTED.md)
 4. [Parameter Explanation](docs/PARAMETERS.md)
 5. [Model Zoo](#model-zoo)
 5. [Citation](#citation)
+
+## Installation
+
+Please refer to [INSTALL.md](docs/INSTALL.md) for the installation of `MS3D`.
+
+## Getting Started
+
+- Please refer to [Dataset Preparation](docs/DATASET_PREPARATION.md) to prepare the datasets. 
+- Please refer to [GETTING_STARTED.md](docs/GETTING_STARTED.md) to learn more about how to use MS3D. We are also planning on releasing a guide for custom datasets, stay tuned!
+- Please refer to [Parameter Explanation](docs/PARAMETERS.md) on a guide of how to tune MS3D parameters
 
 ## Model Zoo
 For all tables below, "GT-FT" refers to fine-tuning the pre-trained detector using ground-truth labels from the target domain. If not stated in the table, the model used is SECOND-IoU. Results are reported at IoU=0.7 evaluated at 40 recall levels (R40).
@@ -80,14 +90,6 @@ We provide models trained on source-domain data used in our experiments.
 **Lyft** pre-trained models can be downloaded [here](https://drive.google.com/drive/folders/12vVM6WtjG38SjUNhhkgy3ZvkZZDm2Edh?usp=share_link)
 
 For **Waymo**, please send me an email if you would like to download the source-trained models we used.
-
-## Installation
-
-Please refer to [INSTALL.md](docs/INSTALL.md) for the installation of `MS3D`.
-
-## Usage
-
-Please refer to [USAGE.md](docs/USAGE.md) to learn more about how to use MS3D. We are also planning on releasing a guide for custom datasets, stay tuned!
 
 ## License
 
