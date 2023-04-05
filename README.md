@@ -1,15 +1,18 @@
 # MS3D
 This is the official code release for **MS3D: Leveraging Multiple Source Detectors for Unsupervised Domain Adaptation in 3D Object Detection**
 
-MS3D is a simple self-training pipeline to improve the performance of any 3D detector on an unseen dataset without requiring manual labelling. Our pipeline
+MS3D is a simple self-training pipeline to improve the performance of 3D detectors on an unlabelled dataset without requiring manual labelling. Our pipeline has the following benefits:
 - adds **no processing latency** at inference as we don't modify detector architecture. We focus on high quality pseudo-label generation.
-- can fuse detections from **multiple** and **various types** of pre-trained 3D detector
-- is **source-free** i.e. we do not require source-domain labels
+- can fuse detections from **multiple** and **various types** of pre-trained 3D detector.
+- is **source-free** i.e. we do not require source-domain labels.
+- choice of pre-trained detector for fine-tuning has minimal impact on the final performance.
 
 Our box fusion method, KBF, can be used for **detector ensembling** in a supervised setting as well. See our [KBF demo](tools/kbf_demo.ipynb)
 ## Introduction
 
-Existing methods typically focus on adapting a single detector to the target domain, ignoring the fact that different detectors possess distinct expertise on different unseen domains. MS3D combines detectors from multiple source domains and temporal information to generate high-quality pseudo-labels for fine-tuning.
+Existing methods typically focus on adapting a single detector to the target domain, overlooking the fact that different detectors possess distinct expertise on different unseen domains. MS3D leverages this by combining pre-trained detectors from multiple source domains and incorporating temporal information to produce high-quality pseudo-labels for fine-tuning. 
+
+In practice, it is challenging to robustly evaluate and identify the optimal source pre-trained detector due to lack of labelled data on new target datasets. However, with MS3D, the choice of source pre-trained detector for fine-tuning has minimal impact on the final performance. 
 
 <p align="center">
   <img src="docs/ms3d_pipeline.png">
@@ -41,15 +44,13 @@ Please refer to [INSTALL.md](docs/INSTALL.md) for the installation of MS3D.
 - Please refer to [Visualization Tools](docs/VISUALIZATION.md) to learn how to use our visualization tools.
 
 ## Model Zoo
-For all tables below, "GT-FT" refers to fine-tuning the pre-trained detector using ground-truth labels from the target domain. Results are reported at IoU=0.7 evaluated at 40 recall levels (R40).
+For all tables below, "GT-FT" refers to fine-tuning the pre-trained detector using ground-truth labels from the target domain. Results are reported at IoU=0.7 evaluated at 40 recall levels (R40). Refer to our paper for detailed results.
 
 ### Target Domain: nuScenes
 
 Models for target-nuscenes can be downloaded [here](https://drive.google.com/drive/folders/17KYsR6jfNm-erTwN2KvaeicrzUsZ1Vmi?usp=share_link). We also provide MS3D results for fine-tuning with multi-frame detection as is common on nuScenes models to demonstrate that we can further boost performance. All models below use SECOND-IoU.
 |Method           | Source | Vehicle (BEV) | Vehicle (3D) | 
 | -----           | :-----:| :--------: | :-----: | 
-| SN              | Waymo  | 33.23      | 18.57   | - |
-| ST3D                                  | Waymo  | 35.92      | 20.19   | - |
 | [MS3D](tools/cfgs/target-nuscenes/ft_waymo_secondiou.yaml)            | Waymo  | 42.23      | 24.76   | 
 | [MS3D](tools/cfgs/target-nuscenes/ft_lyft_secondiou.yaml)            | Lyft   | 41.64      | 23.46   | 
 | [MS3D (10 frame)](tools/cfgs/target-nuscenes/ft_waymo_secondiou_10frames.yaml) | Waymo  | 47.35      | 27.18   | 
