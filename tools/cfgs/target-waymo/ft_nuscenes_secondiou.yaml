@@ -1,0 +1,233 @@
+CLASS_NAMES: ['car','truck','bus']
+
+DATA_CONFIG:
+    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml    
+    MAX_SWEEPS: 10
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
+    }    
+
+DATA_CONFIG_TAR: 
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_da.yaml
+    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
+    TARGET: True
+    USE_TTA: False
+    USE_PSEUDO_LABEL: True
+    USE_CUSTOM_TRAIN_SCENES: True
+    SAVE_PKL_IN_GROUND_FRAME: True
+    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle']
+    SAMPLED_INTERVAL: {
+        'train': 6,
+        'test': 5
+    }
+    
+MODEL:
+    NAME: SECONDNetIoU
+
+    VFE:
+        NAME: MeanVFE
+
+    BACKBONE_3D:
+        NAME: VoxelBackBone8x
+
+    MAP_TO_BEV:
+        NAME: HeightCompression
+        NUM_BEV_FEATURES: 256
+
+    BACKBONE_2D:
+        NAME: BaseBEVBackbone
+
+        LAYER_NUMS: [5, 5]
+        LAYER_STRIDES: [1, 2]
+        NUM_FILTERS: [128, 256]
+        UPSAMPLE_STRIDES: [1, 2]
+        NUM_UPSAMPLE_FILTERS: [256, 256]
+
+    DENSE_HEAD:
+        NAME: AnchorHeadSingle
+        CLASS_AGNOSTIC: False
+
+        USE_DIRECTION_CLASSIFIER: True
+        DIR_OFFSET: 0.78539
+        DIR_LIMIT_OFFSET: 0.0
+        NUM_DIR_BINS: 2
+
+        ANCHOR_GENERATOR_CONFIG: [
+            {
+                'class_name': 'car',
+                'anchor_sizes': [[4.2, 2.0, 1.6]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.55,
+                'unmatched_threshold': 0.4
+            },
+            {
+                'class_name': bus,
+                'anchor_sizes': [[11.0, 2.9, 3.45]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.55,
+                'unmatched_threshold': 0.4
+            },
+            {
+                'class_name': truck,
+                'anchor_sizes': [[7.3, 2.50, 2.7]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.55,
+                'unmatched_threshold': 0.4
+            },
+        ]
+
+        TARGET_ASSIGNER_CONFIG:
+            NAME: AxisAlignedTargetAssigner
+            POS_FRACTION: -1.0
+            SAMPLE_SIZE: 512
+            NORM_BY_NUM_EXAMPLES: False
+            MATCH_HEIGHT: False
+            BOX_CODER: ResidualCoder
+
+        LOSS_CONFIG:
+            LOSS_WEIGHTS: {
+                'cls_weight': 1.0,
+                'loc_weight': 2.0,
+                'dir_weight': 0.2,
+                'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+            }
+
+    ROI_HEAD:
+        NAME: SECONDHead
+        CLASS_AGNOSTIC: True
+
+        SHARED_FC: [256, 256]
+        IOU_FC: [256, 256]
+        DP_RATIO: 0.3
+
+        NMS_CONFIG:
+            TRAIN:
+                NMS_TYPE: nms_gpu
+                MULTI_CLASSES_NMS: False
+                NMS_PRE_MAXSIZE: 9000
+                NMS_POST_MAXSIZE: 512
+                NMS_THRESH: 0.8
+            TEST:
+                NMS_TYPE: nms_gpu
+                MULTI_CLASSES_NMS: False
+                NMS_PRE_MAXSIZE: 1024
+                NMS_POST_MAXSIZE: 100
+                NMS_THRESH: 0.7
+
+        ROI_GRID_POOL:
+            GRID_SIZE: 7
+            IN_CHANNEL: 512
+            DOWNSAMPLE_RATIO: 8
+
+        TARGET_CONFIG:
+            BOX_CODER: ResidualCoder
+            ROI_PER_IMAGE: 128
+            FG_RATIO: 0.5
+
+            SAMPLE_ROI_BY_EACH_CLASS: True
+            CLS_SCORE_TYPE: raw_roi_iou
+
+            CLS_FG_THRESH: 0.75
+            CLS_BG_THRESH: 0.25
+            CLS_BG_THRESH_LO: 0.1
+            HARD_BG_RATIO: 0.8
+
+            REG_FG_THRESH: 0.55
+
+        LOSS_CONFIG:
+            IOU_LOSS: BinaryCrossEntropy
+            LOSS_WEIGHTS: {
+                'rcnn_iou_weight': 1.0,
+                'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+            }
+
+    POST_PROCESSING:
+        RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
+        SCORE_THRESH: 0.1
+        OUTPUT_RAW_SCORE: False
+
+        EVAL_METRIC: kitti
+
+        NMS_CONFIG:
+            MULTI_CLASSES_NMS: False
+            NMS_TYPE: nms_gpu
+            NMS_THRESH: 0.01
+            NMS_PRE_MAXSIZE: 4096
+            NMS_POST_MAXSIZE: 500
+
+
+
+OPTIMIZATION:
+    BATCH_SIZE_PER_GPU: 4
+    NUM_EPOCHS: 30
+
+    OPTIMIZER: adam_onecycle
+    LR: 0.0015
+    WEIGHT_DECAY: 0.01
+    MOMENTUM: 0.9
+
+    MOMS: [0.95, 0.85]
+    PCT_START: 0.4
+    DIV_FACTOR: 10
+    DECAY_STEP_LIST: [35,45]
+    LR_DECAY: 0.1
+    LR_CLIP: 0.0000001
+
+    LR_WARMUP: False
+    WARMUP_EPOCH: 1
+
+    GRAD_NORM_CLIP: 10
+
+SELF_TRAIN:
+    SCORE_THRESH: 0.6
+    NEG_THRESH: 0.4
+    UPDATE_PSEUDO_LABEL: [-1]
+    UPDATE_PSEUDO_LABEL_INTERVAL: 100
+    MS_DETECTOR_PS:
+        FUSION: kde_fusion
+        ACCUM1:
+            PATH: '/OpenPCDet/tools/cfgs/target-waymo/det_1f_paths_s190_5hz.txt' 
+            DISCARD: 4
+            RADIUS: 2.0
+        ACCUM16:
+            PATH: '/OpenPCDet/tools/cfgs/target-waymo/det_16f_paths_s190_1hz.txt'
+            DISCARD: 3
+            RADIUS: 1.0
+        MIN_STATIC_SCORE: 0.7
+        MIN_DETS_FOR_TRACK_1F: 3
+        MIN_DETS_FOR_TRACK_16F: 3
+        ROLLING_KDE_WINDOW: 16
+        PROPAGATE_STATIC_BOXES:         
+            ENABLED: True
+            MIN_DETS: 7 
+            N_EXTRA_FRAMES: 40
+            DEGRADE_FACTOR: 0.95
+            MIN_SCORE_CLIP: 0.5
+        TRACKING:
+            ACCUM1_CFG: /OpenPCDet/tracker/configs/msda_configs/msda_1frame_giou.yaml
+            ACCUM16_CFG: /OpenPCDet/tracker/configs/msda_configs/msda_16frame_iou.yaml
+
+    INIT_PS: None
+    SRC:
+        USE_DATA: False
+        USE_GRAD: False
+        LOSS_WEIGHT: 1.0
+    TAR:
+        USE_DATA: True
+        LOSS_WEIGHT: 1.0
+
+    MEMORY_ENSEMBLE:
+        ENABLED: True
+        NAME: simplified_cons_ensemble
+        IOU_THRESH: 0.1
