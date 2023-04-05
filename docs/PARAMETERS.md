@@ -14,11 +14,11 @@ SELF_TRAIN:
         # DISCARD: If less than N predictions, we do not fuse the box
         # RADIUS: Find all centroids within distance "RADIUS" as fusion candidates
         ACCUM1:
-            PATH: '/OpenPCDet/tools/cfgs/target-lyft/det_1f_paths_5hz.txt' 
+            PATH: '/MS3D/tools/cfgs/target-lyft/det_1f_paths_5hz.txt' 
             DISCARD: 4 
             RADIUS: 2.0
         ACCUM16:
-            PATH: '/OpenPCDet/tools/cfgs/target-lyft/det_16f_paths.txt'
+            PATH: '/MS3D/tools/cfgs/target-lyft/det_16f_paths.txt'
             DISCARD: 3
             RADIUS: 1.0
 
@@ -33,8 +33,8 @@ SELF_TRAIN:
             DEGRADE_FACTOR: 0.95 # beta (in the paper)
             MIN_SCORE_CLIP: 0.5
         TRACKING:
-            ACCUM1_CFG: /OpenPCDet/tracker/configs/msda_configs/msda_1frame_giou.yaml
-            ACCUM16_CFG: /OpenPCDet/tracker/configs/msda_configs/msda_16frame_iou.yaml
+            ACCUM1_CFG: /MS3D/tracker/configs/msda_configs/msda_1frame_giou.yaml
+            ACCUM16_CFG: /MS3D/tracker/configs/msda_configs/msda_16frame_iou.yaml
 
     INIT_PS: None # you can set an existing ps_label_e0.pkl here
 

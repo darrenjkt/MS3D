@@ -1,7 +1,7 @@
 import torch
 from pathlib import Path
 import sys
-sys.path.append('/OpenPCDet')
+sys.path.append('/MS3D')
 from pcdet.models import build_network, load_data_to_gpu
 import copy
 import open3d as o3d

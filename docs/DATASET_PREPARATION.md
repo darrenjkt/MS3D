@@ -8,7 +8,7 @@ and the model configs are located within [tools/cfgs](../tools/cfgs) for differe
 * Please download the official [NuScenes 3D object detection dataset](https://www.nuscenes.org/download) and 
 organize the downloaded files as follows: 
 ```
-OpenPCDet
+MS3D
 ├── data
 │   ├── nuscenes
 │   │   │── v1.0-trainval (or v1.0-mini if you use mini)
@@ -39,7 +39,7 @@ including the training data `training_0000.tar~training_0031.tar` and the valida
 data `validation_0000.tar~validation_0007.tar`.
 * Unzip all the above `xxxx.tar` files to the directory of `data/waymo/raw_data` as follows (You should get 798 *train* tfrecord and 202 *val* tfrecord ):  
 ```
-OpenPCDet
+MS3D
 ├── data
 │   ├── waymo
 │   │   │── ImageSets
@@ -82,7 +82,7 @@ Note that you do not need to install `waymo-open-dataset` if you have already pr
 * Please download the official [Lyft Level5 perception dataset](https://level-5.global/data/perception) and 
 organize the downloaded files as follows: 
 ```
-OpenPCDet
+MS3D
 ├── data
 │   ├── lyft
 │   │   │── ImageSets

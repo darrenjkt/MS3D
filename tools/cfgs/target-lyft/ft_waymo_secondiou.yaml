@@ -172,11 +172,11 @@ SELF_TRAIN:
     MS_DETECTOR_PS:
         FUSION: kde_fusion
         ACCUM1:
-            PATH: '/OpenPCDet/tools/cfgs/target-lyft/det_1f_paths_5hz.txt' 
+            PATH: '/MS3D/tools/cfgs/target-lyft/det_1f_paths_5hz.txt' 
             DISCARD: 4
             RADIUS: 2.0
         ACCUM16:
-            PATH: '/OpenPCDet/tools/cfgs/target-lyft/det_16f_paths.txt'
+            PATH: '/MS3D/tools/cfgs/target-lyft/det_16f_paths.txt'
             DISCARD: 3
             RADIUS: 1.0
         MIN_STATIC_SCORE: 0.7
@@ -190,10 +190,10 @@ SELF_TRAIN:
             DEGRADE_FACTOR: 0.95
             MIN_SCORE_CLIP: 0.5
         TRACKING:
-            ACCUM1_CFG: /OpenPCDet/tracker/configs/msda_configs/msda_1frame_giou.yaml
-            ACCUM16_CFG: /OpenPCDet/tracker/configs/msda_configs/msda_16frame_iou.yaml
+            ACCUM1_CFG: /MS3D/tracker/configs/msda_configs/msda_1frame_giou.yaml
+            ACCUM16_CFG: /MS3D/tracker/configs/msda_configs/msda_16frame_iou.yaml
 
-    INIT_PS: /OpenPCDet/output/target-lyft/ft_waymo_secondiou/1f_5hz_16f_2hz_1ftrk0.0_minstaticscore0.7_5sweep_timestamp/ps_label/ps_label_e0.pkl
+    INIT_PS: /MS3D/output/target-lyft/ft_waymo_secondiou/1f_5hz_16f_2hz_1ftrk0.0_minstaticscore0.7_5sweep_timestamp/ps_label/ps_label_e0.pkl
     SRC:
         USE_DATA: False
         USE_GRAD: False

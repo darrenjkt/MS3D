@@ -53,11 +53,11 @@ After generating all detections, place their result.pkl paths in a file. Specify
 MS_DETECTOR_PS:
     FUSION: kde_fusion
     ACCUM1:
-        PATH: '/OpenPCDet/tools/cfgs/target-nuscenes/det_1f_paths.txt'
+        PATH: '/MS3D/tools/cfgs/target-nuscenes/det_1f_paths.txt'
         DISCARD: 4
         RADIUS: 2.0
     ACCUM16:
-        PATH: '/OpenPCDet/tools/cfgs/target-nuscenes/det_16f_paths.txt'
+        PATH: '/MS3D/tools/cfgs/target-nuscenes/det_16f_paths.txt'
         DISCARD: 3
         RADIUS: 1.0
 ```

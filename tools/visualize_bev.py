@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from pathlib import Path
 import sys
-sys.path.append('/OpenPCDet')
+sys.path.append('/MS3D')
 from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.utils import common_utils
 from pcdet.datasets import build_dataloader
@@ -26,7 +26,7 @@ python visualize_bev.py --cfg_file cfgs/source-waymo/secondiou.yaml \
 or
 
 python visualize_bev.py --cfg_file cfgs/source-waymo/secondiou.yaml \
-                        --dets_txt /OpenPCDet/tools/cfgs/source_detectors_train_tta.txt
+                        --dets_txt /MS3D/tools/cfgs/source_detectors_train_tta.txt
 """
 
 def plot_boxes(ax, boxes_lidar, color=[0,0,1], 

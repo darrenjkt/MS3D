@@ -197,11 +197,11 @@ SELF_TRAIN:
     MS_DETECTOR_PS:
         FUSION: kde_fusion
         ACCUM1:
-            PATH: '/OpenPCDet/tools/cfgs/target-nuscenes/det_1f_paths.txt'
+            PATH: '/MS3D/tools/cfgs/target-nuscenes/det_1f_paths.txt'
             DISCARD: 4
             RADIUS: 2.0
         ACCUM16:
-            PATH: '/OpenPCDet/tools/cfgs/target-nuscenes/det_16f_paths.txt'
+            PATH: '/MS3D/tools/cfgs/target-nuscenes/det_16f_paths.txt'
             DISCARD: 3
             RADIUS: 1.0
         MIN_STATIC_SCORE: 0.7
@@ -215,10 +215,10 @@ SELF_TRAIN:
             DEGRADE_FACTOR: 0.95
             MIN_SCORE_CLIP: 0.5
         TRACKING:
-            ACCUM1_CFG: /OpenPCDet/tracker/configs/msda_configs/msda_1frame_giou.yaml
-            ACCUM16_CFG: /OpenPCDet/tracker/configs/msda_configs/msda_16frame_iou.yaml
+            ACCUM1_CFG: /MS3D/tracker/configs/msda_configs/msda_1frame_giou.yaml
+            ACCUM16_CFG: /MS3D/tracker/configs/msda_configs/msda_16frame_iou.yaml
 
-    INIT_PS: /OpenPCDet/output/target-nuscenes/ft_waymo_secondiou/final_cfgs_noupdate_minstaticscore0.7_psb_10sweeps_timestamp/ps_label/ps_label_e0.pkl
+    INIT_PS: None
     SRC:
         USE_DATA: False
         USE_GRAD: False
