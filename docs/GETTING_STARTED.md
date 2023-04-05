@@ -65,7 +65,7 @@ MS_DETECTOR_PS:
 
 ### 2. Self-training: Generate pseudo-labels and fine-tune detector
 Run the following command to:
-1. Fuse detections, generate tracks, and refine pseudo-labels with static labelling
+1. Fuse detections, generate tracks, and refine pseudo-labels with multi-frame static refinement
 2. Fine-tune the given pre-trained detector
 
 ```shell
