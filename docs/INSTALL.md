@@ -26,6 +26,7 @@ For easy running of the image we provide a script. Change the file paths, number
 
 ```
 bash docker/run.sh
+docker exec -it ${CONTAINER_NAME} /bin/bash
 ```
 
 c. Install `pcdet` and the tracker with the following commands

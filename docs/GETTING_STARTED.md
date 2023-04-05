@@ -9,7 +9,7 @@ If you'd like to train a separate detector to the ones we've provided, you can f
 
 ### 1. Generate predictions on unlabelled target domain
 
-First we generate predictions with TTA on the unlabelled data with multiple detectors with 1-frame and 16-frame detection. Here is an example of how we can generate detections with one detector.
+First we generate predictions with TTA on the unlabelled data with multiple detectors with 1-frame and 16-frame detection. Here is an example of how we can generate detections with one detector. We provide the TTA predictions of waymo/lyft secondiou/centerpoint for [target-nuscenes](https://drive.google.com/drive/folders/1KAFrrE9oNG6rRrbII_Myzdz5bcCXA69t?usp=share_link) if you'd like to skip this section and move on to the rest of the pipeline.
 
 ```shell
 
@@ -65,7 +65,7 @@ MS_DETECTOR_PS:
 
 ### 2. Self-training: Generate pseudo-labels and fine-tune detector
 Run the following command to:
-1. Fuse detections, generate tracks, and refine pseudo-labels with multi-frame static refinement
+1. Fuse detections, generate tracks, refine static objects, then generate pseudo-labels
 2. Fine-tune the given pre-trained detector
 
 ```shell
@@ -74,11 +74,11 @@ python train.py \
         --pretrained_model ${MODEL_PTH} \
         --extra_tag ${EXPERIMENT_NAME}
 
-# here is an example
+# here is an example of fine-tuning the waymo secondiou detector to the nuscenes domain with our pseudo-labels
 python train.py \
         --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
-        --pretrained_model ../model_zoo/nuscenes_secondiou_vehicle.pth  \
-        --extra_tag exp_10sweep
+        --pretrained_model ../model_zoo/waymo_secondiou.pth  \
+        --extra_tag exp_name
 ```
 That's it!
 
