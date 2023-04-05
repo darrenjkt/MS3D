@@ -1,6 +1,8 @@
 # MS3D
 This is the official code release for **MS3D: Leveraging Multiple Source Domains for Unsupervised Domain Adaptation in 3D Object Detection**
 
+MS3D is a framework to improve the performance of any 3D detector on an unseen dataset without requiring manual labelling. Our method does not require source-domain labels (i.e., source-free) and retains the original inference speed of the detector as we do not modify the detector architecture. 
+
 ## Introduction
 
 Existing methods typically focus on adapting a single detector to the target domain, ignoring the fact that different detectors possess distinct expertise on different unseen domains. MS3D combines detectors from multiple source domains and temporal information to generate high-quality pseudo-labels for fine-tuning.
@@ -71,22 +73,13 @@ If you want to download the models, please send me an email with your name, inst
 
 
 ### Source Models
-These are the models trained on source-domain data that we used for experiments. Reported performance is the oracle performance.
-
-| Source / Detector | Vehicle (BEV) | Vehicle (3D) | 
-| -----          | :--------: | :-----: |
-| Waymo / SECOND-IoU | - | - | 
-| Waymo / CenterPoint | - | - | 
-| nuScenes / SECOND-IoU | - | - | 
-| nuScenes / CenterPoint | - | - | 
-| Lyft / SECOND-IoU | - | - |
-| Lyft / CenterPoint | - | - |
+We provide models trained on source-domain data used in our experiments.
 
 **nuScenes** pre-trained models can be downloaded [here](https://drive.google.com/drive/folders/1hCB5ODFUBqnwwjDO7hdpHq6qgQFaAG72?usp=share_link)
 
 **Lyft** pre-trained models can be downloaded [here](https://drive.google.com/drive/folders/12vVM6WtjG38SjUNhhkgy3ZvkZZDm2Edh?usp=share_link)
 
-As with the above, please send me an email if you would like to download the waymo source-trained models we used.
+For **Waymo**, please send me an email if you would like to download the source-trained models we used.
 
 ## Installation
 
@@ -102,7 +95,6 @@ MS3D is released under the [Apache 2.0 license](LICENSE).
 
 ## Citation 
 If you find this project useful in your research, please consider cite:
-
 
 ```
 
