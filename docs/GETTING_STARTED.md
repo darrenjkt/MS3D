@@ -9,7 +9,7 @@ If you'd like to train a separate detector to the ones we've provided, you can f
 
 ### 1. Generate predictions on unlabelled target domain
 
-First we generate predictions with TTA on the unlabelled data with multiple detectors with 1-frame and 16-frame detection. Here is an example of how we can generate detections with one detector. We provide the TTA predictions for this section on [target-nuscenes](https://drive.google.com/drive/folders/1KAFrrE9oNG6rRrbII_Myzdz5bcCXA69t?usp=share_link) if you'd like to save time and try it out.
+First we generate predictions with TTA on the unlabelled data with multiple detectors with 1-frame and 16-frame detection. Here is an example of how we can generate detections with one detector. We provide the TTA predictions of waymo/lyft secondiou/centerpoint for [target-nuscenes](https://drive.google.com/drive/folders/1KAFrrE9oNG6rRrbII_Myzdz5bcCXA69t?usp=share_link) if you'd like to skip this section and move on to the rest of the pipeline.
 
 ```shell
 
