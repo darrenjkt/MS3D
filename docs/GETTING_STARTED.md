@@ -48,7 +48,7 @@ MS3D
     - ...
 ```
 
-After generating all detections, place their result.pkl paths in a file. Specify the file path in the config ACCUM1.PATH and ACCUM16.PATH. You can reference this file: [waymo paths](../tools/cfgs/target-waymo/det_16f_paths.txt).
+After generating all detections, place their result.pkl paths in a file. Specify the file path in the config ACCUM1.PATH and ACCUM16.PATH. You can reference this file: [waymo paths](../tools/cfgs/target-waymo/det_16f_paths_s190_2hz.txt).
 ```
 MS_DETECTOR_PS:
     FUSION: kde_fusion
