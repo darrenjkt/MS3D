@@ -1,5 +1,5 @@
 # MS3D
-This is the official code release for **MS3D: Leveraging Multiple Source Detectors for Unsupervised Domain Adaptation in 3D Object Detection**
+This is the official code release for **MS3D: Leveraging Multiple Source Detectors for Unsupervised Domain Adaptation in 3D Object Detection** 
 
 MS3D is a simple self-training pipeline to improve the performance of 3D detectors on an unlabelled dataset without requiring manual labelling. Our pipeline has the following benefits:
 - adds **no processing latency** at inference as we don't modify detector architecture. We focus on high quality pseudo-label generation.
@@ -8,6 +8,8 @@ MS3D is a simple self-training pipeline to improve the performance of 3D detecto
 - choice of pre-trained detector for fine-tuning has minimal impact on the final performance.
 
 Our box fusion method, KBF, can be used for **detector ensembling** in a supervised setting as well. See our [KBF demo](tools/kbf_demo.ipynb)
+
+**[[Paper](https://arxiv.org/abs/2304.02431)]**
 ## Introduction
 
 Existing methods typically focus on adapting a single detector to the target domain, overlooking the fact that different detectors possess distinct expertise on different unseen domains. MS3D leverages this by combining pre-trained detectors from multiple source domains and incorporating temporal information to produce high-quality pseudo-labels for fine-tuning. 
