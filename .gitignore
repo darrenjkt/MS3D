@@ -22,3 +22,6 @@ checkpoints
 model_zoo
 *.out
 *Trash*
+*.gif
+*.png
+*.jpg
