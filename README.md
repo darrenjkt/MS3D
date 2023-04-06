@@ -4,12 +4,21 @@ This is the official code release for **MS3D: Leveraging Multiple Source Detecto
 MS3D is a simple self-training pipeline to improve the performance of 3D detectors on an unlabelled dataset without requiring manual labelling. Our pipeline has the following benefits:
 - adds **no processing latency** at inference as we don't modify detector architecture. We focus on high quality pseudo-label generation.
 - can fuse detections from **multiple** and **various types** of pre-trained 3D detector.
-- is **source-free** i.e. we do not require source-domain labels.
+- is **source-free** i.e. we do not require source-domain data or labels for fine-tuning.
 - choice of pre-trained detector for fine-tuning has minimal impact on the final performance.
 
 Our box fusion method, KBF, can be used for **detector ensembling** in a supervised setting as well. See our [KBF demo](tools/kbf_demo.ipynb)
 
 **[[Paper](https://arxiv.org/abs/2304.02431)]**
+
+## Overview
+1. [Introduction](#introduction)
+2. [Installation](#installation)
+3. [Getting Started](#getting-started)
+4. [Model Zoo](#model-zoo)
+5. [Qualitative Results](#qualitative-results)
+6. [Citation](#citation)
+
 ## Introduction
 
 Existing methods typically focus on adapting a single detector to the target domain, overlooking the fact that different detectors possess distinct expertise on different unseen domains. MS3D leverages this by combining pre-trained detectors from multiple source domains and incorporating temporal information to produce high-quality pseudo-labels for fine-tuning. 
@@ -25,25 +34,16 @@ By combining multiple detectors from different sources (Source 1-4), MS3D can al
   <img src="docs/media/github_collage.png" width="%96">
 </p>
 
-## Overview
-1. [Installation](docs/INSTALL.md)
-2. [Dataset Preparation](docs/DATASET_PREPARATION.md)
-3. [Getting Started](docs/GETTING_STARTED.md)
-4. [Parameter Explanation](docs/PARAMETERS.md)
-5. [Visualization Tools](docs/VISUALIZATION.md)
-6. [Model Zoo](#model-zoo)
-7. [Citation](#citation)
-
 ## Installation
 
 Please refer to [INSTALL.md](docs/INSTALL.md) for the installation of MS3D.
 
 ## Getting Started
 
-- Please refer to [Dataset Preparation](docs/DATASET_PREPARATION.md) to prepare the datasets. 
+- Please refer to [DATASET_PREPARATION.md](docs/DATASET_PREPARATION.md) to prepare the datasets. 
 - Please refer to [GETTING_STARTED.md](docs/GETTING_STARTED.md) to learn more about how to use MS3D. We are also planning on releasing a guide for custom datasets, stay tuned!
-- Please refer to [Parameter Explanation](docs/PARAMETERS.md) on a guide of how to tune MS3D parameters.
-- Please refer to [Visualization Tools](docs/VISUALIZATION.md) to learn how to use our visualization tools.
+- Please refer to [PARAMETERS.md](docs/PARAMETERS.md) on a guide of how to tune MS3D parameters.
+- Please refer to [VISUALIZATION.md](docs/VISUALIZATION.md) to learn how to use our visualization tools.
 
 ## Model Zoo
 For all tables below, "GT-FT" refers to fine-tuning the pre-trained detector using ground-truth labels from the target domain. Results are reported at IoU=0.7 evaluated at 40 recall levels (R40). Refer to our paper for detailed results.
