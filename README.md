@@ -15,12 +15,12 @@ Existing methods typically focus on adapting a single detector to the target dom
 In practice, it is challenging to robustly evaluate and identify the optimal source pre-trained detector due to lack of labelled data on new target datasets. However, with MS3D, the choice of source pre-trained detector for fine-tuning has minimal impact on the final performance. 
 
 <p align="center">
-  <img src="docs/ms3d_pipeline.png">
+  <img src="docs/media/ms3d_pipeline.png">
 </p>
 
 By combining multiple detectors from different sources (Source 1-4), MS3D can always achieve high quality pseudo-labels for fine-tuning any detector. We show that KBF can outperform [Weighted Box Fusion (WBF)](https://github.com/ZFTurbo/Weighted-Boxes-Fusion), a popular box fusion method for 3D detector ensembling.
 <p align="center">
-  <img src="docs/github_collage.png" width="%96">
+  <img src="docs/media/github_collage.png" width="%96">
 </p>
 
 ## Overview
@@ -98,15 +98,34 @@ We provide models trained on source-domain data used in our experiments.
 **Lyft** pre-trained models can be downloaded [here](https://drive.google.com/drive/folders/12vVM6WtjG38SjUNhhkgy3ZvkZZDm2Edh?usp=share_link)
 
 For **Waymo**, please send me an email if you would like to download the source-trained models we used.
+## Qualitative Results
+|Lyft/nuScenes &rArr; Waymo with SECOND-IoU <img src="docs/media/target_waymo_lyft_secondiou_1frame_4288_10-40_compressed.gif">|
+| -------------------------------- |
+
+
+|Waymo/nuScenes &rArr; Lyft with SECOND-IoU (3-frame accum) <img src="docs/media/target_lyft_waymo_secondiou_3frame_6312_compressed_50-84.gif">|
+| -------------------------------- |
+
+
+|Lyft/Waymo &rArr; nuScenes with SECOND-IoU (10-frame accum) <img src="docs/media/target_nuscenes_waymo_secondiou_10frame_2718_compressed_1-16.gif">|
+| -------------------------------- |
+
 
 ## License
 
+
 MS3D is released under the [Apache 2.0 license](LICENSE).
 
-## Citation 
+
+## Citation
 If you find this project useful in your research, please consider citing:
 
-```
 
 ```
+@article{tsai2023ms3d,
+ title={MS3D: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection},
+ author={Tsai, Darren and Berrio, Julie Stephany and Shan, Mao and Nebot, Eduardo and Worrall, Stewart},
+ journal={arXiv preprint arXiv:2304.02431},
+ year={2023}
+}
 

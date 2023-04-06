@@ -24,7 +24,7 @@ python visualize_3d.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
     --split train --custom_train_split --idx 6    
 ```    
 <p align="center">
-  <img src="vis_3d_example.png" width="%90">
+  <img src="media/vis_3d_example.png" width="%90">
 </p>
 
 This script is good if you want to visualize one set of detections but is slow when there are too many detections. If you'd like to visualize raw detections from every pre-trained detector, refer to our next section below.
@@ -43,5 +43,5 @@ python visualize_bev.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml 
         ../output/target-nuscenes/waymo_centerpoint/ms3d/eval/epoch_no_number/val/nuscenes_customtrain_1f_tta-rwf/result.pkl                                                         
 ```
 <p align="center">
-  <img src="vis_bev_example.png" width="%90">
+  <img src="media/vis_bev_example.png" width="%90">
 </p>
