@@ -43,7 +43,7 @@ def main():
                         help='same as SAMPLED_INTERVAL config parameter')        
     parser.add_argument('--custom_train_split', action='store_true', default=False)
     parser.add_argument('--save_video', action='store_true', default=False)
-    parser.add_argument('--only_car', action='store_true', default=False)
+    parser.add_argument('--show_gt', action='store_true', default=False)
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_file, cfg)
@@ -82,8 +82,8 @@ def main():
                                         ref_boxes=eval_det_annos[idx]['boxes_lidar'][eval_det_annos[idx]['score'] > 0.6],                         
                                         ref_scores=eval_det_annos[idx]['score'][eval_det_annos[idx]['score'] > 0.6], 
                                         ref_labels=[1 for i in range(len(eval_det_annos[idx]['boxes_lidar'][eval_det_annos[idx]['score'] > 0.6]))],
-                                        gt_boxes=data_dict['gt_boxes'][0], 
-                                        draw_origin=True)
+                                        gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
+                                        draw_origin=False)
         if args.ps_pkl is not None:
             with open(args.ps_pkl,'rb') as f:
                 ps_dict = pickle.load(f)
@@ -99,8 +99,8 @@ def main():
                                         ref_boxes=ps_dict[frame_id]['gt_boxes'][mask],                         
                                         ref_scores=ps_dict[frame_id]['gt_boxes'][mask][:,8], 
                                         ref_labels=[1 for i in range(len(ps_dict[frame_id]['gt_boxes'][mask]))],
-                                        gt_boxes=data_dict['gt_boxes'][0], 
-                                        draw_origin=True)
+                                        gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
+                                        draw_origin=False)
         else:                        
             det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
             
@@ -112,7 +112,7 @@ def main():
                 geom = V.draw_scenes_msda(points=data_dict['points'][:, 1:], 
                                           idx=idx,
                                           det_annos=det_annos,                                        
-                                          gt_boxes=data_dict['gt_boxes'][0])
+                                          gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None)
             
     else:
 
@@ -142,7 +142,7 @@ def main():
    
                 if args.save_video:
                     geom = V.get_geometries(
-                                points=data_dict['points'][:, 1:], gt_boxes=gt_boxes, ref_boxes=pred_dicts[0]['pred_boxes'], 
+                                points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=pred_dicts[0]['pred_boxes'], 
                                 ref_scores=pred_dicts[0]['pred_scores'], ref_labels=pred_dicts[0]['pred_labels']
                             )
                     vis.clear_geometries()
@@ -164,22 +164,15 @@ def main():
                     vis.capture_screen_image(f'demo_data/save_frames/frame-{idx}.jpg')
 
                 else:
-                                                      
-                    if args.only_car:
-                        class_idx_of_interest = 1 # car
-                        mask = pred_dicts[0]['pred_labels'] == class_idx_of_interest
-                        ref_boxes = pred_dicts[0]['pred_boxes'][mask]
-                        ref_labels = pred_dicts[0]['pred_labels'][mask]
-                        ref_scores = pred_dicts[0]['pred_scores'][mask]
-                    else:
-                        ref_boxes = pred_dicts[0]['pred_boxes']
-                        ref_labels = pred_dicts[0]['pred_labels']
-                        ref_scores = pred_dicts[0]['pred_scores']
+
+                    ref_boxes = pred_dicts[0]['pred_boxes']
+                    ref_labels = pred_dicts[0]['pred_labels']
+                    ref_scores = pred_dicts[0]['pred_scores']
 
                     print('Predicted: ', int(ref_boxes.shape[0]))
                     print('Ground truth: ', int(gt_boxes.shape[0]))
                     V.draw_scenes(
-                        points=data_dict['points'][:, 1:], gt_boxes=gt_boxes, ref_boxes=ref_boxes, 
+                        points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=ref_boxes, 
                         ref_scores=ref_scores, ref_labels=ref_labels
                     )
 
