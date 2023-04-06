@@ -164,17 +164,10 @@ def main():
                     vis.capture_screen_image(f'demo_data/save_frames/frame-{idx}.jpg')
 
                 else:
-                                                      
-                    if args.only_car:
-                        class_idx_of_interest = 1 # car
-                        mask = pred_dicts[0]['pred_labels'] == class_idx_of_interest
-                        ref_boxes = pred_dicts[0]['pred_boxes'][mask]
-                        ref_labels = pred_dicts[0]['pred_labels'][mask]
-                        ref_scores = pred_dicts[0]['pred_scores'][mask]
-                    else:
-                        ref_boxes = pred_dicts[0]['pred_boxes']
-                        ref_labels = pred_dicts[0]['pred_labels']
-                        ref_scores = pred_dicts[0]['pred_scores']
+
+                    ref_boxes = pred_dicts[0]['pred_boxes']
+                    ref_labels = pred_dicts[0]['pred_labels']
+                    ref_scores = pred_dicts[0]['pred_scores']
 
                     print('Predicted: ', int(ref_boxes.shape[0]))
                     print('Ground truth: ', int(gt_boxes.shape[0]))
