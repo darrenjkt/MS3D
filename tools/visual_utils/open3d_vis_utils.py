@@ -43,7 +43,7 @@ def get_coor_colors(obj_labels):
 
     return label_rgba
 
-def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=True, min_score=0.2):
+def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_score=0.2):
 
     vis = open3d.visualization.Visualizer()
     vis.create_window()
@@ -61,23 +61,11 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=True, min_sco
                                 ref_labels=[1 for i in range(len(det_annos[key][idx]['name'][mask]))],
                                 ref_box_colors=cmap[sid % len(cmap)],
                                 gt_boxes=gt_boxes, 
-                                draw_origin=True, line_thickness=0.04)
+                                draw_origin=draw_origin, line_thickness=0.04)
         for g in geom:                
             vis.add_geometry(g)
 
     ctr = vis.get_view_control()
-    # ctr.set_front([ -0.85415171319858785, 0.0084795734346973951, 0.51995475541077896 ])
-    # ctr.set_lookat([ 22.078260806001634, 1.0249602339143569, -2.8088354431826907 ])
-    # ctr.set_up([ 0.51984622231746436, -0.012211597572028807, 0.85417257157263038 ])
-    # ctr.set_zoom(0.219)
-    
-    # Original, zoom in, ego vehicle moving towards
-    # ctr.set_front([ 0.59083558928204927, 0.44198102848405585, 0.6749563518464804 ])
-    # ctr.set_lookat([ -22.160006279021506, -13.245452622148209, -17.37984247123935 ])
-    # ctr.set_up([ -0.5805376677351477, -0.3480484359390435, 0.73609666660094375 ])
-    # ctr.set_zoom(0.17900000000000005)
-
-    # Wide, ego vehicle moving away
     ctr.set_front([ 0.66741310889048566, -0.35675856751501511, 0.65366892735219662 ])
     ctr.set_lookat([ -18.284592676097365, 3.7960852036759234, -16.806735299460072 ])
     ctr.set_up([ -0.55585420737713021, 0.34547108891144618, 0.75609247243143607 ])
@@ -87,7 +75,7 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=True, min_sco
     vis.run()
     vis.destroy_window()
 
-def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scores=None, ref_box_colors=None, point_colors=None, draw_origin=True):
+def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scores=None, ref_box_colors=None, point_colors=None, draw_origin=False):
 
     vis = open3d.visualization.Visualizer()
     vis.create_window()
@@ -126,7 +114,7 @@ def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref
 
 def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None, 
                    ref_scores=None, ref_box_colors=None, point_colors=None, 
-                   draw_origin=True, line_thickness=0.06):
+                   draw_origin=False, line_thickness=0.06):
     if isinstance(points, torch.Tensor):
         points = points.cpu().numpy()
     if isinstance(gt_boxes, torch.Tensor):
@@ -136,10 +124,9 @@ def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None,
 
     geometries = []
 
-    # draw origin
-    # if draw_origin:
-    #     axis_pcd = open3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0, 0, 0])
-    #     geometries.append(axis_pcd)
+    if draw_origin:
+        axis_pcd = open3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0, 0, 0])
+        geometries.append(axis_pcd)
 
     if points is not None:
         pts = open3d.geometry.PointCloud()
