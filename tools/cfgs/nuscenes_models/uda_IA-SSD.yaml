@@ -1,33 +1,13 @@
-CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
+CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset.yaml
-    DATA_SPLIT: {
-        'train': train,
-        'test': val,
-    }
-
-    SAMPLED_INTERVAL: {
-        'train': 5,
-        'test': 10
-    }
+    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml    
+    MAX_SWEEPS: 10
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
-        src_feature_list: ['x', 'y', 'z', 'intensity', 'elongation'],
+        used_feature_list: ['x', 'y', 'z','timestamp'],
+        src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
-    DATA_AUGMENTOR:
-        DISABLE_AUG_LIST: ['placeholder']
-        AUG_CONFIG_LIST:
-        
-        -   NAME: random_world_flip
-            ALONG_AXIS_LIST: ['x', 'y']
-
-        -   NAME: random_world_rotation
-            WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
-
-        -   NAME: random_world_scaling
-            WORLD_SCALE_RANGE: [0.95, 1.05]
 
     DATA_PROCESSOR:
         -   NAME: mask_points_and_boxes_outside_range
@@ -105,9 +85,12 @@ MODEL:
                 'angle_bin_num': 12,
                 'use_mean_size': True,                
                 'mean_size': [
-                    [4.7, 2.1, 1.7],
-                    [0.91, 0.86, 1.73],
-                    [1.78, 0.84, 1.78]
+                    [4.63, 1.97, 1.74],
+                    [6.93, 2.51, 2.84],
+                    [10.5, 2.94, 3.47],
+                    [2.11, 0.77, 1.47],
+                    [1.70, 0.60, 1.28],
+                    [0.73, 0.67, 1.77]
                 ]
             }
 
@@ -138,7 +121,7 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: waymo
+        EVAL_METRIC: kitti
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
@@ -150,7 +133,7 @@ MODEL:
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 2  # 8
-    NUM_EPOCHS: 10
+    NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
     LR: 0.01

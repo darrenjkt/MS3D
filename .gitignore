@@ -25,3 +25,4 @@ model_zoo
 *.gif
 *.png
 *.jpg
+*.ipynb

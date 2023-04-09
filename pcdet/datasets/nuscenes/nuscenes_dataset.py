@@ -226,8 +226,11 @@ class NuScenesDataset(DatasetTemplate):
 
         map_name_to_kitti = {
             'car': 'Car',
-            'pedestrian': 'Pedestrian',
-            'truck': 'Truck',
+            'truck': 'Car',
+            'bus': 'Car',
+            'motorcycle': 'Cyclist',
+            'bicycle': 'Cyclist',
+            'pedestrian': 'Pedestrian'
         }
         
         def transform_to_kitti_format(annos, info_with_fakelidar=False, is_gt=False):

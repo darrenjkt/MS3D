@@ -12,8 +12,8 @@ DATA_SPLIT: {
 }
 
 INFO_PATH: {
-    'train': [nuscenes_infos_16sweeps_train.pkl],
-    'val': [nuscenes_infos_16sweeps_val.pkl],
+    'train': [nuscenes_infos_50sweeps_train.pkl],
+    'val': [nuscenes_infos_50sweeps_val.pkl],
 }
 
 POINT_CLOUD_RANGE: [-75.2, -75.2, -2, 75.2, 75.2, 4]

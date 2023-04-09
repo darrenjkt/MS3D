@@ -9,8 +9,8 @@ DATA_SPLIT: {
     'test': val
 }
 SAMPLED_INTERVAL: {
-    'train': 1,
-    'test': 1
+    'train': 5,
+    'test': 10
 }
 FILTER_EMPTY_BOXES_FOR_TRAIN: True
 DISABLE_NLZ_FLAG_ON_POINTS: True

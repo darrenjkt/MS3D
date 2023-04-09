@@ -1,32 +1,13 @@
-CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
+CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset.yaml
-    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
-    TRAIN_WITH_SPEED: False
-    SAMPLED_INTERVAL: {
-        'train': 20,
-        'test': 10
-    }
-    POINT_CLOUD_RANGE: [-75.2, -75.2, -2, 75.2, 75.2, 4]
+    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml    
+    MAX_SWEEPS: 10
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
-        src_feature_list: ['x', 'y', 'z', 'intensity', 'elongation'],
+        used_feature_list: ['x', 'y', 'z','timestamp'],
+        src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
-    DATA_AUGMENTOR: 
-        DISABLE_AUG_LIST: ['placeholder']
-        AUG_CONFIG_LIST:
-
-            - NAME: random_world_flip
-              ALONG_AXIS_LIST: [ 'x', 'y' ]
-
-            - NAME: random_world_rotation
-              WORLD_ROT_ANGLE: [ -0.78539816, 0.78539816 ]
-
-            - NAME: random_world_scaling
-              WORLD_SCALE_RANGE: [ 0.95, 1.05 ]
-              
     DATA_PROCESSOR:
         -   NAME: mask_points_and_boxes_outside_range
             REMOVE_OUTSIDE_BOXES: True
@@ -68,7 +49,11 @@ MODEL:
         CLASS_AGNOSTIC: False
 
         CLASS_NAMES_EACH_HEAD: [
-            [ 'Vehicle', 'Pedestrian', 'Cyclist' ]
+            ['car'], 
+            ['truck'],
+            ['bus'],
+            ['motorcycle', 'bicycle'],
+            ['pedestrian'],
         ]
 
         SHARED_CONV_CHANNEL: 64
@@ -92,7 +77,7 @@ MODEL:
         LOSS_CONFIG:
             LOSS_WEIGHTS: {
                 'cls_weight': 1.0,
-                'loc_weight': 2.0,
+                'loc_weight': 0.25,
                 'code_weights': [ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 ]
             }
 
@@ -187,19 +172,19 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: waymo
+        EVAL_METRIC: kitti
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.7
+            NMS_THRESH: 0.1
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 4
-    NUM_EPOCHS: 30
+    NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
     LR: 0.01

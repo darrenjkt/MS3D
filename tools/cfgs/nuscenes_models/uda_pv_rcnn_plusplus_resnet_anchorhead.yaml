@@ -1,49 +1,13 @@
-CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
+CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset.yaml
-    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
-    TRAIN_WITH_SPEED: False
-    SAMPLED_INTERVAL: {
-        'train': 20,
-        'test': 10
-    }
-    POINT_CLOUD_RANGE: [-75.2, -75.2, -2, 75.2, 75.2, 4]
+    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml    
+    MAX_SWEEPS: 10
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
-        src_feature_list: ['x', 'y', 'z', 'intensity', 'elongation'],
+        used_feature_list: ['x', 'y', 'z','timestamp'],
+        src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
-    DATA_AUGMENTOR: 
-        DISABLE_AUG_LIST: ['placeholder']
-        AUG_CONFIG_LIST:
-
-            - NAME: random_world_flip
-              ALONG_AXIS_LIST: [ 'x', 'y' ]
-
-            - NAME: random_world_rotation
-              WORLD_ROT_ANGLE: [ -0.78539816, 0.78539816 ]
-
-            - NAME: random_world_scaling
-              WORLD_SCALE_RANGE: [ 0.95, 1.05 ]
-
-    DATA_PROCESSOR:
-        - NAME: mask_points_and_boxes_outside_range
-          REMOVE_OUTSIDE_BOXES: True
-
-        - NAME: shuffle_points
-          SHUFFLE_ENABLED: {
-            'train': True,
-            'test': False
-          }
-
-        - NAME: transform_points_to_voxels
-          VOXEL_SIZE: [0.1, 0.1, 0.15]
-          MAX_POINTS_PER_VOXEL: 5
-          MAX_NUMBER_OF_VOXELS: {
-              'train': 80000,
-              'test': 90000
-          }          
 
 MODEL:
     NAME: PVRCNNPlusPlus
@@ -78,8 +42,18 @@ MODEL:
 
         ANCHOR_GENERATOR_CONFIG: [
             {
-                'class_name': 'Vehicle',
-                'anchor_sizes': [[4.7, 2.1, 1.7]],
+                'class_name': car,
+                'anchor_sizes': [[4.63, 1.97, 1.74]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.6,
+                'unmatched_threshold': 0.45
+            },
+            {
+                'class_name': truck,
+                'anchor_sizes': [[6.93, 2.51, 2.84]],
                 'anchor_rotations': [0, 1.57],
                 'anchor_bottom_heights': [0],
                 'align_center': False,
@@ -88,8 +62,28 @@ MODEL:
                 'unmatched_threshold': 0.4
             },
             {
-                'class_name': 'Pedestrian',
-                'anchor_sizes': [[0.91, 0.86, 1.73]],
+                'class_name': bus,
+                'anchor_sizes': [[10.5, 2.94, 3.47]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.55,
+                'unmatched_threshold': 0.4
+            },
+            {
+                'class_name': motorcycle,
+                'anchor_sizes': [[2.11, 0.77, 1.47]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.5,
+                'unmatched_threshold': 0.3
+            },
+            {
+                'class_name': bicycle,
+                'anchor_sizes': [[1.70, 0.60, 1.28]],
                 'anchor_rotations': [0, 1.57],
                 'anchor_bottom_heights': [0],
                 'align_center': False,
@@ -98,14 +92,14 @@ MODEL:
                 'unmatched_threshold': 0.35
             },
             {
-                'class_name': 'Cyclist',
-                'anchor_sizes': [[1.78, 0.84, 1.78]],
+                'class_name': pedestrian,
+                'anchor_sizes': [[0.73, 0.67, 1.77]],
                 'anchor_rotations': [0, 1.57],
                 'anchor_bottom_heights': [0],
                 'align_center': False,
                 'feature_map_stride': 8,
-                'matched_threshold': 0.5,
-                'unmatched_threshold': 0.35
+                'matched_threshold': 0.6,
+                'unmatched_threshold': 0.4
             }
         ]
 
@@ -120,7 +114,7 @@ MODEL:
         LOSS_CONFIG:
             LOSS_WEIGHTS: {
                 'cls_weight': 1.0,
-                'loc_weight': 2.0,
+                'loc_weight': 0.25,
                 'dir_weight': 0.2,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
@@ -301,19 +295,19 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: waymo
+        EVAL_METRIC: kitti
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.7
+            NMS_THRESH: 0.1
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 2
-    NUM_EPOCHS: 30
+    NUM_EPOCHS: 20
 
     OPTIMIZER: adam_onecycle
     LR: 0.01
