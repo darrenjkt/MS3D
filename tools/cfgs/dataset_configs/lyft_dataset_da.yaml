@@ -12,7 +12,7 @@ DATA_SPLIT: {
 }
 
 SAMPLED_INTERVAL: {
-    'train': 3,
+    'train': 1,
     'test': 1
 }
 
