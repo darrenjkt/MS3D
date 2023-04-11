@@ -125,14 +125,14 @@ MODEL:
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.1
+            NMS_THRESH: 0.2
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 2  # 8
-    NUM_EPOCHS: 40
+    NUM_EPOCHS: 30
 
     OPTIMIZER: adam_onecycle
     LR: 0.01
