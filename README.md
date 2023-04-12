@@ -1,11 +1,10 @@
 # MS3D
-This is the official code release for **MS3D: Leveraging Multiple Source Detectors for Unsupervised Domain Adaptation in 3D Object Detection** 
+This is the official code release for **MS3D: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection** 
 
 MS3D is a simple self-training pipeline to improve the performance of 3D detectors on an unlabelled dataset without requiring manual labelling. Our pipeline has the following benefits:
 - adds **no processing latency** at inference as we don't modify detector architecture. We focus on high quality pseudo-label generation.
-- can fuse detections from **multiple** and **various types** of pre-trained 3D detector.
+- can fuse detections from **multiple** and **various types** of pre-trained 3D detector to obtain higher performance than the best individual pre-trained detector
 - is **source-free** i.e. we do not require source-domain data or labels for fine-tuning.
-- choice of pre-trained detector for fine-tuning has minimal impact on the final performance.
 
 Our box fusion method, KBF, can be used for **detector ensembling** in a supervised setting as well. See our [KBF demo](tools/kbf_demo.ipynb)
 
@@ -23,7 +22,7 @@ Our box fusion method, KBF, can be used for **detector ensembling** in a supervi
 
 Existing methods typically focus on adapting a single detector to the target domain, overlooking the fact that different detectors possess distinct expertise on different unseen domains. MS3D leverages this by combining pre-trained detectors from multiple source domains and incorporating temporal information to produce high-quality pseudo-labels for fine-tuning. 
 
-In practice, it is challenging to robustly evaluate and identify the optimal source pre-trained detector due to lack of labelled data on new target datasets. However, with MS3D, the choice of source pre-trained detector for fine-tuning has minimal impact on the final performance. 
+In practice, it is challenging to robustly evaluate and identify the optimal source pre-trained detector due to lack of labelled data on new target datasets. With MS3D, our fusion of multiple detectors eliminates the need to robustly evaluate the optimal pre-trained detector for self-training. Furthermore, the choice of source dataset for the pre-trained detector (e.g. nuScenes SECOND-IoU or Lyft SECOND-IoU) has a minimal impact on the fine-tuning performance. 
 
 <p align="center">
   <img src="docs/media/ms3d_pipeline.png">
@@ -120,14 +119,14 @@ MS3D is released under the [Apache 2.0 license](LICENSE).
 
 
 ## Citation
-If you find this project useful in your research, please consider citing:
-
+If you find this project useful in your research, please give us a star and consider citing:
 
 ```
 @article{tsai2023ms3d,
- title={MS3D: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection},
- author={Tsai, Darren and Berrio, Julie Stephany and Shan, Mao and Nebot, Eduardo and Worrall, Stewart},
- journal={arXiv preprint arXiv:2304.02431},
- year={2023}
+  title={MS3D: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection},
+  author={Tsai, Darren and Berrio, Julie Stephany and Shan, Mao and Nebot, Eduardo and Worrall, Stewart},
+  journal={arXiv preprint arXiv:2304.02431},
+  year={2023}
 }
+
 
