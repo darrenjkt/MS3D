@@ -36,7 +36,11 @@ MODEL:
         CLASS_AGNOSTIC: False
 
         CLASS_NAMES_EACH_HEAD: [
-            [ 'Vehicle', 'Pedestrian', 'Cyclist' ]
+            ['car'], 
+            ['truck'],
+            ['bus'],
+            ['motorcycle', 'bicycle'],
+            ['pedestrian'],
         ]
 
         SHARED_CONV_CHANNEL: 64
