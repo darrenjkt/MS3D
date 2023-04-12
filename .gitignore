@@ -26,3 +26,4 @@ model_zoo
 *.png
 *.jpg
 *.ipynb
+*.sh
