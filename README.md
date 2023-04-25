@@ -100,6 +100,11 @@ We provide models trained on source-domain data used in our experiments.
 
 For **Waymo**, please send me an email if you would like to download the source-trained models we used.
 ## Qualitative Results
+
+<p align="center">
+  <img src="docs/media/qualitative_before_after_ms3d.png">
+</p>
+
 |Lyft/nuScenes &rArr; Waymo with SECOND-IoU <img src="docs/media/target_waymo_lyft_secondiou_1frame_4288_10-40_compressed.gif">|
 | -------------------------------- |
 
