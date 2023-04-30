@@ -2,10 +2,10 @@ CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
-    MAX_SWEEPS: 3
+    MAX_SWEEPS: 1
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z','timestamp'],
+        used_feature_list: ['x', 'y', 'z'],
         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
 
@@ -36,11 +36,7 @@ MODEL:
         CLASS_AGNOSTIC: False
 
         CLASS_NAMES_EACH_HEAD: [
-            ['car'], 
-            ['truck'],
-            ['bus'],
-            ['motorcycle', 'bicycle'],
-            ['pedestrian'],
+            ['car','truck','bus','motorcycle','bicycle','pedestrian']
         ]
 
         SHARED_CONV_CHANNEL: 64
@@ -259,10 +255,9 @@ MODEL:
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.2
+            NMS_THRESH: 0.7
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
-
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 2

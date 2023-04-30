@@ -66,11 +66,12 @@ def transform_to_waymo_format(dataset_name, annos, is_gt):
         if is_gt:
             if dataset_name in ['NuScenesDataset', 'LyftDataset']:
                 anno['name'] = anno['gt_names']
-                anno['num_points_in_gt'] = anno['num_lidar_pts']
-                anno['difficulty'] = np.zeros(anno['num_lidar_pts'].shape)
+                anno['num_points_in_gt'] = anno['num_lidar_pts'] if 'num_lidar_pts' in anno else 100*np.ones(anno['name'].shape) # arbitrary num pts; L1 will be same as L2
+                anno['difficulty'] = np.zeros(anno['name'].shape)
                 anno['gt_boxes_lidar'] = anno['gt_boxes']
                 anno.pop('gt_names')
-                anno.pop('num_lidar_pts')
+                if 'num_lidar_pts' in anno:
+                    anno.pop('num_lidar_pts')
             elif dataset_name in ['KittiDataset','CustomDataset']:
                 anno['name'] = anno['annos']['name']
                 anno['num_points_in_gt'] = anno['annos']['num_points_in_gt']
@@ -83,7 +84,7 @@ def transform_to_waymo_format(dataset_name, annos, is_gt):
                 anno['difficulty'] = np.zeros(anno['num_points_in_gt'].shape)
                 anno['gt_boxes_lidar'] = anno['boxes_3d']
                 anno.pop('boxes_3d')
-                anno.pop('boxes_2d')
+                anno.pop('boxes_2d')    
             elif dataset_name == 'WaymoDataset':
                 continue
             else:

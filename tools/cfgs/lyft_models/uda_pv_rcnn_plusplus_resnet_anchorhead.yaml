@@ -2,12 +2,25 @@ CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
-    MAX_SWEEPS: 3
+    MAX_SWEEPS: 2
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
         used_feature_list: ['x', 'y', 'z','timestamp'],
         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
+
+# DATA_CONFIG_TAR:
+#     _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml
+#     TARGET: True
+#     MAX_SWEEPS: 10
+#     USE_TTA: False
+#     SAVE_PKL_IN_GROUND_FRAME: True
+#     CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
+#     POINT_FEATURE_ENCODING: {
+#         encoding_type: absolute_coordinates_encoding,
+#         used_feature_list: ['x', 'y', 'z','timestamp'],
+#         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
+#     }
 
 MODEL:
     NAME: PVRCNNPlusPlus

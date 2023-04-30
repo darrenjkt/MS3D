@@ -3,6 +3,19 @@ CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_da.yaml
 
+DATA_CONFIG_TAR:
+    _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
+    TARGET: True
+    MAX_SWEEPS: 3
+    USE_TTA: False
+    SAVE_PKL_IN_GROUND_FRAME: True
+    CLASS_NAMES: ['car','pedestrian','bicycle']
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
+    }
+
 MODEL:
     NAME: PVRCNNPlusPlus
 
@@ -244,12 +257,12 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: waymo
+        EVAL_METRIC: kitti
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.2
+            NMS_THRESH: 0.7
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 

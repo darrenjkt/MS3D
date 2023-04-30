@@ -1,7 +1,10 @@
 CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_da.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
+    SEQUENCE_CONFIG:
+        ENABLED: True
+        SAMPLE_OFFSET: [-1, 0]
     
     DATA_PROCESSOR:
         -   NAME: mask_points_and_boxes_outside_range
@@ -25,7 +28,7 @@ DATA_CONFIG:
             NUM_POINTS: {
                 'train': 65536,
                 'test': 65536
-                }
+                } # should I double points? 2 * 65536 ?
 
 MODEL:
     NAME: IASSD
