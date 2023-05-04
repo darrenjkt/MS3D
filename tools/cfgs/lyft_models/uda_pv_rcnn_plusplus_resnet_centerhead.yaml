@@ -2,12 +2,37 @@ CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
-    MAX_SWEEPS: 1
+    MAX_SWEEPS: 3
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
+        used_feature_list: ['x', 'y', 'z','timestamp'],
         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
+
+# DATA_CONFIG_TAR: 
+#     _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml
+#     TARGET: True
+#     MAX_SWEEPS: 1
+#     CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
+#     USE_TTA: False
+#     SAVE_PKL_IN_GROUND_FRAME: True    
+#     POINT_FEATURE_ENCODING: {
+#         encoding_type: absolute_coordinates_encoding,
+#         used_feature_list: ['x', 'y', 'z','timestamp'],
+#         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
+#     }
+
+DATA_CONFIG_TAR: 
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
+    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
+    TARGET: True
+    USE_TTA: False
+    SAVE_PKL_IN_GROUND_FRAME: True    
+    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
+    SEQUENCE_CONFIG:
+        ENABLED: True
+        SAMPLE_OFFSET: [-3, 0]
+
 
 MODEL:
     NAME: PVRCNNPlusPlus
@@ -82,7 +107,7 @@ MODEL:
         SAMPLE_METHOD: SPC
         SPC_SAMPLING:
             NUM_SECTORS: 6
-            SAMPLE_RADIUS_WITH_ROI: 1.6
+            SAMPLE_RADIUS_WITH_ROI: 1.6            
 
         FEATURES_SOURCE: ['bev', 'x_conv3', 'x_conv4', 'raw_points']
         SA_LAYER:

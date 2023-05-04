@@ -20,7 +20,7 @@ python evaluation.py --cfg_file cfgs/source-waymo/secondiou.yaml \
                     --metric kitti                     
 """
 
-def waymo_eval(eval_det_annos, eval_gt_annos, class_names, static_dyn=False, **kwargs):
+def waymo_eval(eval_det_annos, eval_gt_annos, class_names, **kwargs):
     from pcdet.datasets.waymo.waymo_eval import OpenPCDetWaymoDetectionMetricsEstimator
     eval = OpenPCDetWaymoDetectionMetricsEstimator()
     veh_iou_threshold = kwargs['veh_iou_threshold'] if 'veh_iou_threshold' in kwargs else 0.7

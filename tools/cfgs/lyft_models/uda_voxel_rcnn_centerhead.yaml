@@ -50,11 +50,7 @@ MODEL:
         CLASS_AGNOSTIC: False
 
         CLASS_NAMES_EACH_HEAD: [
-            ['car'], 
-            ['truck'],
-            ['bus'],
-            ['motorcycle', 'bicycle'],
-            ['pedestrian'],
+            ['car','truck','bus','motorcycle','bicycle','pedestrian']
         ]
 
         SHARED_CONV_CHANNEL: 64
@@ -184,7 +180,7 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2
+    BATCH_SIZE_PER_GPU: 4
     NUM_EPOCHS: 30
 
     OPTIMIZER: adam_onecycle

@@ -70,11 +70,15 @@ def sample_points_with_roi(rois, points, sample_radius_with_roi, num_max_points_
             start_idx += num_max_points_of_part
         point_mask = torch.cat(point_mask_list, dim=0)
 
-    # sampled_points = points[:2] if point_mask.sum() == 0 else points[point_mask, :] # possible fix for "Expected more than 1 channel for training"
-    sampled_points = points[:1] if point_mask.sum() == 0 else points[point_mask, :]
+    # I modified this to return the first point as well as the mask for the first point
+    # If mask is all false due to ROIs from centerhead being far away from any keypoints, which happens sometimes, there will be an error thrown
+    if point_mask.sum() == 0: 
+        sampled_points = points[:1]
+        point_mask[0] = True
+    else:
+        sampled_points = points[point_mask, :]
 
     return sampled_points, point_mask
-
 
 def sector_fps(points, num_sampled_points, num_sectors):
     """
@@ -286,7 +290,7 @@ class VoxelSetAbstraction(nn.Module):
     @staticmethod
     def aggregate_keypoint_features_from_one_source(
             batch_size, aggregate_func, xyz, xyz_features, xyz_bs_idxs, new_xyz, new_xyz_batch_cnt,
-            filter_neighbors_with_roi=False, radius_of_neighbor=None, num_max_points_of_part=200000, rois=None
+            filter_neighbors_with_roi=False, radius_of_neighbor=None, num_max_points_of_part=200000, rois=None, cover_feat_4=False
     ):
         """
 
@@ -302,6 +306,7 @@ class VoxelSetAbstraction(nn.Module):
             radius_of_neighbor: float
             num_max_points_of_part: int
             rois: (batch_size, num_rois, 7 + C)
+            cover_feat_4: Duplicate z points to use as 4th channel (i.e. x,y,z,z) so that xyz_features is not None
         Returns:
 
         """
@@ -325,13 +330,35 @@ class VoxelSetAbstraction(nn.Module):
             for bs_idx in range(batch_size):
                 xyz_batch_cnt[bs_idx] = (xyz_bs_idxs == bs_idx).sum()
 
-        pooled_points, pooled_features = aggregate_func(
-            xyz=xyz.contiguous(),
-            xyz_batch_cnt=xyz_batch_cnt,
-            new_xyz=new_xyz,
-            new_xyz_batch_cnt=new_xyz_batch_cnt,
-            features=xyz_features.contiguous() if xyz_features is not None else None,
-        )
+        # for using the z-axes as the fourth dimension feature of point-cloud representations
+        # copied from https://github.com/PJLab-ADG/3DTrans/blob/0082e4a1176adc27ad64d8984b6a38baaf36cff8/pcdet/models/backbones_3d/pfe/voxel_set_abstraction.py#L333-L360
+        # I compared two trainings one with and one without cover_feat4. The one without does better by a slight bit.
+        if xyz_features is None:
+            if cover_feat_4:
+                xyz_features=xyz[:, 2].view(-1, 1)
+                pooled_points, pooled_features = aggregate_func(
+                    xyz=xyz.contiguous(),
+                    xyz_batch_cnt=xyz_batch_cnt,
+                    new_xyz=new_xyz,
+                    new_xyz_batch_cnt=new_xyz_batch_cnt,
+                    features=xyz_features.contiguous(),
+                )
+            else:
+                pooled_points, pooled_features = aggregate_func(
+                    xyz=xyz.contiguous(),
+                    xyz_batch_cnt=xyz_batch_cnt,
+                    new_xyz=new_xyz,
+                    new_xyz_batch_cnt=new_xyz_batch_cnt,
+                    features=None,
+                )
+        else:
+            pooled_points, pooled_features = aggregate_func(
+                xyz=xyz.contiguous(),
+                xyz_batch_cnt=xyz_batch_cnt,
+                new_xyz=new_xyz,
+                new_xyz_batch_cnt=new_xyz_batch_cnt,
+                features=xyz_features.contiguous(),
+            )
         return pooled_features
 
     def forward(self, batch_dict):
@@ -374,6 +401,7 @@ class VoxelSetAbstraction(nn.Module):
             
             # Added this check cause when using just x,y,z the xyz_features=0 cause no intensity or elongation
             # Without extra features, this SA_rawpoints module has 0 input channels i.e. doesn't do anything and throws an error
+            # Coverfeat performs slightly worse than just ignoring the raw points for 0 features
             if raw_points.shape[1] > 4: 
                 pooled_features = self.aggregate_keypoint_features_from_one_source(
                     batch_size=batch_size, aggregate_func=self.SA_rawpoints,
@@ -383,7 +411,8 @@ class VoxelSetAbstraction(nn.Module):
                     new_xyz=new_xyz, new_xyz_batch_cnt=new_xyz_batch_cnt,
                     filter_neighbors_with_roi=self.model_cfg.SA_LAYER['raw_points'].get('FILTER_NEIGHBOR_WITH_ROI', False),
                     radius_of_neighbor=self.model_cfg.SA_LAYER['raw_points'].get('RADIUS_OF_NEIGHBOR_WITH_ROI', None),
-                    rois=batch_dict.get('rois', None)
+                    rois=batch_dict.get('rois', None),
+                    cover_feat_4=self.model_cfg.COVER_FEAT if self.model_cfg.get('COVER_FEAT', None) else None
                 )
                 point_features_list.append(pooled_features)
 
@@ -402,7 +431,8 @@ class VoxelSetAbstraction(nn.Module):
                 new_xyz=new_xyz, new_xyz_batch_cnt=new_xyz_batch_cnt,
                 filter_neighbors_with_roi=self.model_cfg.SA_LAYER[src_name].get('FILTER_NEIGHBOR_WITH_ROI', False),
                 radius_of_neighbor=self.model_cfg.SA_LAYER[src_name].get('RADIUS_OF_NEIGHBOR_WITH_ROI', None),
-                rois=batch_dict.get('rois', None)
+                rois=batch_dict.get('rois', None),
+                    cover_feat_4=self.model_cfg.COVER_FEAT if self.model_cfg.get('COVER_FEAT', None) else None
             )
 
             point_features_list.append(pooled_features)

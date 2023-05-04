@@ -29,8 +29,8 @@ DATA_CONFIG:
                 'test': 90000
                 }
             NUM_POINTS: {
-                'train': 65536,
-                'test': 65536
+                'train': 98304,
+                'test': 98304
                 }
 
 MODEL:

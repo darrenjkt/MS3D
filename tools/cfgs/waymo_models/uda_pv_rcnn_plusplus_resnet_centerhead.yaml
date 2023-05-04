@@ -4,9 +4,9 @@ DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_da.yaml
 
 DATA_CONFIG_TAR:
-    _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml
     TARGET: True
-    MAX_SWEEPS: 3
+    MAX_SWEEPS: 1
     USE_TTA: False
     SAVE_PKL_IN_GROUND_FRAME: True
     CLASS_NAMES: ['car','pedestrian','bicycle']
@@ -92,6 +92,7 @@ MODEL:
             SAMPLE_RADIUS_WITH_ROI: 1.6
 
         FEATURES_SOURCE: ['bev', 'x_conv3', 'x_conv4', 'raw_points']
+        COVER_FEAT: True # Using coverfeat performs similarly on car/ped and slightly worse on cyc
         SA_LAYER:
             raw_points:
                 NAME: VectorPoolAggregationModuleMSG
@@ -257,7 +258,7 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: kitti
+        EVAL_METRIC: waymo
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
