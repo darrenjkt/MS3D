@@ -22,43 +22,30 @@ DATA_CONFIG:
         -   NAME: transform_points_to_voxels_placeholder
             VOXEL_SIZE: [0.1, 0.1, 0.15]
 
-# DATA_CONFIG_TAR: 
-#     _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
-#     TARGET: True
-#     MAX_SWEEPS: 3
-#     CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
-#     USE_TTA: False
-#     SAVE_PKL_IN_GROUND_FRAME: True    
-#     POINT_FEATURE_ENCODING: {
-#         encoding_type: absolute_coordinates_encoding,
-#         used_feature_list: ['x', 'y', 'z','timestamp'],
-#         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
-#     }
+DATA_CONFIG_TAR: 
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
+    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
+    TARGET: True
+    USE_TTA: False
+    SAVE_PKL_IN_GROUND_FRAME: True    
+    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
+    SEQUENCE_CONFIG:
+        ENABLED: True
+        SAMPLE_OFFSET: [-1, 0]
 
-# DATA_CONFIG_TAR: 
-#     _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
-#     PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
-#     TARGET: True
-#     USE_TTA: False
-#     SAVE_PKL_IN_GROUND_FRAME: True    
-#     CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
-#     SEQUENCE_CONFIG:
-#         ENABLED: True
-#         SAMPLE_OFFSET: [-3, 0]
+    DATA_PROCESSOR:
+        -   NAME: mask_points_and_boxes_outside_range
+            REMOVE_OUTSIDE_BOXES: True
+            STRICT_MASK: True
 
-#     DATA_PROCESSOR:
-#         -   NAME: mask_points_and_boxes_outside_range
-#             REMOVE_OUTSIDE_BOXES: True
-#             STRICT_MASK: True
+        -   NAME: shuffle_points
+            SHUFFLE_ENABLED: {
+                'train': True,
+                'test': False
+            }
 
-#         -   NAME: shuffle_points
-#             SHUFFLE_ENABLED: {
-#                 'train': True,
-#                 'test': False
-#             }
-
-#         -   NAME: transform_points_to_voxels_placeholder
-#             VOXEL_SIZE: [0.1, 0.1, 0.15]
+        -   NAME: transform_points_to_voxels_placeholder
+            VOXEL_SIZE: [0.1, 0.1, 0.15]
 
 MODEL:
     NAME: VoxelRCNN
@@ -206,7 +193,7 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: None
+        EVAL_METRIC: kitti
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
@@ -236,3 +223,46 @@ OPTIMIZATION:
     WARMUP_EPOCH: 1
 
     GRAD_NORM_CLIP: 10
+
+SELF_TRAIN:
+    SCORE_THRESH: 0.6
+    NEG_THRESH: 0.4
+    UPDATE_PSEUDO_LABEL: [-1]
+    UPDATE_PSEUDO_LABEL_INTERVAL: 100
+    MS_DETECTOR_PS:
+        FUSION: kde_fusion
+        ACCUM1:
+            PATH: '/MS3D/tools/cfgs/target_waymo/raw_dets/det_1f_paths_5hz.txt' 
+            DISCARD: 4
+            RADIUS: 2.0
+        ACCUM16:
+            PATH: '/MS3D/tools/cfgs/target_waymo/raw_dets/det_16f_paths.txt'
+            DISCARD: 3
+            RADIUS: 1.0
+        MIN_STATIC_SCORE: 0.85
+        MIN_DETS_FOR_TRACK_1F: 3
+        MIN_DETS_FOR_TRACK_16F: 3
+        ROLLING_KDE_WINDOW: 16
+        PROPAGATE_STATIC_BOXES:         
+            ENABLED: True
+            MIN_DETS: 7
+            N_EXTRA_FRAMES: 42
+            DEGRADE_FACTOR: 0.95
+            MIN_SCORE_CLIP: 0.5
+        TRACKING:
+            ACCUM1_CFG: /MS3D/tracker/configs/msda_configs/msda_1frame_giou.yaml
+            ACCUM16_CFG: /MS3D/tracker/configs/msda_configs/msda_16frame_iou.yaml
+
+    INIT_PS: None
+    SRC:
+        USE_DATA: False
+        USE_GRAD: False
+        LOSS_WEIGHT: 1.0
+    TAR:
+        USE_DATA: True
+        LOSS_WEIGHT: 1.0
+
+    MEMORY_ENSEMBLE:
+        ENABLED: True
+        NAME: simplified_cons_ensemble
+        IOU_THRESH: 0.1

@@ -6,9 +6,9 @@ from pcdet.utils import box_utils
 MAP_NUSCENES_TO_WAYMO = {
             'car' : 'Vehicle',
             'truck' : 'Vehicle',
-            'construction_vehi' : 'Vehicle',
+            'construction_vehi' : 'unknown',
             'bus' : 'Vehicle', 
-            'trailer' : 'Vehicle',
+            'trailer' : 'unknown',
             'barrier': 'unknown',
             'motorcycle': 'Cyclist', 
             'bicycle': 'Cyclist',  
@@ -29,8 +29,8 @@ MAP_KITTI_TO_WAYMO = {
 
 MAP_LYFT_TO_WAYMO = {
             'car': 'Vehicle',
-            'other_vehicle': 'Vehicle',
-            'emergency_vehicle': 'Vehicle',
+            'other_vehicle': 'unknown',
+            'emergency_vehicle': 'unknown',
             'bus': 'Vehicle',            
             'truck': 'Vehicle',
             'bicycle': 'Cyclist',

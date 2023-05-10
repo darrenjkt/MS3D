@@ -108,7 +108,7 @@ def main():
     ap_result_str, ap_dict = waymo_eval(mod_det_annos, mod_gt_annos, eval_class_names, 
                                         veh_iou_threshold=args.veh_iou, ped_iou_threshold=args.ped_iou, eval_breakdown=args.eval_breakdown)    
     item_key = 'SOURCE\tTARGET\tMODEL\t'
-    item_res = f'{data_config.DATASET.replace("Dataset","")}\t{data_config.DATASET.replace("Dataset","")}\t{cfg.MODEL.NAME}\t'
+    item_res = f'{cfg.DATA_CONFIG.DATASET.replace("Dataset","")}\t{data_config.DATASET.replace("Dataset","")}\t{cfg.MODEL.NAME}\t'
     for k,v in ap_dict.items():
         if ('VEHICLE' in k) or ('PEDESTRIAN' in k) or ('CYCLIST' in k):
             key = k[11:].replace('LEVEL_','L').replace('PEDESTRIAN','PED').replace('VEHICLE','VEH').replace('CYCLIST','CYC').replace(' ','')

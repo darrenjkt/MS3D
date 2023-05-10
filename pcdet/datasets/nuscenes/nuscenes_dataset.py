@@ -150,6 +150,7 @@ class NuScenesDataset(DatasetTemplate):
             points_sweep, times_sweep = self.get_sweep(info['sweeps'][k])
             sweep_points_list.append(points_sweep)
             sweep_times_list.append(times_sweep)
+            # sweep_times_list.append(np.zeros((points_sweep.shape[0], 1))) # when accumulating more than the time lag it was trained on
 
         points = np.concatenate(sweep_points_list, axis=0)
         times = np.concatenate(sweep_times_list, axis=0).astype(points.dtype)

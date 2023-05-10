@@ -27,3 +27,5 @@ model_zoo
 *.jpg
 *.ipynb
 *.sh
+*.tar.xz
+*.txt

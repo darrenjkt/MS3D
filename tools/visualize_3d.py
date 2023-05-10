@@ -55,7 +55,7 @@ def main():
         cls_names = cfg.CLASS_NAMES
 
     data_config.DATA_SPLIT.test = args.split
-    if data_config.get('SAMPLED_INTERVAL', None):        
+    if not data_config.get('SAMPLED_INTERVAL', False):        
         data_config.SAMPLED_INTERVAL.test = args.sampled_interval
     data_config.USE_CUSTOM_TRAIN_SCENES = args.custom_train_split
     logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
@@ -137,6 +137,11 @@ def main():
                 pred_dicts, _ = model.forward(data_dict)   
                 if 'gt_boxes' in data_dict.keys():
                     gt_boxes = data_dict['gt_boxes'][0]
+
+                    # For filtering out gt boxes with 0 pts in waymo scenes
+                    # class_mask = np.in1d(target_set.infos[idx]['annos']['name'], target_set.class_names)
+                    # class_num_pts = target_set.infos[idx]['annos']['num_points_in_gt'][class_mask]
+                    # gt_boxes = gt_boxes[class_num_pts > 0]
                 else:
                     gt_boxes = None
    
