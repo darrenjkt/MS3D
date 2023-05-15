@@ -25,7 +25,7 @@ model_zoo
 *.gif
 *.png
 *.jpg
-*.ipynb
 *.sh
 *.tar.xz
 *.txt
+demo_data

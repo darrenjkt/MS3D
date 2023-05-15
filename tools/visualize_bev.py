@@ -67,6 +67,11 @@ def main():
                         help='Use saved detections from pkl path')
     parser.add_argument('--idx', type=int, default=0,
                         help='If you wish to only display a certain frame index')
+    parser.add_argument('--split', type=str, default='train',
+                        help='Specify train or test split')    
+    parser.add_argument('--sampled_interval', type=int, default=None,
+                        help='same as SAMPLED_INTERVAL config parameter')   
+    parser.add_argument('--custom_train_split', action='store_true', default=False)     
     args = parser.parse_args()
     
     # Get target dataset
@@ -81,7 +86,10 @@ def main():
     else:
         dataset_cfg = cfg.DATA_CONFIG
         classes = cfg.CLASS_NAMES
-    dataset_cfg.DATA_SPLIT.test='train'
+    dataset_cfg.DATA_SPLIT.test = args.split
+    dataset_cfg.USE_CUSTOM_TRAIN_SCENES = args.custom_train_split
+    if args.sampled_interval is not None:
+        dataset_cfg.SAMPLED_INTERVAL.test = args.sampled_interval
 
     # dataset_cfg.SEQUENCE_CONFIG.ENABLED = True
     # if dataset_cfg.SEQUENCE_CONFIG.ENABLED:
@@ -115,7 +123,6 @@ def main():
     ax = plt.subplot(111)
     scatter = ax.scatter(pts[mask][:,0],pts[mask][:,1],s=0.5, c='black', marker='o')
     # Plot GT boxes
-    classes= ['car','truck','bus'] 
     class_mask = np.array([n in classes for n in compat.get_gt_names(target_set, start_frame_id)], dtype=np.bool_)
     plot_boxes(ax, compat.get_gt_boxes(target_set, start_frame_id)[class_mask], color=[0,0,1], 
                 limit_range=limit_range, label='gt_boxes',
@@ -126,7 +133,7 @@ def main():
             scores=combined_dets[start_idx]['score'],
             source_id=combined_dets[start_idx]['source_id'],
             source_labels=combined_dets[start_idx]['source'],
-            limit_range=limit_range, alpha=0.3)
+            limit_range=limit_range, alpha=0.5)
             
     ax.set_title(f'Frame: {start_idx}')
     ax.legend(loc='upper right')    
@@ -150,7 +157,7 @@ def main():
                 scores=combined_dets[frame_idx]['score'],
                 source_id=combined_dets[frame_idx]['source_id'],
                 source_labels=combined_dets[frame_idx]['source'],
-                limit_range=limit_range, alpha=0.3)                        
+                limit_range=limit_range, alpha=0.5)                        
         ax.set_aspect('equal')
         ax.set_title(f'Frame: {frame_idx}')
         plt.draw()

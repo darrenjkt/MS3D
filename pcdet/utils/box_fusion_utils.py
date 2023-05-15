@@ -130,17 +130,20 @@ def load_src_paths_txt(src_paths_txt):
     for idx, pkl_pth in enumerate(pkl_pths):
         with open(pkl_pth, 'rb') as f:
             if not Path(pkl_pth).is_absolute():
-                pkl_pth = Path(pkl_pth).resolve()                
-            label = '.'.join(str(pkl_pth).split('/')[3:5]) + f'.{idx}' # source-det.det
+                pkl_pth = Path(pkl_pth).resolve()     
+            
+            label_str = str(pkl_pth).split('/')[3:5]
+            label_str.append(str(pkl_pth).split('/')[-2])
+            label = '.'.join(label_str) # source-dataset.detector.eval_tag
             det_annos[label] = pkl.load(f)
     return det_annos
 
 def combine_box_pkls(det_annos, use_vehicle_superclass=True, score_th=0.1):
     combined_dets = []
     len_data = len(det_annos[list(det_annos.keys())[0]])
-    for idx in tqdm(range(len_data), total=len_data, desc='combining_ms_boxes'):
+    for idx in tqdm(range(len_data), total=len_data, desc='aggregating_proposals'):
         frame_dets = {}
-        frame_dets['boxes_lidar'], frame_dets['score'], frame_dets['source'], frame_dets['source_id'], frame_dets['frame_id'], frame_dets['class_ids'] = [],[],[],[],[],[]
+        frame_dets['boxes_lidar'], frame_dets['score'], frame_dets['source'], frame_dets['source_id'], frame_dets['frame_id'], frame_dets['class_ids'], frame_dets['names'] = [],[],[],[],[],[],[]
         for src_id, key in enumerate(det_annos.keys()):    
             frame_dets['frame_id'] = det_annos[key][idx]['frame_id']
             score_mask = det_annos[key][idx]['score'] > score_th            
@@ -148,18 +151,15 @@ def combine_box_pkls(det_annos, use_vehicle_superclass=True, score_th=0.1):
             frame_dets['score'].extend(det_annos[key][idx]['score'][score_mask])
             frame_dets['source'].extend([key for i in range(len(det_annos[key][idx]['score'][score_mask]))])
             frame_dets['source_id'].extend([src_id for i in range(len(det_annos[key][idx]['score'][score_mask]))])
-            
-            # Convert Truck/Bus to Car (treat "Car" as "Vehicle" class)
-            # Currently this only works for the Truck/Bus/Car. If there's other classes it'll mess up
-            if use_vehicle_superclass and (det_annos[key][idx]['name'].shape[0] != 0):
-                det_annos[key][idx]['name'][(det_annos[key][idx]['name'] == 'Truck') | (det_annos[key][idx]['name'] == 'Bus') | (det_annos[key][idx]['name'] == 'Van')] = 'Car'
-            frame_dets['class_ids'].extend([1 for n in det_annos[key][idx]['name'][score_mask]])
-        
+            frame_dets['class_ids'].extend(det_annos[key][idx]['pred_labels'][score_mask])
+            frame_dets['names'].extend(det_annos[key][idx]['name'][score_mask])
+
         frame_dets['boxes_lidar'] = np.vstack(frame_dets['boxes_lidar']) if len(frame_dets['score']) != 0  else np.array([]).reshape(-1,7)
         frame_dets['score'] = np.hstack(frame_dets['score']) if len(frame_dets['score']) != 0 else np.array([])
         frame_dets['source'] = np.array(frame_dets['source']) if len(frame_dets['score']) != 0 else np.array([])
         frame_dets['source_id'] = np.array(frame_dets['source_id']) if len(frame_dets['score']) != 0 else np.array([])
         frame_dets['class_ids'] = np.array(frame_dets['class_ids'], dtype=np.int32) if len(frame_dets['score']) != 0 else  np.array([])
+        frame_dets['names'] = np.array(frame_dets['names']) if len(frame_dets['score']) != 0 else  np.array([])
         combined_dets.append(frame_dets)
         assert frame_dets['class_ids'].shape == frame_dets['score'].shape
     return combined_dets
@@ -379,18 +379,17 @@ def wbf_p(matched_boxes, src_weights):
     wbfp = np.hstack([wbfp, wbfp_heading, 1, wbfp_score])
     return wbfp
 
-def label_fusion(boxes_lidar, fusion_name, discard, radius, weights=None):
+def label_fusion(boxes_lidar, fusion_name, discard, radius, nms_thresh=0.05, weights=None):
     """
     boxes_lidar (N,9): array of box proposals from src detectors
     
     return: 
         fused_boxes (N,9): fused box proposals
-        raw_labels (N,9): box proposals that contributed to the combined box
     """
     matched_inds_list = get_matching_boxes(boxes_lidar, discard=discard, radius=radius)
         
     # Aggregate these into one box
-    combined_frame_boxes, raw_boxes = [], []    
+    combined_frame_boxes, num_matched_boxes = [], []
     for m_box_inds in matched_inds_list:
 
         matched_boxes = boxes_lidar[list(m_box_inds)]
@@ -401,14 +400,16 @@ def label_fusion(boxes_lidar, fusion_name, discard, radius, weights=None):
         src_weights = matched_boxes[:,8] if weights is None else weights[list(m_box_inds)]
         combined_box = fusion_func(matched_boxes, src_weights=src_weights)        
         combined_frame_boxes.append(combined_box)
-        raw_boxes.extend(matched_boxes)
+        num_matched_boxes.append(len(unique))
     
-    raw_labels = np.array(raw_boxes).astype(np.float32) if raw_boxes else np.empty((0,9)).astype(np.float32)
     if combined_frame_boxes:
-        fused_boxes = np.array(combined_frame_boxes).astype(np.float32) 
-        nms_mask = nms(fused_boxes[:,:7], fused_boxes[:,8])
-        fused_boxes = fused_boxes[nms_mask]       
+        num_dets_per_box = np.array(num_matched_boxes)
+        fused_boxes = np.array(combined_frame_boxes)
+        nms_mask = nms(fused_boxes[:,:7], fused_boxes[:,8], thresh=nms_thresh)
+        fused_boxes = fused_boxes[nms_mask]
+        num_dets_per_box = num_dets_per_box[nms_mask]
     else:
-        fused_boxes = np.empty((0,9)).astype(np.float32)
+        fused_boxes = np.empty((0,9))
+        num_dets_per_box = np.empty(0)
         
-    return fused_boxes, raw_labels
+    return fused_boxes.astype(np.float32), num_dets_per_box.astype(int)

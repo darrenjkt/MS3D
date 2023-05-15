@@ -31,7 +31,7 @@ DATA_CONFIG_TAR:
     CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
     SEQUENCE_CONFIG:
         ENABLED: True
-        SAMPLE_OFFSET: [-1, 0]
+        SAMPLE_OFFSET: [0, 0]
 
     DATA_PROCESSOR:
         -   NAME: mask_points_and_boxes_outside_range

@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Modify these paths and GPU ids
-DATA_PATH="/mnt/big-data/darren/data"
-CODE_PATH="/mnt/big-data/darren/code/MS3D"
-GPU_ID="0,1"
+DATA_PATH="/media/darren/ITS_2TB/data"
+CODE_PATH="/media/darren/ITS_2TB/code/MS3D"
+GPU_ID="0"
 
 ENVS="  --env=NVIDIA_VISIBLE_DEVICES=$GPU_ID
         --env=CUDA_VISIBLE_DEVICES=$GPU_ID
