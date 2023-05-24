@@ -138,7 +138,7 @@ def load_src_paths_txt(src_paths_txt):
             det_annos[label] = pkl.load(f)
     return det_annos
 
-def combine_box_pkls(det_annos, use_vehicle_superclass=True, score_th=0.1):
+def combine_box_pkls(det_annos, score_th=0.1):
     combined_dets = []
     len_data = len(det_annos[list(det_annos.keys())[0]])
     for idx in tqdm(range(len_data), total=len_data, desc='aggregating_proposals'):
@@ -205,41 +205,45 @@ def kde_fusion(boxes, src_weights, bw_c=1.0, bw_dim=2.0, bw_ry=0.1, bw_cls=0.5, 
                 return None
         
     centroids = boxes[:,:3]
+    centroid_weight = src_weights['centroid'] if 'centroid' in src_weights.keys() else src_weights['conf_score']
     det = np.linalg.det(np.cov(centroids.T, rowvar=1,bias=False))
     if det < 1e-7:
-        new_cxy_inds = get_kde_value(centroids[:,:2], src_weights, bw_c, return_max=False)        
+        # Split into separate KDE for xy, and KDE for z                
+        new_cxy_inds = get_kde_value(centroids[:,:2], centroid_weight, bw_c, return_max=False)        
         if new_cxy_inds is not None:
             new_cxy = centroids[:,:2][new_cxy_inds]  
         else:
-            new_cxy = np.average(centroids[:,:2], axis=0, weights=src_weights)
+            new_cxy = np.average(centroids[:,:2], axis=0, weights=centroid_weight)
               
-        new_cz_inds = get_kde_value(centroids[:,2], src_weights, bw_c, return_max=False)        
+        new_cz_inds = get_kde_value(centroids[:,2], centroid_weight, bw_c, return_max=False)        
         if new_cz_inds is not None:
             new_cz = centroids[:,2][new_cz_inds]
         else:
-            new_cz = np.average(centroids[:,2], axis=0, weights=src_weights)
+            new_cz = np.average(centroids[:,2], axis=0, weights=centroid_weight)
         
         new_cxyz = np.hstack([new_cxy, new_cz])
     else:
-        new_cxyz_inds = get_kde_value(centroids, src_weights, bw_c, return_max=False)
+        # KDE for xyz
+        new_cxyz_inds = get_kde_value(centroids, centroid_weight, bw_c, return_max=False)
         if new_cxyz_inds is not None:
             new_cxyz = centroids[new_cxyz_inds]
         else:
-            new_cxyz = np.average(centroids, axis=0, weights=src_weights)
+            new_cxyz = np.average(centroids, axis=0, weights=centroid_weight)
     
     new_dx = get_kde_value(boxes[:,3], None, bw_dim, return_max=True)
     new_dy = get_kde_value(boxes[:,4], None, bw_dim, return_max=True)
     new_dz = get_kde_value(boxes[:,5], None, bw_dim, return_max=True)
-        
+    
+    heading_weight = src_weights['heading'] if 'heading' in src_weights.keys() else src_weights['conf_score']
     sin_rys = np.sin(boxes[:,6])
-    ry_ind = get_kde_value(sin_rys, src_weights, bw_ry, return_max=False)    
+    ry_ind = get_kde_value(sin_rys, heading_weight, bw_ry, return_max=False)    
     if ry_ind is not None:
         new_ry = boxes[:,6][ry_ind]
     else:
         new_ry = get_rotation_near_weighted_mean(boxes[:,6])
     
-
-    cls_ind = get_kde_value(boxes[:,7], src_weights, bw_cls, return_max=False)
+    cls_weight = src_weights['class'] if 'class' in src_weights.keys() else src_weights['conf_score']
+    cls_ind = get_kde_value(boxes[:,7], cls_weight, bw_cls, return_max=False)
     if cls_ind is not None:
         new_class = boxes[:,7][cls_ind]
     else:
@@ -247,7 +251,8 @@ def kde_fusion(boxes, src_weights, bw_c=1.0, bw_dim=2.0, bw_ry=0.1, bw_cls=0.5, 
         unique, counts = np.unique(boxes[:,7], return_counts=True)
         new_class = int(unique[np.argmax(counts)])
     
-    new_score = get_kde_value(boxes[:,8], src_weights, bw_score, return_max=True)
+    score_weight = src_weights['score'] if 'score' in src_weights.keys() else src_weights['conf_score']
+    new_score = get_kde_value(boxes[:,8], score_weight, bw_score, return_max=True)
     
     combined_box = np.hstack([new_cxyz[0], new_cxyz[1], new_cxyz[2], new_dx, new_dy, new_dz, new_ry, new_class, new_score])
     return combined_box
@@ -397,8 +402,13 @@ def label_fusion(boxes_lidar, fusion_name, discard, radius, nms_thresh=0.05, wei
         if len(unique) < discard:
             continue
         fusion_func = globals()[fusion_name]
-        src_weights = matched_boxes[:,8] if weights is None else weights[list(m_box_inds)]
-        combined_box = fusion_func(matched_boxes, src_weights=src_weights)        
+        m_box_weights = {}
+        m_box_weights['conf_score'] = matched_boxes[:,8]
+        if weights is not None:
+            for k,v in weights.items():
+                m_box_weights[k] = weights[k][list(m_box_inds)]*matched_boxes[:,8]
+        
+        combined_box = fusion_func(matched_boxes, src_weights=m_box_weights)        
         combined_frame_boxes.append(combined_box)
         num_matched_boxes.append(len(unique))
     

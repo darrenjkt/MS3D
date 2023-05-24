@@ -1,33 +1,10 @@
 CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_da.yaml
-
-# DATA_CONFIG_TAR: 
-#     _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml
-#     TARGET: True
-#     MAX_SWEEPS: 1
-#     CLASS_NAMES: ['car','pedestrian','bicycle']
-#     USE_TTA: False
-#     SAVE_PKL_IN_GROUND_FRAME: True    
-#     POINT_FEATURE_ENCODING: {
-#         encoding_type: absolute_coordinates_encoding,
-#         used_feature_list: ['x', 'y', 'z'],
-#         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
-#     }
-
-# DATA_CONFIG_TAR: 
-#     _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
-#     TARGET: True
-#     MAX_SWEEPS: 1
-#     CLASS_NAMES: ['car','pedestrian','bicycle']
-#     USE_TTA: False
-#     SAVE_PKL_IN_GROUND_FRAME: True    
-#     POINT_FEATURE_ENCODING: {
-#         encoding_type: absolute_coordinates_encoding,
-#         used_feature_list: ['x', 'y', 'z'],
-#         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
-#     }
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
+    SEQUENCE_CONFIG:
+        ENABLED: True
+        SAMPLE_OFFSET: [-3, 0]
 
 MODEL:
     NAME: PVRCNNPlusPlus
@@ -105,7 +82,6 @@ MODEL:
             SAMPLE_RADIUS_WITH_ROI: 1.6
 
         FEATURES_SOURCE: ['bev', 'x_conv3', 'x_conv4', 'raw_points']
-        COVER_FEAT: True # Using coverfeat performs similarly on car/ped and slightly worse on cyc
         SA_LAYER:
             raw_points:
                 NAME: VectorPoolAggregationModuleMSG
