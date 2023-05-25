@@ -111,9 +111,6 @@ For **Waymo**, please send me an email if you would like to download the source-
 <p align="center">
   <img src="docs/media/waymo2nusc_qualitative.gif">
 </p>
-<p align="center">
-  <img src="docs/media/qualitative_before_after_ms3d.png">
-</p>
 
 ## License
 
