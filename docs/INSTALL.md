@@ -22,14 +22,14 @@ We highly recommend running this repository on docker for out-of-box usage. You 
 ```
 docker pull darrenjkt/openpcdet:v0.6.0
 ```
-For easy running of the image we provide a script. Change the file paths, number of GPUs and then run it 
+For easy running of the image we provide a script. Change the file paths, number of GPUs and then run it. Use `docker ps` to find the container name. 
 
 ```
 bash docker/run.sh
 docker exec -it ${CONTAINER_NAME} /bin/bash
 ```
 
-c. Install `pcdet` and the tracker with the following commands
+c. Within the container, install `pcdet` and the tracker with the following commands
 ```shell
 python setup.py develop
 cd tracker && pip install -e . --user

@@ -9,7 +9,6 @@ ENVS="  --env=NVIDIA_VISIBLE_DEVICES=$GPU_ID
         --env=CUDA_VISIBLE_DEVICES=$GPU_ID
         --env=NVIDIA_DRIVER_CAPABILITIES=all"
 
-# Modify these paths to mount the data
 VOLUMES="       --volume=$DATA_PATH:/MS3D/data"
 
 # Setup environmetns for pop-up visualization of point cloud 

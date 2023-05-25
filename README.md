@@ -1,14 +1,16 @@
 # MS3D
 This is the official code release for **MS3D: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection** 
 
-MS3D is a simple self-training pipeline to improve the performance of 3D detectors on an unlabelled dataset without requiring manual labelling. Our pipeline has the following benefits:
-- adds **no processing latency** at inference as we don't modify detector architecture. We focus on high quality pseudo-label generation.
-- can fuse detections from **multiple** and **various types** of pre-trained 3D detector to obtain higher performance than the best individual pre-trained detector
-- is **source-free** i.e. we do not require source-domain data or labels for fine-tuning.
+MS3D is a simple self-training pipeline to improve the performance of 3D detectors on an unlabelled dataset without requiring manual labelling. MS3D can also be used as an offline auto-labelling pipeline.
+
+Our pipeline has the following benefits:
+- can fuse detections from **multiple** pre-trained 3D detectors to obtain higher performance than the best single detector. MS3D just requires 3D bounding boxes as input so it is compatible with any 3D detector. 
+- robust adaptation to a **wide range of lidars** such as high to low beam lidar and vice versa.
+- preserves **real-time inference** capability of detectors as we don't modify detector architecture. 
 
 Our box fusion method, KBF, can be used for **detector ensembling** in a supervised setting as well. See our [KBF demo](tools/kbf_demo.ipynb)
 
-**[[Paper](https://arxiv.org/abs/2304.02431)]**
+**[[Paper](https://arxiv.org/abs/2304.02431)]** **[[Video](https://youtu.be/4g-NVmz3gj4)]**
 
 ## Overview
 1. [Introduction](#introduction)
@@ -22,7 +24,7 @@ Our box fusion method, KBF, can be used for **detector ensembling** in a supervi
 
 Existing methods typically focus on adapting a single detector to the target domain, overlooking the fact that different detectors possess distinct expertise on different unseen domains. MS3D leverages this by combining pre-trained detectors from multiple source domains and incorporating temporal information to produce high-quality pseudo-labels for fine-tuning. 
 
-In practice, it is challenging to robustly evaluate and identify the optimal source pre-trained detector due to lack of labelled data on new target datasets. With MS3D, our fusion of multiple detectors eliminates the need to robustly evaluate the optimal pre-trained detector for self-training. Furthermore, the choice of source dataset for the pre-trained detector (e.g. nuScenes SECOND-IoU or Lyft SECOND-IoU) has a minimal impact on the fine-tuning performance. 
+In practice, it is challenging to robustly evaluate and identify the optimal pre-trained detector due to lack of labelled data on new target datasets. With MS3D, our fusion of multiple detectors eliminates the need to robustly evaluate the optimal pre-trained detector for self-training. Furthermore, the choice of source dataset for the pre-trained detector (e.g. nuScenes SECOND-IoU or Lyft SECOND-IoU) has a minimal impact on the fine-tuning performance. 
 
 <p align="center">
   <img src="docs/media/ms3d_pipeline.png">
@@ -100,22 +102,15 @@ We provide models trained on source-domain data used in our experiments.
 
 For **Waymo**, please send me an email if you would like to download the source-trained models we used.
 ## Qualitative Results
-
 <p align="center">
-  <img src="docs/media/qualitative_before_after_ms3d.png">
+  <img src="docs/media/lyft2waymo_qualitative.gif">
 </p>
-
-|Lyft/nuScenes &rArr; Waymo with SECOND-IoU <img src="docs/media/target_waymo_lyft_secondiou_1frame_4288_10-40_compressed.gif">|
-| -------------------------------- |
-
-
-|Waymo/nuScenes &rArr; Lyft with SECOND-IoU (3-frame accum) <img src="docs/media/target_lyft_waymo_secondiou_3frame_6312_compressed_50-84.gif">|
-| -------------------------------- |
-
-
-|Lyft/Waymo &rArr; nuScenes with SECOND-IoU (10-frame accum) <img src="docs/media/target_nuscenes_waymo_secondiou_10frame_2718_compressed_1-16.gif">|
-| -------------------------------- |
-
+<p align="center">
+  <img src="docs/media/waymo2lyft_qualitative.gif">
+</p>
+<p align="center">
+  <img src="docs/media/waymo2nusc_qualitative.gif">
+</p>
 
 ## License
 

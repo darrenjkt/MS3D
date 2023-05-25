@@ -2,7 +2,13 @@
 
 # Usage
 
+## Demo
+We provide a [demo](VISUALIZATION.md) to visualize the detections of the trained detectors in this repository.
+
+## Pseudo-label generation and fine-tuning
+
 ### Preliminary
+
 Even if you already have generated infos from OpenPCDet, you need to re-generate the infos for nuScenes and Lyft (gt database not required) because we updated infos to include sequence metadata and we use 16 sweeps.
 
 If you'd like to train a separate detector to the ones we've provided, you can follow [nuScenes SECOND-IoU](../tools/cfgs/nuscenes_models/uda_secondiou_vehicle.yaml) for reference. 
@@ -29,12 +35,12 @@ python test.py --cfg_file cfgs/target-nuscenes/waymo_centerpoint.yaml \
 ```
 We train MS3D with lidar data at 5Hz (except nuScenes). For 1-frame detections, we get predictions at 5Hz but for 16-frame detections we get predictions at 1.67Hz. For pseudo-label generation, we interpolate 16-frame detections to 5Hz.
 
-Every dataset has different key frame rates. To downsample the frame rate for the above, we set `DATA_CONFIG_TAR.SAMPLED_INTERVAL.test` at different interval.
+Every dataset has different key frame rates. To downsample the frame rate for the above, we set `DATA_CONFIG_TAR.SAMPLED_INTERVAL.test` at different intervals.
 1. Waymo (10Hz): 1-frame (skip 2), 16-frame (skip 6)
 2. nuScenes (2Hz): no downsampling, both at 2Hz, and we train at 2 Hz
 3. Lyft (5Hz): 1-frame (skip 0), 16-frame (skip 3)
 
-We provide a script for each target domain which you can reference for how we generated detections for our experiments for 1-frame (e.g. [waymo script](../tools/cfgs/target-waymo/generate_dets_1f.sh)) and 16-frame (e.g. [waymo script](../tools/cfgs/target-waymo/generate_dets_16f.sh)). Our reference script assumes the file structure:
+We provide a script for each target domain which you can reference for how we generated detections for our experiments for 1-frame (e.g. [waymo script](../tools/cfgs/target-waymo/raw_dets/generate_dets_1f.sh)) and 16-frame (e.g. [waymo script](../tools/cfgs/target-waymo/raw_dets/generate_dets_16f.sh)). Our reference script assumes the file structure:
 ```bash
 MS3D
 ├── tools
@@ -81,6 +87,8 @@ python train.py \
         --extra_tag exp_name
 ```
 That's it!
+
+If you have 3D bounding box detections from another detection repository, you can start at this self-training step. You would first need to convert them to the OpenPCDet format however (you can download and inspect our pkl files [here](https://drive.google.com/drive/folders/1KAFrrE9oNG6rRrbII_Myzdz5bcCXA69t?usp=share_link) for reference).
 
 **Note**
 - Make sure "used_feature_list" is the same between source and target domain configs
