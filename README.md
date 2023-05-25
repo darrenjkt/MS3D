@@ -8,7 +8,7 @@ MS3D is a simple self-training pipeline to improve the performance of 3D detecto
 
 Our box fusion method, KBF, can be used for **detector ensembling** in a supervised setting as well. See our [KBF demo](tools/kbf_demo.ipynb)
 
-**[[Paper](https://arxiv.org/abs/2304.02431)]**
+**[[Paper](https://arxiv.org/abs/2304.02431)]** **[[Video](https://youtu.be/4g-NVmz3gj4)]**
 
 ## Overview
 1. [Introduction](#introduction)
