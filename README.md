@@ -102,22 +102,18 @@ We provide models trained on source-domain data used in our experiments.
 
 For **Waymo**, please send me an email if you would like to download the source-trained models we used.
 ## Qualitative Results
-
+<p align="center">
+  <img src="docs/media/lyft2waymo_qualitative.gif">
+</p>
+<p align="center">
+  <img src="docs/media/waymo2lyft_qualitative.gif">
+</p>
+<p align="center">
+  <img src="docs/media/waymo2nusc_qualitative.gif">
+</p>
 <p align="center">
   <img src="docs/media/qualitative_before_after_ms3d.png">
 </p>
-
-|Lyft/nuScenes &rArr; Waymo with SECOND-IoU <img src="docs/media/target_waymo_lyft_secondiou_1frame_4288_10-40_compressed.gif">|
-| -------------------------------- |
-
-
-|Waymo/nuScenes &rArr; Lyft with SECOND-IoU (3-frame accum) <img src="docs/media/target_lyft_waymo_secondiou_3frame_6312_compressed_50-84.gif">|
-| -------------------------------- |
-
-
-|Lyft/Waymo &rArr; nuScenes with SECOND-IoU (10-frame accum) <img src="docs/media/target_nuscenes_waymo_secondiou_10frame_2718_compressed_1-16.gif">|
-| -------------------------------- |
-
 
 ## License
 
