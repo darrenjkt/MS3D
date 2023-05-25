@@ -40,7 +40,7 @@ Every dataset has different key frame rates. To downsample the frame rate for th
 2. nuScenes (2Hz): no downsampling, both at 2Hz, and we train at 2 Hz
 3. Lyft (5Hz): 1-frame (skip 0), 16-frame (skip 3)
 
-We provide a script for each target domain which you can reference for how we generated detections for our experiments for 1-frame (e.g. [waymo script](../tools/cfgs/target-waymo/generate_dets_1f.sh)) and 16-frame (e.g. [waymo script](../tools/cfgs/target-waymo/generate_dets_16f.sh)). Our reference script assumes the file structure:
+We provide a script for each target domain which you can reference for how we generated detections for our experiments for 1-frame (e.g. [waymo script](../tools/cfgs/target-waymo/raw_dets/generate_dets_1f.sh)) and 16-frame (e.g. [waymo script](../tools/cfgs/target-waymo/raw_dets/generate_dets_16f.sh)). Our reference script assumes the file structure:
 ```bash
 MS3D
 ├── tools
