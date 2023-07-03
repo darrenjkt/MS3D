@@ -9,18 +9,24 @@ from pcdet.utils import common_utils
 from pcdet.datasets import build_dataloader
 from visual_utils import common_vis
 import argparse
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # apt-get update && apt-get install python3-tk (if given "Matplotlib is currently using agg" error)
 from matplotlib.widgets import Button
+from matplotlib.transforms import Bbox
+
 from pcdet.utils import box_fusion_utils
 from pcdet.utils import compatibility_utils as compat
 
 """
-python visualize_bev.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
+Updated 2023 Jun 27 at 12:11pm
+- Now iterating with the det_annos or ps_dict instead of with target set
+- This way we don't have to think about matching the target_set sample interval with the 
+size of the detection sets/ps_label
+
+python visualize_bev.py --cfg_file cfgs/dataset_configs/waymo_dataset_da.yaml \
                         --dets_txt /MS3D/tools/cfgs/target-nuscenes/raw_dets/det_1f_paths.txt
 
-python visualize_bev.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
-  --pkl ../output/target-nuscenes/waymo_centerpoint/ms3d/eval/epoch_no_number/val/nuscenes_customtrain_1f_no_tta/result.pkl \
-        ../output/target-nuscenes/waymo_centerpoint/ms3d/eval/epoch_no_number/val/nuscenes_customtrain_1f_tta-rwf/result.pkl                                 
+python visualize_bev.py --cfg_file cfgs/dataset_configs/waymo_dataset_da.yaml \
+                        --ps_pkl cfgs/target_waymo/pretrained/ps_label_e0.pkl
 """
 
 def plot_boxes(ax, boxes_lidar, color=[0,0,1], 
@@ -57,39 +63,35 @@ def plot_boxes(ax, boxes_lidar, color=[0,0,1],
         if scores is not None:
             ax.text(box[0,0], box[0,1], f'{scores[idx]:0.4f}', c=color, size='medium')                             
 
+def get_frame_id_from_dets(frame_id, detection_sets):
+    for i, dset in enumerate(detection_sets):
+        if dset['frame_id'] == frame_id:
+            return i
+
 def main():
     parser = argparse.ArgumentParser(description='arg parser')
-    parser.add_argument('--cfg_file', type=str, default=None, required=True,
-                        help='this config file just needs to have the correct target dataset')
+    parser.add_argument('--cfg_file', type=str, default='/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml',
+                        help='just use the target dataset cfg file')
     parser.add_argument('--dets_txt', type=str, default=None, required=False,
                         help='txt file containing detector pkl paths')                        
-    parser.add_argument('--pkl', nargs='+', required=False,
-                        help='Use saved detections from pkl path')
+    parser.add_argument('--ps_pkl', type=str, required=False,
+                        help='These are the ps_dict_*, ps_label_e*.pkl files generated from MS3D')
+    parser.add_argument('--ps_pkl2', type=str, required=False,
+                        help='Another ps_dict for comparison')
     parser.add_argument('--idx', type=int, default=0,
                         help='If you wish to only display a certain frame index')
     parser.add_argument('--split', type=str, default='train',
                         help='Specify train or test split')    
-    parser.add_argument('--sampled_interval', type=int, default=None,
+    parser.add_argument('--sampled_interval', type=int, default=1,
                         help='same as SAMPLED_INTERVAL config parameter')   
     parser.add_argument('--custom_train_split', action='store_true', default=False)     
     args = parser.parse_args()
     
     # Get target dataset
     cfg_from_yaml_file(args.cfg_file, cfg)
-    logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
-    if cfg.get('DATA_CONFIG_TAR', False):
-        dataset_cfg = cfg.DATA_CONFIG_TAR
-        classes = cfg.DATA_CONFIG_TAR.CLASS_NAMES
-        cfg.DATA_CONFIG_TAR.USE_PSEUDO_LABEL=False
-        if dataset_cfg.get('USE_TTA', False):
-            dataset_cfg.USE_TTA=False
-    else:
-        dataset_cfg = cfg.DATA_CONFIG
-        classes = cfg.CLASS_NAMES
-    dataset_cfg.DATA_SPLIT.test = args.split
-    dataset_cfg.USE_CUSTOM_TRAIN_SCENES = args.custom_train_split
-    if args.sampled_interval is not None:
-        dataset_cfg.SAMPLED_INTERVAL.test = args.sampled_interval
+    cfg.DATA_SPLIT.test = args.split
+    cfg.SAMPLED_INTERVAL.test = 1
+    # cfg.USE_CUSTOM_TRAIN_SCENES = args.custom_train_split
 
     # dataset_cfg.SEQUENCE_CONFIG.ENABLED = True
     # if dataset_cfg.SEQUENCE_CONFIG.ENABLED:
@@ -98,68 +100,131 @@ def main():
     #     dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp']
     #     dataset_cfg.POINT_FEATURE_ENCODING.used_feature_list=['x','y','z']        
     
+    logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
     target_set, _, _ = build_dataloader(
-                dataset_cfg=dataset_cfg,
-                class_names=classes,
-                batch_size=1, logger=logger, training=False, dist=False
-            )
+                dataset_cfg=cfg,
+                class_names=cfg.CLASS_NAMES,
+                batch_size=1, logger=logger, training=False, dist=False, workers=1
+            )       
+    idx_to_frameid = {v: k for k, v in target_set.frameid_to_idx.items()}     
+
+    # Start with the first idx of the labels, not the target set
+    start_idx = args.idx
+    get_frame_id_from_ps = False
+    if args.ps_pkl is not None:
+        with open(args.ps_pkl,'rb') as f:
+            ps_dict = pickle.load(f)
+
+        ps_frame_ids = list(ps_dict.keys())
+        start_frame_id = ps_frame_ids[start_idx]
+    if args.ps_pkl2 is not None:
+        with open(args.ps_pkl2,'rb') as f:
+            ps_dict2 = pickle.load(f)
 
     if args.dets_txt is not None:
         det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
-    else:
-        det_annos = box_fusion_utils.load_src_paths_txt(args.pkl)    
+        detection_sets = box_fusion_utils.combine_box_pkls(det_annos, score_th=0.3)
+        if args.ps_pkl is None:
+            start_frame_id = detection_sets[start_idx]['frame_id']   
+        else:
+            get_frame_id_from_ps = True
 
-    combined_dets = box_fusion_utils.combine_box_pkls(det_annos, classes, score_th=0.3)
-    
-    start_idx = args.idx
-    start_frame_id = compat.get_frame_id(target_set, target_set.infos[start_idx])
-    pts = target_set[start_idx]['points']
-
-    pcr = 75
+    pts = target_set[target_set.frameid_to_idx[start_frame_id]]['points']
+    pcr = 80
     limit_range = [-pcr, -pcr, -5.0, pcr, pcr, 3.0]
     mask = common_vis.mask_points_by_range(pts, limit_range)
     
     fig = plt.figure(figsize=(20,20))
     ax = plt.subplot(111)
+    fig.subplots_adjust(right=0.7)
     scatter = ax.scatter(pts[mask][:,0],pts[mask][:,1],s=0.5, c='black', marker='o')
+
     # Plot GT boxes
-    class_mask = np.array([n in classes for n in compat.get_gt_names(target_set, start_frame_id)], dtype=np.bool_)
+    class_mask = np.array([n in cfg.CLASS_NAMES for n in compat.get_gt_names(target_set, start_frame_id)], dtype=np.bool_)
     plot_boxes(ax, compat.get_gt_boxes(target_set, start_frame_id)[class_mask], color=[0,0,1], 
                 limit_range=limit_range, label='gt_boxes',
                 scores=np.ones(compat.get_gt_boxes(target_set, start_frame_id)[class_mask].shape[0]))
 
     # Plot det boxes
-    plot_boxes(ax, combined_dets[start_idx]['boxes_lidar'], 
-            scores=combined_dets[start_idx]['score'],
-            source_id=combined_dets[start_idx]['source_id'],
-            source_labels=combined_dets[start_idx]['source'],
-            limit_range=limit_range, alpha=0.5)
+    if args.dets_txt is not None:
+        det_start_idx = get_frame_id_from_dets(start_frame_id, detection_sets) if get_frame_id_from_ps else start_idx            
+        plot_boxes(ax, detection_sets[det_start_idx]['boxes_lidar'], 
+                scores=detection_sets[det_start_idx]['score'],
+                source_id=detection_sets[det_start_idx]['source_id'],
+                source_labels=detection_sets[det_start_idx]['source'],
+                limit_range=limit_range, alpha=0.5)
+        
+    if args.ps_pkl is not None:
+        plot_boxes(ax, ps_dict[ps_frame_ids[start_idx]]['gt_boxes'], 
+                scores=ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][:,8],
+                label='ps labels', color=[0,1,0],
+                limit_range=limit_range, alpha=1)
+        
+    if args.ps_pkl2 is not None:
+        plot_boxes(ax, ps_dict2[ps_frame_ids[start_idx]]['gt_boxes'], 
+                scores=ps_dict2[ps_frame_ids[start_idx]]['gt_boxes'][:,8],
+                label='ps labels 2', color=[1,0,0],
+                limit_range=limit_range, alpha=1) 
+        
+    # Plot ps labels
+    idx_to_frameid[start_idx]
             
-    ax.set_title(f'Frame: {start_idx}')
-    ax.legend(loc='upper right')    
+    ax.set_title(f'Frame #{start_idx}, FID:{start_frame_id}')
+    legend = ax.legend(loc='upper right', bbox_to_anchor=(1.3, 0, 0.07, 1))    
+    d = {"down" : 30, "up" : -30}
+    def scroll_legend(evt):
+        if legend.contains(evt):
+            bbox = legend.get_bbox_to_anchor()
+            bbox = Bbox.from_bounds(bbox.x0, bbox.y0+d[evt.button], bbox.width, bbox.height)
+            tr = legend.axes.transAxes.inverted()
+            legend.set_bbox_to_anchor(bbox.transformed(tr))
+            fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect("scroll_event", scroll_legend)
 
     def visualize(ind):
-        frame_idx = ind % len(target_set)
-        pts = target_set[frame_idx]['points']
-        frame_id = compat.get_frame_id(target_set, target_set.infos[frame_idx])
+        if args.ps_pkl is not None:
+            frame_idx = ind % len(ps_frame_ids)
+            frame_id = ps_frame_ids[frame_idx]
+        elif args.dets_txt is not None:
+            frame_idx = ind % len(detection_sets)
+            frame_id = detection_sets[frame_idx]['frame_id']        
+
+        pts = target_set[target_set.frameid_to_idx[frame_id]]['points']
         mask = common_vis.mask_points_by_range(pts, limit_range)              
         scatter.set_offsets(pts[mask][:,:2])
         ax.lines.clear()
         ax.texts.clear()
+
         # Plot GT boxes
-        class_mask = np.array([n in classes for n in compat.get_gt_names(target_set, frame_id)], dtype=np.bool_)
+        class_mask = np.array([n in cfg.CLASS_NAMES for n in compat.get_gt_names(target_set, frame_id)], dtype=np.bool_)
         plot_boxes(ax, compat.get_gt_boxes(target_set, frame_id)[class_mask], color=[0,0,1], 
             limit_range=limit_range, label='gt_boxes',
             scores=np.ones(compat.get_gt_boxes(target_set, frame_id)[class_mask].shape[0]))
 
         # Plot det boxes
-        plot_boxes(ax, combined_dets[frame_idx]['boxes_lidar'], 
-                scores=combined_dets[frame_idx]['score'],
-                source_id=combined_dets[frame_idx]['source_id'],
-                source_labels=combined_dets[frame_idx]['source'],
-                limit_range=limit_range, alpha=0.5)                        
+        if args.dets_txt is not None:
+            det_frame_idx = get_frame_id_from_dets(frame_id, detection_sets) if get_frame_id_from_ps else frame_idx            
+            plot_boxes(ax, detection_sets[det_frame_idx]['boxes_lidar'], 
+                    scores=detection_sets[det_frame_idx]['score'],
+                    source_id=detection_sets[det_frame_idx]['source_id'],
+                    source_labels=detection_sets[det_frame_idx]['source'],
+                    limit_range=limit_range, alpha=0.5)  
+             
+        if args.ps_pkl is not None:
+            plot_boxes(ax, ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'], 
+                scores=ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][:,8],
+                label='ps labels', color=[0,1,0],
+                limit_range=limit_range, alpha=1) 
+            
+        if args.ps_pkl2 is not None:
+            plot_boxes(ax, ps_dict2[ps_frame_ids[frame_idx]]['gt_boxes'], 
+                scores=ps_dict2[ps_frame_ids[frame_idx]]['gt_boxes'][:,8],
+                label='ps labels 2', color=[1,0,0],
+                limit_range=limit_range, alpha=1) 
+            
         ax.set_aspect('equal')
-        ax.set_title(f'Frame: {frame_idx}')
+        ax.set_title(f'Frame #{frame_idx}, FID:{frame_id}')
         plt.draw()
 
     class Index:

@@ -10,12 +10,27 @@ DATA_SPLIT: {
     'train': train,
     'test': val
 }
+CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
+CLASS_MAPPING: {'car': 'car',                
+                'truck': 'car',
+                'bus': 'car',
+                'Vehicle': 'car',
+                'bicycle': 'bicycle',
+                'motorcycle': 'bicycle',
+                'Cyclist': 'bicycle',
+                'pedestrian': 'pedestrian',
+                'Pedestrian': 'pedestrian'}
 
 INFO_PATH: {
     'train': [nuscenes_infos_50sweeps_train.pkl],
     'val': [nuscenes_infos_50sweeps_val.pkl],
 }
-
+MAX_SWEEPS: 10
+POINT_FEATURE_ENCODING: {
+    encoding_type: absolute_coordinates_encoding,
+    used_feature_list: ['x', 'y', 'z','timestamp'],
+    src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
+}
 POINT_CLOUD_RANGE: [-75.2, -75.2, -2, 75.2, 75.2, 4]
 SHIFT_COOR: [0.0, 0.0, 1.8]
 

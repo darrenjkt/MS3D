@@ -25,8 +25,8 @@ python visualize_3d.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
 
 def main():
     parser = argparse.ArgumentParser(description='arg parser')
-    parser.add_argument('--cfg_file', type=str, default=None, required=True,
-                        help='specify the config for demo')
+    parser.add_argument('--cfg_file', type=str, default='/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml',
+                        help='just use the target dataset cfg file')
     parser.add_argument('--ckpt', type=str, default=None,
                         help='specify the model ckpt path')    
     parser.add_argument('--det_pkl', type=str, required=False,
@@ -39,33 +39,59 @@ def main():
                         help='If you wish to only display a certain frame index')
     parser.add_argument('--split', type=str, default='train',
                         help='Specify train or test split')    
-    parser.add_argument('--sampled_interval', type=int, default=1,
+    parser.add_argument('--sampled_interval', type=int, default=None,
                         help='same as SAMPLED_INTERVAL config parameter')        
     parser.add_argument('--custom_train_split', action='store_true', default=False)
     parser.add_argument('--save_video', action='store_true', default=False)
     parser.add_argument('--show_gt', action='store_true', default=False)
+    parser.add_argument('--sweeps', action='store_true', default=False)
+    parser.add_argument('--bev_vis', action='store_true', default=False)
     args = parser.parse_args()
+    
+    if args.bev_vis:
+        from visualize_bev import plot_boxes
+        import matplotlib.pyplot as plt
 
+    # Load dataset or model+dataset
     cfg_from_yaml_file(args.cfg_file, cfg)
-    if cfg.get('DATA_CONFIG_TAR', None):
-        data_config = cfg.DATA_CONFIG_TAR
-        cls_names = cfg.DATA_CONFIG_TAR.CLASS_NAMES
+    if 'dataset_configs' in args.cfg_file:
+        data_config = cfg      
     else:
-        data_config = cfg.DATA_CONFIG
-        cls_names = cfg.CLASS_NAMES
+        if cfg.get('DATA_CONFIG_TAR', None):
+            data_config = cfg.DATA_CONFIG_TAR
+        else:
+            data_config = cfg.DATA_CONFIG
 
+    cls_names = data_config.CLASS_NAMES
     data_config.DATA_SPLIT.test = args.split
-    if not data_config.get('SAMPLED_INTERVAL', False):        
+    data_config.USE_TTA = False
+    if args.sampled_interval is not None:          
         data_config.SAMPLED_INTERVAL.test = args.sampled_interval
     data_config.USE_CUSTOM_TRAIN_SCENES = args.custom_train_split
     logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
+
+    if data_config.get('SEQUENCE_CONFIG',False):
+        if data_config.SEQUENCE_CONFIG.ENABLED:
+            if args.sweeps:
+                data_config.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-15,0]
+            else:
+                data_config.SEQUENCE_CONFIG.SAMPLE_OFFSET = [0,0]
+
+            data_config.SEQUENCE_CONFIG.ZERO_TIMESTAMP = True
+            # data_config.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp']
+            data_config.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp']
+            data_config.POINT_FEATURE_ENCODING.used_feature_list=['x','y','z','timestamp']        
+
     target_set, target_loader, _ = build_dataloader(
-                dataset_cfg=data_config,
-                class_names=cls_names,
-                batch_size=1, logger=logger, training=False, dist=False, workers=1
-            )
+            dataset_cfg=data_config,
+            class_names=cls_names,
+            batch_size=1, logger=logger, training=False, dist=False, workers=1
+        )          
+
     frameid_to_idx = target_set.frameid_to_idx    
     idx_to_frameid = {v: k for k, v in frameid_to_idx.items()}
+
+    # Visualize pkls
     if (args.det_pkl is not None) or (args.ps_pkl is not None) or (args.dets_txt is not None):    
 
         # Load detection pickle
@@ -115,7 +141,7 @@ def main():
                                           gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None)
             
     else:
-
+        # Load trained model for inference
         model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=target_set)
         model.load_params_from_file(filename=args.ckpt, logger=logger, to_cpu=True)
         model.cuda()
@@ -174,12 +200,38 @@ def main():
                     ref_labels = pred_dicts[0]['pred_labels']
                     ref_scores = pred_dicts[0]['pred_scores']
 
+                    print('Frame ID: ', data_dict['frame_id'])
                     print('Predicted: ', int(ref_boxes.shape[0]))
                     print('Ground truth: ', int(gt_boxes.shape[0]))
-                    V.draw_scenes(
-                        points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=ref_boxes, 
-                        ref_scores=ref_scores, ref_labels=ref_labels
-                    )
+                    if args.bev_vis:
+
+                        pts = data_dict['points'][:, 1:].cpu().numpy()
+                        fig = plt.figure(figsize=(20,20))
+                        ax = plt.subplot(111)
+                        fig.subplots_adjust(right=0.7)
+                        if args.sweeps:
+                            ax.scatter(pts[:,0],pts[:,1],s=0.1, c='black', marker='o')
+                        else:
+                            ax.scatter(pts[:,0],pts[:,1],s=0.5, c='black', marker='o')
+
+                        plot_boxes(ax, ref_boxes.cpu().numpy(), 
+                            scores=ref_scores.cpu().numpy(),
+                            source_labels=ref_labels.cpu().numpy(),
+                            limit_range=[-80, -80, -5.0, 80, 80, 3.0], color=[0,1,0])
+                        
+                        if args.show_gt:
+                            plot_boxes(ax, gt_boxes.cpu().numpy(), 
+                                        scores=None,
+                                        source_labels=None,
+                                        limit_range=[-80, -80, -5.0, 80, 80, 3.0], color=[0,0,1])
+
+                        ax.set_aspect('equal')
+                        plt.show(block=True)
+                    else:
+                        V.draw_scenes(
+                            points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=ref_boxes, 
+                            ref_scores=ref_scores, ref_labels=ref_labels, use_linemesh=False
+                        )
 
 
 if __name__ == '__main__':

@@ -2,71 +2,18 @@ CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
-    MAX_SWEEPS: 1
+    MAX_SWEEPS: 3
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
+        used_feature_list: ['x', 'y', 'z','timestamp'],
         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
 
-    DATA_PROCESSOR:
-        -   NAME: mask_points_and_boxes_outside_range
-            REMOVE_OUTSIDE_BOXES: True
-            STRICT_MASK: True
-
-        -   NAME: shuffle_points
-            SHUFFLE_ENABLED: {
-                'train': True,
-                'test': False
-            }
-
-        -   NAME: transform_points_to_voxels_placeholder
-            VOXEL_SIZE: [0.1, 0.1, 0.15]
-            
-
-# DATA_CONFIG_TAR: 
-#     _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml
-#     TARGET: True
-#     MAX_SWEEPS: 1
-#     CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
-#     USE_TTA: False
-#     SAVE_PKL_IN_GROUND_FRAME: True    
-#     POINT_FEATURE_ENCODING: {
-#         encoding_type: absolute_coordinates_encoding,
-#         used_feature_list: ['x', 'y', 'z','timestamp'],
-#         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
-#     }
-
-DATA_CONFIG_TAR: 
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
-    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
-    TARGET: True
-    USE_TTA: False
-    SAVE_PKL_IN_GROUND_FRAME: True    
-    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
-    SEQUENCE_CONFIG:
-        ENABLED: True
-        SAMPLE_OFFSET: [-3, 0]
-    DATA_PROCESSOR:
-        -   NAME: mask_points_and_boxes_outside_range
-            REMOVE_OUTSIDE_BOXES: True
-            STRICT_MASK: True
-
-        -   NAME: shuffle_points
-            SHUFFLE_ENABLED: {
-                'train': True,
-                'test': False
-            }
-
-        -   NAME: transform_points_to_voxels_placeholder
-            VOXEL_SIZE: [0.1, 0.1, 0.15]
-
-
 MODEL:
-    NAME: VoxelRCNN
+    NAME: SECONDNetIoU
 
     VFE:
-        NAME: DynMeanVFE
+        NAME: MeanVFE
 
     BACKBONE_3D:
         NAME: VoxelBackBone8x
@@ -88,7 +35,6 @@ MODEL:
         NAME: AnchorHeadSingle
         CLASS_AGNOSTIC: False
 
-        USE_DIRECTION_CLASSIFIER: True
         DIR_OFFSET: 0.78539
         DIR_LIMIT_OFFSET: 0.0
         NUM_DIR_BINS: 2
@@ -173,12 +119,11 @@ MODEL:
             }
 
     ROI_HEAD:
-        NAME: VoxelRCNNHead
+        NAME: SECONDHead
         CLASS_AGNOSTIC: True
 
         SHARED_FC: [256, 256]
-        CLS_FC: [256, 256]
-        REG_FC: [256, 256]
+        IOU_FC: [256, 256]
         DP_RATIO: 0.3
 
         NMS_CONFIG:
@@ -194,33 +139,11 @@ MODEL:
                 NMS_PRE_MAXSIZE: 1024
                 NMS_POST_MAXSIZE: 100
                 NMS_THRESH: 0.7
-                # NMS_PRE_MAXSIZE: 4096
-                # NMS_POST_MAXSIZE: 300
-                # NMS_THRESH: 0.85
 
         ROI_GRID_POOL:
-            FEATURES_SOURCE: ['x_conv2', 'x_conv3', 'x_conv4']
-            PRE_MLP: True
-            GRID_SIZE: 6
-            POOL_LAYERS:
-                x_conv2:
-                    MLPS: [ [ 64, 64 ] ]
-                    QUERY_RANGES: [ [ 3, 3, 2 ] ]
-                    POOL_RADIUS: [ 0.4 ]
-                    NSAMPLE: [ 16 ]
-                    POOL_METHOD: max_pool
-                x_conv3:
-                    MLPS: [ [ 64, 64 ] ]
-                    QUERY_RANGES: [ [ 3, 3, 2 ] ]
-                    POOL_RADIUS: [ 0.8 ]
-                    NSAMPLE: [ 16 ]
-                    POOL_METHOD: max_pool
-                x_conv4:
-                    MLPS: [ [ 64, 64 ] ]
-                    QUERY_RANGES: [ [ 3, 3, 2 ] ]
-                    POOL_RADIUS: [ 1.6 ]
-                    NSAMPLE: [ 16 ]
-                    POOL_METHOD: max_pool
+            GRID_SIZE: 7
+            IN_CHANNEL: 512
+            DOWNSAMPLE_RATIO: 8
 
         TARGET_CONFIG:
             BOX_CODER: ResidualCoder
@@ -228,7 +151,7 @@ MODEL:
             FG_RATIO: 0.5
 
             SAMPLE_ROI_BY_EACH_CLASS: True
-            CLS_SCORE_TYPE: roi_iou
+            CLS_SCORE_TYPE: raw_roi_iou
 
             CLS_FG_THRESH: 0.75
             CLS_BG_THRESH: 0.25
@@ -238,13 +161,9 @@ MODEL:
             REG_FG_THRESH: 0.55
 
         LOSS_CONFIG:
-            CLS_LOSS: BinaryCrossEntropy
-            REG_LOSS: smooth-l1
-            CORNER_LOSS_REGULARIZATION: True
+            IOU_LOSS: BinaryCrossEntropy
             LOSS_WEIGHTS: {
-                'rcnn_cls_weight': 1.0,
-                'rcnn_reg_weight': 1.0,
-                'rcnn_corner_weight': 1.0,
+                'rcnn_iou_weight': 1.0,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
 
@@ -264,12 +183,12 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2
+    BATCH_SIZE_PER_GPU: 4
     NUM_EPOCHS: 30
 
     OPTIMIZER: adam_onecycle
     LR: 0.01
-    WEIGHT_DECAY: 0.001
+    WEIGHT_DECAY: 0.01
     MOMENTUM: 0.9
 
     MOMS: [0.95, 0.85]

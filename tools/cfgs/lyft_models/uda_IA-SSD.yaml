@@ -2,10 +2,10 @@ CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
-    MAX_SWEEPS: 1
+    MAX_SWEEPS: 3
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
+        used_feature_list: ['x', 'y', 'z','timestamp'],
         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
     DATA_PROCESSOR:
@@ -28,9 +28,54 @@ DATA_CONFIG:
                 'test': 90000
                 }
             NUM_POINTS: {
-                'train': 65536,
-                'test': 65536
+                'train': 98304,
+                'test': 98304
                 }
+
+DATA_CONFIG_TAR: 
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
+    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
+    TARGET: True
+    USE_TTA: False
+    SAVE_PKL_IN_GROUND_FRAME: True    
+    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
+    SEQUENCE_CONFIG:
+        ENABLED: True
+        SAMPLE_OFFSET: [-3, 0]
+    DATA_PROCESSOR:
+        -   NAME: mask_points_and_boxes_outside_range
+            REMOVE_OUTSIDE_BOXES: True
+
+        -   NAME: shuffle_points
+            SHUFFLE_ENABLED: {
+                'train': True,
+                'test': False
+            }
+            
+        -   NAME: sample_points_by_voxels  # after the shuffle_points
+            SAMPLE_TYPE: 'raw'    # 'mean_vfe', 'raw' (default)
+            VOXEL_SIZE: [0.1, 0.1, 0.15]
+            MAX_POINTS_PER_VOXEL: 5 
+            PTS_NEAR_FLAG: 40          
+            MAX_NUMBER_OF_VOXELS: {
+                'train': 80000,
+                'test': 90000
+                }
+            NUM_POINTS: {
+                'train': 98304,
+                'test': 98304
+                }
+
+# DATA_CONFIG_TAR: 
+#     _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
+#     PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
+#     TARGET: True
+#     USE_TTA: False
+#     SAVE_PKL_IN_GROUND_FRAME: True    
+#     CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
+#     SEQUENCE_CONFIG:
+#         ENABLED: True
+#         SAMPLE_OFFSET: [-3, 0]
 
 MODEL:
     NAME: IASSD
@@ -131,7 +176,7 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2  # 8
+    BATCH_SIZE_PER_GPU: 12  # 8
     NUM_EPOCHS: 30
 
     OPTIMIZER: adam_onecycle

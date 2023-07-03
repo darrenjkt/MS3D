@@ -338,7 +338,12 @@ class WaymoDataset(DatasetTemplate):
                 points_pre = np.hstack([points_pre, onehot_vector])
             else:
                 # add timestamp
-                points_pre = np.hstack([points_pre, 0.1 * (sample_idx - sample_idx_pre) * np.ones((points_pre.shape[0], 1)).astype(points_pre.dtype)])  # one frame 0.1s
+                if sequence_cfg.ZERO_TIMESTAMP:
+                    points_pre = np.hstack([points_pre, np.zeros((points_pre.shape[0], 1)).astype(points_pre.dtype)]) # Put all timestamp at current frame i.e. t=0
+                else:
+                    points_pre = np.hstack([points_pre, 0.1 * (sample_idx - sample_idx_pre) * np.ones((points_pre.shape[0], 1)).astype(points_pre.dtype)])  # one frame 0.1s
+
+
             points_pre = remove_ego_points(points_pre, 1.0)
             points_pre_all.append(points_pre)
             num_points_pre.append(points_pre.shape[0])

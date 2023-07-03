@@ -1,10 +1,29 @@
-CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
+CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
-    SEQUENCE_CONFIG:
-        ENABLED: True
-        SAMPLE_OFFSET: [-3, 0]
+    _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
+    MAX_SWEEPS: 1
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z'],
+        src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
+    }
+
+DATA_CONFIG_TAR: 
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_da.yaml
+    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
+    TARGET: True
+    USE_TTA: True
+    USE_CUSTOM_TRAIN_SCENES: True
+    SAVE_PKL_IN_GROUND_FRAME: True    
+    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
+    DATA_AUGMENTOR: 
+        DISABLE_AUG_LIST: ['placeholder']
+        AUG_CONFIG_LIST:
+            - NAME: random_world_flip
+              ALONG_AXIS_LIST: [ 'x', 'y' ]
+            - NAME: random_world_rotation
+              WORLD_ROT_ANGLE: [-3.1415926, 3.1415926]
 
 MODEL:
     NAME: PVRCNNPlusPlus
@@ -33,7 +52,7 @@ MODEL:
         CLASS_AGNOSTIC: False
 
         CLASS_NAMES_EACH_HEAD: [
-            [ 'Vehicle', 'Pedestrian', 'Cyclist' ]
+            ['car','truck','bus','motorcycle','bicycle','pedestrian']
         ]
 
         SHARED_CONV_CHANNEL: 64
@@ -57,7 +76,7 @@ MODEL:
         LOSS_CONFIG:
             LOSS_WEIGHTS: {
                 'cls_weight': 1.0,
-                'loc_weight': 2.0,
+                'loc_weight': 0.25,
                 'code_weights': [ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 ]
             }
 
@@ -247,7 +266,7 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: waymo
+        EVAL_METRIC: kitti
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
@@ -255,7 +274,6 @@ MODEL:
             NMS_THRESH: 0.7
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
-
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 2

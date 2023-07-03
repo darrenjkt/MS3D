@@ -128,7 +128,7 @@ def main():
             with open(csv_path, 'w') as f:
                 f.writelines(item_key)
                 f.writelines(item_res)
-
+    print(f'Evaluation finished for: {args.pkl}')
 
 if __name__ == '__main__':
     main()

@@ -8,7 +8,7 @@ from pathlib import Path
 import pickle as pkl
 from pcdet.utils.transform_utils import ego_to_world, world_to_ego
 from pcdet.utils.tracker_utils import get_frame_track_boxes
-from pcdet.utils.box_fusion_utils import compute_iou, kde_fusion, nms
+from pcdet.utils.box_fusion_utils import compute_iou, kbf, nms
 from pcdet.datasets.augmentor.augmentor_utils import get_points_in_box
 from pcdet.utils.compatibility_utils import get_lidar, get_pose, get_sequence_name, get_sample_idx, get_frame_id
 from pcdet.utils import common_utils
@@ -232,7 +232,7 @@ def get_track_rolling_kde_interpolation(dataset, tracks_16f, window, ps_score_th
         if len(trk_frame_inds_set) < window:
             boxes = np.array(list(f2b.values()))
             boxes = np.insert(boxes, 7,1,1) # insert dummy class for kdefusion
-            kdebox = kde_fusion(boxes, src_weights=boxes[:,-1])
+            kdebox = kbf(boxes, box_weights=boxes[:,-1])
             if kdebox[8] > ps_score_th:
                 kdebox[8] = max(kdebox_min_score, kdebox[8])
             kdebox = np.delete(kdebox, 7)
@@ -247,7 +247,7 @@ def get_track_rolling_kde_interpolation(dataset, tracks_16f, window, ps_score_th
                 accum_inds = np.clip(accum_inds, 0, len(trk_frame_inds_set)-1)
                 boxes = np.stack([f2b[key] for key in trk_frame_inds_set[np.unique(accum_inds)]])
                 boxes = np.insert(boxes, 7,1,1) # insert dummy class for kdefusion
-                kdebox = kde_fusion(boxes, src_weights=boxes[:,-1])
+                kdebox = kbf(boxes, box_weights=boxes[:,-1])
                 if kdebox[8] > ps_score_th:
                     kdebox[8] = max(kdebox_min_score, kdebox[8])
                 kdebox = np.delete(kdebox, 7)

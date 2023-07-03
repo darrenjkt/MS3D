@@ -44,7 +44,7 @@ def get_coor_colors(obj_labels):
 
     return label_rgba
 
-def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_score=0.2):
+def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_score=0.2, use_linemesh=True):
 
     vis = open3d.visualization.Visualizer()
     vis.create_window()
@@ -62,7 +62,9 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc
                                 ref_labels=[1 for i in range(len(det_annos[key][idx]['name'][mask]))],
                                 ref_box_colors=cmap[sid % len(cmap)],
                                 gt_boxes=gt_boxes, 
-                                draw_origin=draw_origin, line_thickness=0.04)
+                                draw_origin=draw_origin, 
+                                line_thickness=0.04,
+                                use_linemesh=use_linemesh)
         for g in geom:                
             vis.add_geometry(g)
 
@@ -76,7 +78,8 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc
     vis.run()
     vis.destroy_window()
 
-def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scores=None, ref_box_colors=None, point_colors=None, draw_origin=False):
+def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scores=None, ref_box_colors=None, 
+                point_colors=None, draw_origin=False, use_linemesh=True):
 
     vis = open3d.visualization.Visualizer()
     vis.create_window()
@@ -85,12 +88,17 @@ def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref
                           ref_boxes=ref_boxes, ref_labels=ref_labels, 
                           ref_scores=ref_scores, ref_box_colors=ref_box_colors, 
                           point_colors=point_colors, draw_origin=draw_origin,
-                          line_thickness=0.06)
+                          line_thickness=0.06, use_linemesh=use_linemesh)
     vis.clear_geometries()
     for g in geom:                
         vis.add_geometry(g)
     
-    ctr = vis.get_view_control()
+    ctr = vis.get_view_control()  
+    
+    ctr.set_front([ -0.31094269624370807, -0.52800088868119233, 0.79027191599130253 ])
+    ctr.set_lookat([ -3.9253878764499586, -4.1870200341400947, -16.570707875396788 ])
+    ctr.set_up([ 0.41025289806528631, 0.67547432104665128, 0.61272098155326737 ])
+    ctr.set_zoom(0.40)
     # ctr.set_front([ -0.85415171319858785, 0.0084795734346973951, 0.51995475541077896 ])
     # ctr.set_lookat([ 22.078260806001634, 1.0249602339143569, -2.8088354431826907 ])
     # ctr.set_up([ 0.51984622231746436, -0.012211597572028807, 0.85417257157263038 ])
@@ -108,18 +116,13 @@ def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref
     # ctr.set_up([ -0.55585420737713021, 0.34547108891144618, 0.75609247243143607 ])
     # ctr.set_zoom(0.21900000000000003)
 
-    ctr.set_front([ -0.31094269624370807, -0.52800088868119233, 0.79027191599130253 ])
-    ctr.set_lookat([ -3.9253878764499586, -4.1870200341400947, -16.570707875396788 ])
-    ctr.set_up([ 0.41025289806528631, 0.67547432104665128, 0.61272098155326737 ])
-    ctr.set_zoom(0.40)
-
     vis.get_render_option().point_size = 2.0
     vis.run()
     vis.destroy_window()
 
 def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None, 
                    ref_scores=None, ref_box_colors=None, point_colors=None, 
-                   draw_origin=False, line_thickness=0.06):
+                   draw_origin=False, line_thickness=0.06, use_linemesh=True):
     if isinstance(points, torch.Tensor):
         points = points.cpu().numpy()
     if isinstance(gt_boxes, torch.Tensor):
@@ -141,19 +144,19 @@ def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None,
         geometries.append(pts)
 
     if gt_boxes is not None:
-        box = get_box(gt_boxes, (0, 0, 1.0))
+        box = get_box(gt_boxes, (0, 0, 1.0), use_linemesh=use_linemesh)
         geometries.extend(box)
 
     if ref_boxes is not None:
         # color = ref_box_colors if ref_box_colors is not None else (0,0.6,0)
         # color = ref_box_colors if ref_box_colors is not None else (0.255,0.518,0.89)
         color = ref_box_colors if ref_box_colors is not None else (0.19215686, 0.59215686, 0.41568627)
-        box = get_box(ref_boxes, color, ref_labels, ref_scores, line_thickness=line_thickness)
+        box = get_box(ref_boxes, color, ref_labels, ref_scores, line_thickness=line_thickness, use_linemesh=use_linemesh)
         geometries.extend(box)
 
     return geometries
 
-def get_box(boxes, color=(0, 1, 0), ref_labels=None, score=None, line_thickness=0.06): #0.02
+def get_box(boxes, color=(0, 1, 0), ref_labels=None, score=None, line_thickness=0.06, use_linemesh=True): #0.02
     ret_boxes = []
         
     # cmap = np.array([[49,131,106],[176,73,73],[160,155,30],[25,97,120],[0,0,0],[120,59,24],[120,24,110]])/255 # for track vis

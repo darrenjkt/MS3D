@@ -12,9 +12,20 @@ SAMPLED_INTERVAL: {
     'train': 5,
     'test': 5
 }
+CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
+CLASS_MAPPING: {'car': 'Vehicle',
+                'truck': 'Vehicle',
+                'bus': 'Vehicle',
+                'Vehicle': 'Vehicle',
+                'motorcycle': 'Cyclist',
+                'bicycle': 'Cyclist',
+                'Cyclist': 'Cyclist',
+                'pedestrian': 'Pedestrian',
+                'Pedestrian': 'Pedestrian'}
 
 SEQUENCE_CONFIG:
     ENABLED: True
+    ZERO_TIMESTAMP: False
     SAMPLE_OFFSET: [-3, 0]
 
 FILTER_EMPTY_BOXES_FOR_TRAIN: True

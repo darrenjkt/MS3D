@@ -10,12 +10,27 @@ DATA_SPLIT: {
     'train': train,
     'test': val
 }
+CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
+CLASS_MAPPING: {'car': 'car',                
+                'truck': 'car',
+                'bus': 'car',
+                'Vehicle': 'car',
+                'bicycle': 'bicycle',
+                'motorcycle': 'bicycle',
+                'Cyclist': 'bicycle',
+                'pedestrian': 'pedestrian',
+                'Pedestrian': 'pedestrian'}
 
 SAMPLED_INTERVAL: {
     'train': 1,
     'test': 1
 }
-
+MAX_SWEEPS: 3
+POINT_FEATURE_ENCODING: {
+    encoding_type: absolute_coordinates_encoding,
+    used_feature_list: ['x', 'y', 'z','timestamp'],
+    src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
+}
 INFO_PATH: {
     'train': [lyft_infos_train_16sweeps.pkl],
     'val': [lyft_infos_val_16sweeps.pkl],

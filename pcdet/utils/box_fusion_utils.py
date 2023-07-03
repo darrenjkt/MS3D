@@ -20,16 +20,16 @@ def get_matching_boxes(boxes, discard=3, radius=1.0):
 
     tree = cKDTree(boxes[:,:3])
     qbp_boxes = tree.query_ball_point(boxes[:,:3], r=radius)
-    qbp_boxes_filt = [tuple(sets) for sets in qbp_boxes if len(sets) > discard]
+    qbp_boxes_filt = [tuple(sets) for sets in qbp_boxes if len(sets) >= discard]
     
     return list(set(qbp_boxes_filt))
 
-def get_sample_inds_with_max_likelihood(samples, kde):
+def get_sample_inds_with_max_density(samples, kde):
     if len(samples.shape) == 1:
-        log_likelihood = kde(samples)    
+        density = kde(samples)    
     else:
-        log_likelihood = kde(samples.T)    
-    return np.where(log_likelihood == log_likelihood.max())[0][0]
+        density = kde(samples.T)    
+    return np.where(density == density.max())[0][0]
 
 def get_kde(data, bw_method=None, weights=None, return_max=False):
     """
@@ -47,9 +47,9 @@ def get_kde(data, bw_method=None, weights=None, return_max=False):
     else:
         if len(data.shape) == 1:
             x = np.linspace(min(data), max(data),100)
-            loglh = kde(x)
+            density = kde(x)
             if return_max:
-                x_ind = np.where(loglh == loglh.max())[0][0] # If more than one max, then just choose 0th idx
+                x_ind = np.where(density == density.max())[0][0] # If more than one max, then just choose 0th idx
                 return kde, x[x_ind]
                 
         elif len(data.shape) == 2:
@@ -127,18 +127,28 @@ def load_src_paths_txt(src_paths_txt):
         pkl_pths = [line.split('\n')[0] for line in f.readlines()]
 
     det_annos = {}
-    for idx, pkl_pth in enumerate(pkl_pths):
+    det_annos['det_cls_weights'] = {}
+    for idx, pkl_pth_w in enumerate(pkl_pths):
+        split_pth_w = pkl_pth_w.split(',')
+        pkl_pth = split_pth_w[0]        
+        if len(split_pth_w) > 1:
+            det_cls_weights = np.array(split_pth_w[1:],dtype=np.int32) # Should only have 3 weights in the order: VEH, PED, CYC
+        else:
+            det_cls_weights = np.ones(3, dtype=np.int32) # hardcoded for 3 supercategories (should still work if only vehicle class for inference)
+
         with open(pkl_pth, 'rb') as f:
             if not Path(pkl_pth).is_absolute():
                 pkl_pth = Path(pkl_pth).resolve()     
             
-            label_str = str(pkl_pth).split('/')[3:5]
+            label_str = [str(pkl_pth).split('/')[5]]
             label_str.append(str(pkl_pth).split('/')[-2])
-            label = '.'.join(label_str) # source-dataset.detector.eval_tag
+            label = '.'.join(label_str) # source_detector_nframe.vmfi
             det_annos[label] = pkl.load(f)
+            det_annos['det_cls_weights'][label] = det_cls_weights
     return det_annos
 
 def combine_box_pkls(det_annos, score_th=0.1):
+    # TODO: Update this with the function in exp_kbf_combinations
     combined_dets = []
     len_data = len(det_annos[list(det_annos.keys())[0]])
     for idx in tqdm(range(len_data), total=len_data, desc='aggregating_proposals'):
@@ -164,12 +174,14 @@ def combine_box_pkls(det_annos, score_th=0.1):
         assert frame_dets['class_ids'].shape == frame_dets['score'].shape
     return combined_dets
 
-def kde_fusion(boxes, src_weights, bw_c=1.0, bw_dim=2.0, bw_ry=0.1, bw_cls=0.5, bw_score=2.0):
+def kbf(boxes, box_weights, bw_c=1.0, bw_dim=2.0, bw_ry=0.1, bw_cls=0.5, bw_score=2.0):
     """
+    KDE Box Fusion (KBF)
+
     Combines the centroids, dims, ry and scores of multiple predicted boxes
     Args:
         boxes: (N,9) np array. Boxes for filtering
-        src_weights : (list). List of weights for each source detector
+        box_weights : (list). List of weights for each box
 
     Returns:
         combined box: (9) np array. A final box with params [x,y,z,dx,dy,dz,ry,score,class_id]
@@ -178,72 +190,89 @@ def kde_fusion(boxes, src_weights, bw_c=1.0, bw_dim=2.0, bw_ry=0.1, bw_cls=0.5, 
     Rotations are selected as it is quite sensitive to aggregation
     Dimensions/score are the peak value of the KDE since we want to factor in the sizing/cls conf of diff detectors                    
     """
-    def get_kde_value(data, src_weights, bw, return_max=False, verbose=False):
+
+    boxes = boxes[box_weights > 0]
+    box_weights = box_weights[box_weights > 0]
+    if boxes.shape == 0:
+        return None
+    
+    if boxes.shape == 1:
+        return boxes
+    
+    if boxes.shape == 2:             
+        max_score_ind = np.argmax(boxes[:,8]*box_weights)
+        centroid = boxes[max_score_ind,:3]
+        dims = np.average(boxes[:,3:6], axis=0, weights=box_weights)
+        new_heading = boxes[max_score_ind,6]
+        new_class = boxes[max_score_ind,7]
+        new_score = np.average(boxes[:,8], axis=0, weights=box_weights)
+        combined_box = np.hstack([centroid[0], centroid[1], centroid[2], dims[0], dims[1], dims[2], new_heading, new_class, new_score])
+
+        return combined_box
+        
+    def get_kde_value(data, box_weights, bw, return_max=False, verbose=False):
         """
         If data points are too similar, KDE will fail. This is because
         the covariance matrix is not invertible because the values are too close 
-        (zero covriance on some diagonal elements).
+        (zero covariance on some diagonal elements).
         
         In these cases, we just take the weighted average.
         """
         if return_max:
             try:
-                _, new_val = get_kde(data, return_max=return_max, weights=src_weights, bw_method=bw)
+                _, new_val = get_kde(data, return_max=return_max, weights=box_weights, bw_method=bw)
                 return new_val
             except Exception as e:
                 if verbose:
                     print(f'data:{data}, error:{e}')
-                return np.average(data, axis=0, weights=src_weights)
+                return np.average(data, axis=0, weights=box_weights)
         else:
             try:
-                kde = get_kde(data, return_max=return_max, weights=src_weights, bw_method=bw)
-                new_inds = get_sample_inds_with_max_likelihood(data, kde)    
+                kde = get_kde(data, return_max=return_max, weights=box_weights, bw_method=bw)
+                new_inds = get_sample_inds_with_max_density(data, kde)    
                 return new_inds
             except Exception as e:
                 if verbose:
                     print(f'data:{data}, error:{e}')
                 return None
         
-    centroids = boxes[:,:3]
-    centroid_weight = src_weights['centroid'] if 'centroid' in src_weights.keys() else src_weights['conf_score']
-    det = np.linalg.det(np.cov(centroids.T, rowvar=1,bias=False))
+    centroids = boxes[:,:3]    
+    det = np.linalg.det(np.cov(centroids.T, rowvar=1,bias=False)) # May throw "RuntimeWarning: Degrees of freedom <= 0 for slice" error if "discard" is set < 4
+
     if det < 1e-7:
-        # Split into separate KDE for xy, and KDE for z                
-        new_cxy_inds = get_kde_value(centroids[:,:2], centroid_weight, bw_c, return_max=False)        
+        new_cxy_inds = get_kde_value(centroids[:,:2], box_weights, bw_c, return_max=False)        
         if new_cxy_inds is not None:
             new_cxy = centroids[:,:2][new_cxy_inds]  
         else:
-            new_cxy = np.average(centroids[:,:2], axis=0, weights=centroid_weight)
+            new_cxy = np.average(centroids[:,:2], axis=0, weights=box_weights)
               
-        new_cz_inds = get_kde_value(centroids[:,2], centroid_weight, bw_c, return_max=False)        
+        new_cz_inds = get_kde_value(centroids[:,2], box_weights, bw_c, return_max=False)        
         if new_cz_inds is not None:
             new_cz = centroids[:,2][new_cz_inds]
         else:
-            new_cz = np.average(centroids[:,2], axis=0, weights=centroid_weight)
+            new_cz = np.average(centroids[:,2], axis=0, weights=box_weights)
         
         new_cxyz = np.hstack([new_cxy, new_cz])
     else:
-        # KDE for xyz
-        new_cxyz_inds = get_kde_value(centroids, centroid_weight, bw_c, return_max=False)
+        new_cxyz_inds = get_kde_value(centroids, box_weights, bw_c, return_max=False)
         if new_cxyz_inds is not None:
             new_cxyz = centroids[new_cxyz_inds]
         else:
-            new_cxyz = np.average(centroids, axis=0, weights=centroid_weight)
+            new_cxyz = np.average(centroids, axis=0, weights=box_weights)
     
     new_dx = get_kde_value(boxes[:,3], None, bw_dim, return_max=True)
     new_dy = get_kde_value(boxes[:,4], None, bw_dim, return_max=True)
     new_dz = get_kde_value(boxes[:,5], None, bw_dim, return_max=True)
-    
-    heading_weight = src_weights['heading'] if 'heading' in src_weights.keys() else src_weights['conf_score']
-    sin_rys = np.sin(boxes[:,6])
-    ry_ind = get_kde_value(sin_rys, heading_weight, bw_ry, return_max=False)    
-    if ry_ind is not None:
-        new_ry = boxes[:,6][ry_ind]
+        
+    sin_heading = np.sin(boxes[:,6])
+    heading_ind = get_kde_value(sin_heading, box_weights, bw_ry, return_max=False)    
+    if heading_ind is not None:
+        new_heading = boxes[:,6][heading_ind]
     else:
-        new_ry = get_rotation_near_weighted_mean(boxes[:,6])
+        new_heading = get_rotation_near_weighted_mean(boxes[:,6])
     
-    cls_weight = src_weights['class'] if 'class' in src_weights.keys() else src_weights['conf_score']
-    cls_ind = get_kde_value(boxes[:,7], cls_weight, bw_cls, return_max=False)
+
+    cls_ind = get_kde_value(boxes[:,7], box_weights, bw_cls, return_max=False)
     if cls_ind is not None:
         new_class = boxes[:,7][cls_ind]
     else:
@@ -251,11 +280,48 @@ def kde_fusion(boxes, src_weights, bw_c=1.0, bw_dim=2.0, bw_ry=0.1, bw_cls=0.5, 
         unique, counts = np.unique(boxes[:,7], return_counts=True)
         new_class = int(unique[np.argmax(counts)])
     
-    score_weight = src_weights['score'] if 'score' in src_weights.keys() else src_weights['conf_score']
-    new_score = get_kde_value(boxes[:,8], score_weight, bw_score, return_max=True)
+    new_score = get_kde_value(boxes[:,8], box_weights, bw_score, return_max=True)
     
-    combined_box = np.hstack([new_cxyz[0], new_cxyz[1], new_cxyz[2], new_dx, new_dy, new_dz, new_ry, new_class, new_score])
+    combined_box = np.hstack([new_cxyz[0], new_cxyz[1], new_cxyz[2], new_dx, new_dy, new_dz, new_heading, new_class, new_score])
     return combined_box
+
+
+def label_fusion(boxes_lidar, discard, radius, nms_thresh=0.05, use_box_weights=False):
+    """
+    boxes_lidar (N,9): array of box proposals from src detectors
+    
+    return: 
+        fused_boxes (N,9): fused box proposals
+        raw_labels (N,9): box proposals that contributed to the combined box
+    """
+    matched_inds_list = get_matching_boxes(boxes_lidar, discard=discard, radius=radius)
+        
+    # Aggregate these into one box
+    combined_frame_boxes, raw_boxes = [], []    
+    for m_box_inds in matched_inds_list:
+
+        matched_boxes = boxes_lidar[list(m_box_inds)]
+        unique = np.unique(matched_boxes[:,:3].round(decimals=4), axis=0)
+        if len(unique) < discard:
+            continue
+        box_weights = matched_boxes[:,8]*matched_boxes[:,9] if use_box_weights else matched_boxes[:,8]
+        combined_box = kbf(matched_boxes[:,:9], box_weights=box_weights)
+        if combined_box is not None:        
+            combined_frame_boxes.append(combined_box)
+        # raw_boxes.extend(matched_boxes)
+    
+    # raw_labels = np.array(raw_boxes).astype(np.float32) if raw_boxes else np.empty((0,9)).astype(np.float32)
+    if combined_frame_boxes:
+        fused_boxes = np.array(combined_frame_boxes).astype(np.float32) 
+        nms_mask = nms(fused_boxes[:,:7], fused_boxes[:,8], thresh=nms_thresh)
+        fused_boxes = fused_boxes[nms_mask]       
+    else:
+        fused_boxes = np.empty((0,9)).astype(np.float32)
+        
+    return fused_boxes
+
+
+#### -------------- WBF (just for ablation) --------------
 
 
 def wbf(matched_boxes, src_weights=None):
@@ -383,43 +449,3 @@ def wbf_p(matched_boxes, src_weights):
     wbfp_heading = get_rotation_near_weighted_mean(matched_boxes[:,6])
     wbfp = np.hstack([wbfp, wbfp_heading, 1, wbfp_score])
     return wbfp
-
-def label_fusion(boxes_lidar, fusion_name, discard, radius, nms_thresh=0.05, weights=None):
-    """
-    boxes_lidar (N,9): array of box proposals from src detectors
-    
-    return: 
-        fused_boxes (N,9): fused box proposals
-    """
-    matched_inds_list = get_matching_boxes(boxes_lidar, discard=discard, radius=radius)
-        
-    # Aggregate these into one box
-    combined_frame_boxes, num_matched_boxes = [], []
-    for m_box_inds in matched_inds_list:
-
-        matched_boxes = boxes_lidar[list(m_box_inds)]
-        unique = np.unique(matched_boxes[:,:3].round(decimals=4), axis=0)
-        if len(unique) < discard:
-            continue
-        fusion_func = globals()[fusion_name]
-        m_box_weights = {}
-        m_box_weights['conf_score'] = matched_boxes[:,8]
-        if weights is not None:
-            for k,v in weights.items():
-                m_box_weights[k] = weights[k][list(m_box_inds)]*matched_boxes[:,8]
-        
-        combined_box = fusion_func(matched_boxes, src_weights=m_box_weights)        
-        combined_frame_boxes.append(combined_box)
-        num_matched_boxes.append(len(unique))
-    
-    if combined_frame_boxes:
-        num_dets_per_box = np.array(num_matched_boxes)
-        fused_boxes = np.array(combined_frame_boxes)
-        nms_mask = nms(fused_boxes[:,:7], fused_boxes[:,8], thresh=nms_thresh)
-        fused_boxes = fused_boxes[nms_mask]
-        num_dets_per_box = num_dets_per_box[nms_mask]
-    else:
-        fused_boxes = np.empty((0,9))
-        num_dets_per_box = np.empty(0)
-        
-    return fused_boxes.astype(np.float32), num_dets_per_box.astype(int)
