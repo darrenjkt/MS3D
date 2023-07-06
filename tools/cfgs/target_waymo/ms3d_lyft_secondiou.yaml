@@ -1,13 +1,30 @@
-CLASS_NAMES: ['car','truck','bus']
+CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml    
-    MAX_SWEEPS: 10
+    _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
+    MAX_SWEEPS: 3
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
+        used_feature_list: ['x', 'y', 'z','timestamp'],
         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
-    }       
+    }
+
+DATA_CONFIG_TAR: 
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
+    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
+    TARGET: True
+    USE_TTA: False
+    USE_PSEUDO_LABEL: True
+    USE_CUSTOM_TRAIN_SCENES: True
+    SAVE_PKL_IN_GROUND_FRAME: True   
+    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Vehicle','Cyclist','Pedestrian']
+    SEQUENCE_CONFIG:
+        ENABLED: True
+        SAMPLE_OFFSET: [-3, 0]
+    SAMPLED_INTERVAL: {
+        'train': 6,
+        'test': 5
+    }
 
 MODEL:
     NAME: SECONDNetIoU
@@ -35,15 +52,24 @@ MODEL:
         NAME: AnchorHeadSingle
         CLASS_AGNOSTIC: False
 
-        USE_DIRECTION_CLASSIFIER: True
         DIR_OFFSET: 0.78539
         DIR_LIMIT_OFFSET: 0.0
         NUM_DIR_BINS: 2
 
         ANCHOR_GENERATOR_CONFIG: [
             {
-                'class_name': 'car',
-                'anchor_sizes': [[4.2, 2.0, 1.6]],
+                'class_name': car,
+                'anchor_sizes': [[4.75, 1.92, 1.71]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.6,
+                'unmatched_threshold': 0.45
+            },
+            {
+                'class_name': truck,
+                'anchor_sizes': [[10.24, 2.84, 3.44]],
                 'anchor_rotations': [0, 1.57],
                 'anchor_bottom_heights': [0],
                 'align_center': False,
@@ -53,7 +79,7 @@ MODEL:
             },
             {
                 'class_name': bus,
-                'anchor_sizes': [[11.0, 2.9, 3.45]],
+                'anchor_sizes': [[12.70, 2.92, 3.42]],
                 'anchor_rotations': [0, 1.57],
                 'anchor_bottom_heights': [0],
                 'align_center': False,
@@ -62,15 +88,35 @@ MODEL:
                 'unmatched_threshold': 0.4
             },
             {
-                'class_name': truck,
-                'anchor_sizes': [[7.3, 2.50, 2.7]],
+                'class_name': motorcycle,
+                'anchor_sizes': [[2.35, 0.96, 1.59]],
                 'anchor_rotations': [0, 1.57],
                 'anchor_bottom_heights': [0],
                 'align_center': False,
                 'feature_map_stride': 8,
-                'matched_threshold': 0.55,
-                'unmatched_threshold': 0.4
+                'matched_threshold': 0.5,
+                'unmatched_threshold': 0.3
             },
+            {
+                'class_name': bicycle,
+                'anchor_sizes': [[1.76, 0.63, 1.44]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.5,
+                'unmatched_threshold': 0.35
+            },
+            {
+                'class_name': pedestrian,
+                'anchor_sizes': [[0.80, 0.76, 1.76]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.6,
+                'unmatched_threshold': 0.4
+            }
         ]
 
         TARGET_ASSIGNER_CONFIG:
@@ -84,7 +130,7 @@ MODEL:
         LOSS_CONFIG:
             LOSS_WEIGHTS: {
                 'cls_weight': 1.0,
-                'loc_weight': 2.0,
+                'loc_weight': 0.25,
                 'dir_weight': 0.2,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
@@ -148,18 +194,17 @@ MODEL:
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.01
+            NMS_THRESH: 0.7
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 
 
-
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 4
-    NUM_EPOCHS: 20
+    NUM_EPOCHS: 30
 
     OPTIMIZER: adam_onecycle
-    LR: 0.003
+    LR: 0.0015
     WEIGHT_DECAY: 0.01
     MOMENTUM: 0.9
 
@@ -174,3 +219,23 @@ OPTIMIZATION:
     WARMUP_EPOCH: 1
 
     GRAD_NORM_CLIP: 10
+
+SELF_TRAIN:
+    SCORE_THRESH: 0.6
+    NEG_THRESH: 0.4
+    UPDATE_PSEUDO_LABEL: [-1]
+    UPDATE_PSEUDO_LABEL_INTERVAL: 100
+
+    INIT_PS: /MS3D/tools/cfgs/target_waymo/gt_as_ps_s190_6280.pkl
+    SRC:
+        USE_DATA: False
+        USE_GRAD: False
+        LOSS_WEIGHT: 1.0
+    TAR:
+        USE_DATA: True
+        LOSS_WEIGHT: 1.0
+
+    MEMORY_ENSEMBLE:
+        ENABLED: True
+        NAME: simplified_cons_ensemble
+        IOU_THRESH: 0.1

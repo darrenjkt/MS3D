@@ -8,9 +8,12 @@ from mot_3d.data_protos import BBox
 from pcdet.utils.transform_utils import ego_to_world
 from pcdet.utils import compatibility_utils as compat_utils
 
-def get_tracklets(dataset, ps_dict, cfg_path, anno_frames_only=False):
+def get_tracklets(dataset, ps_dict, cfg_path, cls_id):
     """
     Uses SimpleTrack to generate tracklets for the dataset
+    
+    cls_id: the particular class of interest from the following 1: Vehicle, 2: Pedestrian, 3: Cyclist
+
     """
 
     configs = yaml.load(open(cfg_path, 'r'), Loader=yaml.Loader)
@@ -21,7 +24,6 @@ def get_tracklets(dataset, ps_dict, cfg_path, anno_frames_only=False):
     for frame_id in tqdm(ps_dict.keys(), total=len(ps_dict.keys()), desc='generate_trks'):
 
         cur_seq = compat_utils.get_sequence_name(dataset, frame_id)
-        sample_idx = compat_utils.get_sample_idx(dataset, frame_id)
         
         if cur_seq != prev_seq:
             if tracker is not None:
@@ -38,12 +40,12 @@ def get_tracklets(dataset, ps_dict, cfg_path, anno_frames_only=False):
         points = compat_utils.get_lidar(dataset, frame_id)
 
         boxes = ps_dict[frame_id]['gt_boxes'].copy()
-        class_ids=list(abs(boxes[:,7]))
-        points_global, boxes_global = ego_to_world(pose, points, boxes)
+        class_ids = np.array(abs(boxes[:,7]))
+        points_global, boxes_global = ego_to_world(pose, points, boxes[class_ids == cls_id])
         points_global[:,:3] += dataset.dataset_cfg.SHIFT_COOR
         dets=list(np.hstack([boxes_global[:,:7], boxes_global[:,8].reshape(-1,1)]))
         
-        frame_data = FrameData(dets=dets, ego=pose, pc=points_global, det_types=class_ids, 
+        frame_data = FrameData(dets=dets, ego=pose, pc=points_global, det_types=class_ids[class_ids == cls_id], 
                             aux_info=aux_info, time_stamp=timestamp, input_opd_format=True)
 
         results = tracker.frame_mot(frame_data)

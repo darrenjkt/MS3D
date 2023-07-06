@@ -78,13 +78,12 @@ def main():
                         help='These are the ps_dict_*, ps_label_e*.pkl files generated from MS3D')
     parser.add_argument('--ps_pkl2', type=str, required=False,
                         help='Another ps_dict for comparison')
+    parser.add_argument('--tracks_pkl', type=str, required=False,
+                        help='Load in tracks, these are a dict with IDs as keys')
     parser.add_argument('--idx', type=int, default=0,
                         help='If you wish to only display a certain frame index')
     parser.add_argument('--split', type=str, default='train',
-                        help='Specify train or test split')    
-    parser.add_argument('--sampled_interval', type=int, default=1,
-                        help='same as SAMPLED_INTERVAL config parameter')   
-    parser.add_argument('--custom_train_split', action='store_true', default=False)     
+                        help='Specify train or test split')     
     args = parser.parse_args()
     
     # Get target dataset
@@ -120,6 +119,9 @@ def main():
     if args.ps_pkl2 is not None:
         with open(args.ps_pkl2,'rb') as f:
             ps_dict2 = pickle.load(f)
+    if args.tracks_pkl is not None:
+        with open(args.tracks_pkl,'rb') as f:
+            tracks = pickle.load(f)
 
     if args.dets_txt is not None:
         det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
@@ -140,10 +142,20 @@ def main():
     scatter = ax.scatter(pts[mask][:,0],pts[mask][:,1],s=0.5, c='black', marker='o')
 
     # Plot GT boxes
-    class_mask = np.array([n in cfg.CLASS_NAMES for n in compat.get_gt_names(target_set, start_frame_id)], dtype=np.bool_)
-    plot_boxes(ax, compat.get_gt_boxes(target_set, start_frame_id)[class_mask], color=[0,0,1], 
-                limit_range=limit_range, label='gt_boxes',
-                scores=np.ones(compat.get_gt_boxes(target_set, start_frame_id)[class_mask].shape[0]))
+    class_mask = np.isin(compat.get_gt_names(target_set, start_frame_id), ['Vehicle','car','truck','bus'])
+    plot_boxes(ax, compat.get_gt_boxes(target_set, start_frame_id)[class_mask], color=[0,0,1],
+        limit_range=limit_range, label='gt_boxes',
+        scores=np.ones(compat.get_gt_boxes(target_set, start_frame_id)[class_mask].shape[0]))
+    
+    class_mask = np.isin(compat.get_gt_names(target_set, start_frame_id), ['Pedestrian','pedestrian'])
+    plot_boxes(ax, compat.get_gt_boxes(target_set, start_frame_id)[class_mask], color=[0.5,0,0.5],
+        limit_range=limit_range, label='gt_boxes',
+        scores=np.ones(compat.get_gt_boxes(target_set, start_frame_id)[class_mask].shape[0]))
+    
+    class_mask = np.isin(compat.get_gt_names(target_set, start_frame_id), ['Cyclist','bicycle','motorcycle'])
+    plot_boxes(ax, compat.get_gt_boxes(target_set, start_frame_id)[class_mask], color=[0,0.5,0.5],
+        limit_range=limit_range, label='gt_boxes',
+        scores=np.ones(compat.get_gt_boxes(target_set, start_frame_id)[class_mask].shape[0]))
 
     # Plot det boxes
     if args.dets_txt is not None:
@@ -165,6 +177,18 @@ def main():
                 scores=ps_dict2[ps_frame_ids[start_idx]]['gt_boxes'][:,8],
                 label='ps labels 2', color=[1,0,0],
                 limit_range=limit_range, alpha=1) 
+        
+    if args.tracks_pkl is not None:     
+        from pcdet.utils.transform_utils import world_to_ego   
+        from pcdet.utils.tracker_utils import get_frame_track_boxes
+        track_boxes = get_frame_track_boxes(tracks, start_frame_id, nhistory=0)
+        pose = compat.get_pose(target_set, start_frame_id)
+        _, track_boxes_ego = world_to_ego(pose, boxes=track_boxes)
+        if track_boxes_ego.shape[0] != 0:
+            plot_boxes(ax, track_boxes_ego[:,:7], 
+                    scores=track_boxes_ego[:,8],
+                    label='tracked boxes', color=[1,0,0], linestyle='dotted',
+                    limit_range=limit_range, alpha=1) 
         
     # Plot ps labels
     idx_to_frameid[start_idx]
@@ -197,8 +221,18 @@ def main():
         ax.texts.clear()
 
         # Plot GT boxes
-        class_mask = np.array([n in cfg.CLASS_NAMES for n in compat.get_gt_names(target_set, frame_id)], dtype=np.bool_)
-        plot_boxes(ax, compat.get_gt_boxes(target_set, frame_id)[class_mask], color=[0,0,1], 
+        class_mask = np.isin(compat.get_gt_names(target_set, frame_id), ['Vehicle','car','truck','bus'])
+        plot_boxes(ax, compat.get_gt_boxes(target_set, frame_id)[class_mask], color=[0,0,1],
+            limit_range=limit_range, label='gt_boxes',
+            scores=np.ones(compat.get_gt_boxes(target_set, frame_id)[class_mask].shape[0]))
+        
+        class_mask = np.isin(compat.get_gt_names(target_set, frame_id), ['Pedestrian','pedestrian'])
+        plot_boxes(ax, compat.get_gt_boxes(target_set, frame_id)[class_mask], color=[0.5,0,0.5],
+            limit_range=limit_range, label='gt_boxes',
+            scores=np.ones(compat.get_gt_boxes(target_set, frame_id)[class_mask].shape[0]))
+        
+        class_mask = np.isin(compat.get_gt_names(target_set, frame_id), ['Cyclist','bicycle','motorcycle'])
+        plot_boxes(ax, compat.get_gt_boxes(target_set, frame_id)[class_mask], color=[0,0.5,0.5],
             limit_range=limit_range, label='gt_boxes',
             scores=np.ones(compat.get_gt_boxes(target_set, frame_id)[class_mask].shape[0]))
 
@@ -222,6 +256,16 @@ def main():
                 scores=ps_dict2[ps_frame_ids[frame_idx]]['gt_boxes'][:,8],
                 label='ps labels 2', color=[1,0,0],
                 limit_range=limit_range, alpha=1) 
+            
+        if args.tracks_pkl is not None:
+            track_boxes = get_frame_track_boxes(tracks, frame_id, nhistory=0)
+            pose = compat.get_pose(target_set, frame_id)
+            _, track_boxes_ego = world_to_ego(pose, boxes=track_boxes)
+            if track_boxes_ego.shape[0] != 0:
+                plot_boxes(ax, track_boxes_ego[:,:7], 
+                        scores=track_boxes_ego[:,8],
+                        label='tracked boxes', color=[1,0,0],linestyle='dotted',
+                        limit_range=limit_range, alpha=1) 
             
         ax.set_aspect('equal')
         ax.set_title(f'Frame #{frame_idx}, FID:{frame_id}')
@@ -258,6 +302,7 @@ def main():
     fjump.on_clicked(callback.fjump50)
     bjump = Button(axjumpb, 'Jump -50')
     bjump.on_clicked(callback.bjump50)
+
 
     ax.set_aspect('equal')
     plt.show()

@@ -29,3 +29,4 @@ model_zoo
 *.tar.xz
 *.txt
 demo_data
+*.csv

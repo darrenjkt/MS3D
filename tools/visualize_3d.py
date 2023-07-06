@@ -91,6 +91,15 @@ def main():
     frameid_to_idx = target_set.frameid_to_idx    
     idx_to_frameid = {v: k for k, v in frameid_to_idx.items()}
 
+    if (args.det_pkl is None) and (args.ps_pkl is None) and (args.dets_txt is None) and (args.ckpt is None):    
+        for idx, data_dict in enumerate(target_loader):
+            if idx < args.idx:
+                print(f'Skipping {idx}/{args.idx}')
+                continue
+            V.draw_scenes(points=data_dict['points'][:, 1:], 
+                          gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None,                           
+                          draw_origin=False)
+
     # Visualize pkls
     if (args.det_pkl is not None) or (args.ps_pkl is not None) or (args.dets_txt is not None):    
 

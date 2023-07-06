@@ -96,7 +96,7 @@ def ego_to_world(pose, points=None, boxes=None):
     """
     Transforms points and boxes from the ego frame to world frame
     """
-    points_global, boxes_global = None,None
+    points_global, boxes_global = np.empty((0,3)), np.empty((0,9))
     if points is not None:
         expand_points = np.concatenate([points[:, :3], 
                                         np.ones((points.shape[0], 1))], 
@@ -120,7 +120,7 @@ def world_to_ego(pose, points=None, boxes=None):
     """
     Transforms points and boxes from the world frame to ego frame
     """
-    points_ego, boxes_ego = None,None
+    points_ego, boxes_ego = np.empty((0,3)), np.empty((0,9))
     if points is not None:
         expand_points_global = np.concatenate([points[:, :3], 
                                                np.ones((points.shape[0], 1))], 

@@ -129,24 +129,29 @@ class DatasetTemplate(torch_data.Dataset):
 
         return annos
 
-    def fill_pseudo_labels(self, input_dict):
+    def fill_pseudo_labels(self, input_dict, psid2clsid):
+        """
+        All labels are loaded with the index: class as 1:Vehicle, 2:Pedestrian, 3:Cyclist so we need to re-map them
+        to the same class indices that the pre-trained detector has learnt
+        """
+        
         gt_boxes = self_training_utils.load_ps_label(input_dict['frame_id'])                
 
         gt_scores = gt_boxes[:, 8]
         gt_classes = gt_boxes[:, 7]
+        remapped_classes = np.array([psid2clsid[cls_id] for cls_id in gt_classes])
         gt_boxes = gt_boxes[:, :7]
-        # only suitable for only one classes, generating gt_names for prepare data
-        gt_names = np.array(self.class_names)[np.abs(gt_classes.astype(np.int32)) - 1]
+        gt_names = np.array(self.class_names)[np.abs(remapped_classes.astype(np.int32)) - 1]
 
         input_dict['gt_boxes'] = gt_boxes
         input_dict['gt_names'] = gt_names
-        input_dict['gt_classes'] = gt_classes
+        input_dict['gt_classes'] = remapped_classes
         input_dict['gt_scores'] = gt_scores
         input_dict['pos_ps_bbox'] = np.zeros((len(self.class_names)), dtype=np.float32)
         input_dict['ign_ps_bbox'] = np.zeros((len(self.class_names)), dtype=np.float32)
         for i in range(len(self.class_names)):
-            num_total_boxes = (np.abs(gt_classes) == (i+1)).sum()
-            num_ps_bbox = (gt_classes == (i+1)).sum()
+            num_total_boxes = (np.abs(remapped_classes) == (i+1)).sum()
+            num_ps_bbox = (remapped_classes == (i+1)).sum()
             input_dict['pos_ps_bbox'][i] = num_ps_bbox
             input_dict['ign_ps_bbox'][i] = num_total_boxes - num_ps_bbox
         

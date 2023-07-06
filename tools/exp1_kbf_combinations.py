@@ -15,7 +15,7 @@ SUPER_MAPPING = {'car': 'Vehicle',
                 'Vehicle': 'Vehicle',
                 'pedestrian': 'Pedestrian',
                 'Pedestrian': 'Pedestrian',
-                'motorcycle': 'Cyclist',
+                'motorcycle': 'Vehicle', # Waymo maps motorcycle to Vehicle
                 'bicycle': 'Cyclist',
                 'Cyclist': 'Cyclist'}
 
@@ -120,8 +120,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='arg parser')                   
     parser.add_argument('--save_dir', type=str, default='/MS3D/tools/cfgs/target_waymo/exp_ps_dict/ps_labels', help='where to save ps dict')    
     parser.add_argument('--dets_txt', type=str, help='Use kbf ps_dict')
-    parser.add_argument('--interval', type=int, default=2, help='set interval')
-    parser.add_argument('--min_pct', type=float, default=0.2, help='set interval')
+    parser.add_argument('--interval', type=int, default=1, help='set interval')
     args = parser.parse_args()
     
     # Load detection sets
@@ -139,12 +138,7 @@ if __name__ == '__main__':
     pos_th=[0.6,0.4,0.4]
     neg_th=[0.3,0.15,0.15]
 
-    if num_det_sets < 8:
-        discard=[0,0,0]
-    else:
-        # Min recommended for KDE is 3
-        discard=[max(3, np.ceil(args.min_pct * num_det_sets))] * len(SUPERCATEGORIES)
-
+    discard=[4,4,4] if num_det_sets >= 8 else [0,0,0] # 4 is good default
     radius=[1, 0.3, 0.2] # should not need to change
     kbf_nms=[0.1,0.5,0.5] # should not need to change
 

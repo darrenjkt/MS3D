@@ -35,7 +35,7 @@ class WaymoDataset(DatasetTemplate):
         self.seq_name_to_len = {}
         self.custom_train_seq = None
         if self.dataset_cfg.get('USE_CUSTOM_TRAIN_SCENES', False) and (self.split == 'train'): 
-            custom_train_seq = self.root_path / 'ImageSets' / 'custom_train_190.txt'
+            custom_train_seq = self.root_path / 'ImageSets' / 'custom_train.txt'
             self.custom_train_seq = [x.strip() for x in open(custom_train_seq).readlines()]
         self.seq_name_to_infos = self.include_waymo_data()
 
@@ -439,7 +439,17 @@ class WaymoDataset(DatasetTemplate):
                 input_dict['gt_boxes'] = None
 
         if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:
-            self.fill_pseudo_labels(input_dict)
+            # Remap indices; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist
+            # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)
+            psid2clsid = {}
+            if 'Vehicle' in self.class_names:
+                psid2clsid[1] = self.class_names.index('Vehicle') + 1
+            if 'Pedestrian' in self.class_names:
+                psid2clsid[2] = self.class_names.index('Pedestrian') + 1
+            if 'Cyclist' in self.class_names:
+                psid2clsid[3] = self.class_names.index('Cyclist') + 1
+            self.fill_pseudo_labels(input_dict, psid2clsid)
+
         data_dict = self.prepare_data(data_dict=input_dict)
         data_dict['metadata'] = info.get('metadata', info['frame_id'])
         data_dict.pop('num_points_in_gt', None)

@@ -1,0 +1,20 @@
+running:
+  covariance: default
+  score_threshold: 0.3
+  max_age_since_update: 2
+  min_hits_to_birth: 2
+  match_type: bipartite
+  asso: giou
+  has_velo: false
+  motion_model: kf
+  asso_thres:
+    giou: 0.8 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) i.e. giou=0.0 is counted a match
+# giou=1.0 is good for 5Hz, giou=1.5 for 2Hz datasets (warning: giou=1.5 causes a lot of ID-switch for parked cars!!)
+
+redundancy:
+  mode: mm
+  max_redundancy_age: 3
+  det_score_threshold: 
+    giou: 0.1
+  det_dist_threshold: 
+    giou: 0.2 # Here it is threshold (not 1-threshold!!)

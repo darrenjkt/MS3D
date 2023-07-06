@@ -41,21 +41,32 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='arg parser')                   
     parser.add_argument('--cfg_file', type=str, default='/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml',
                         help='just use the target dataset cfg file')
-    parser.add_argument('--trk_cfg', type=str, default='/MS3D/tracker/configs/msda_configs/msda_1frame_giou.yaml',
-                        help='Config for the tracker')
     parser.add_argument('--ps_dict', type=str, help='Use kbf ps_dict')
+    parser.add_argument('--save_dir', type=str, default='/MS3D/tools/cfgs/target_waymo/ps_labels', help='where to save ps dict')    
+    parser.add_argument('--cls_id', type=int, help='1: vehicle, 2: pedestrian, 3: cyclist')
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_file, cfg)
     dataset = load_dataset(split='train')
-    print('Evaluating for the classes: ', cfg.CLASS_NAMES)
-
     ps_dict = None
     if args.ps_dict:
         with open(args.ps_dict, 'rb') as f:
             ps_dict = pickle.load(f)
-    
-    tracks_world = tracker_utils.get_tracklets(dataset, ps_dict, cfg_path=args.trk_cfg, anno_frames_only=False)
 
-    generate_ps_utils.save_data(tracks_world, args.save_dir, name=f"{Path(args.ps_dict).stem}_tracks_world.pkl")
-    print(f"saved: {Path(args.ps_dict).stem}_tracks_world.pkl\n")
+    if args.cls_id == 1:
+        trk_cfg = '/MS3D/tracker/configs/msda_configs/veh_kf_giou.yaml'
+        save_fname = f"{Path(args.ps_dict).stem}_tracks_world_veh.pkl"
+    elif args.cls_id == 2:
+        trk_cfg = '/MS3D/tracker/configs/msda_configs/ped_kf_giou.yaml'
+        save_fname = f"{Path(args.ps_dict).stem}_tracks_world_ped.pkl"
+    elif args.cls_id == 3:
+        trk_cfg = '/MS3D/tracker/configs/msda_configs/cyc_kf_giou.yaml'
+        save_fname = f"{Path(args.ps_dict).stem}_tracks_world_cyc.pkl"
+    else:
+        print('Only support 3 classes at the moment (1: vehicle, 2: pedestrian, 3: cyclist)')
+        raise NotImplementedError
+    
+    tracks_world = tracker_utils.get_tracklets(dataset, ps_dict, cfg_path=trk_cfg, cls_id=args.cls_id)
+
+    generate_ps_utils.save_data(tracks_world, args.save_dir, name=save_fname)
+    print(f"saved: {save_fname}\n")
