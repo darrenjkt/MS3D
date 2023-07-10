@@ -44,27 +44,47 @@ if __name__ == '__main__':
     parser.add_argument('--ps_dict', type=str, help='Use kbf ps_dict')
     parser.add_argument('--save_dir', type=str, default='/MS3D/tools/cfgs/target_waymo/ps_labels', help='where to save ps dict')    
     parser.add_argument('--cls_id', type=int, help='1: vehicle, 2: pedestrian, 3: cyclist')
+    parser.add_argument('--static_veh', action='store_true', default=False)
+    parser.add_argument('--trk_cfg', type=str, default=None, help='overwrite default track configs')
+    parser.add_argument('--save_name', type=str, default=None, help='overwrite default save name')
+
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_file, cfg)
     dataset = load_dataset(split='train')
-    ps_dict = None
     if args.ps_dict:
         with open(args.ps_dict, 'rb') as f:
             ps_dict = pickle.load(f)
 
-    if args.cls_id == 1:
-        trk_cfg = '/MS3D/tracker/configs/msda_configs/veh_kf_giou.yaml'
-        save_fname = f"{Path(args.ps_dict).stem}_tracks_world_veh.pkl"
+    if args.cls_id == 1:        
+        if args.static_veh:
+            trk_cfg = '/MS3D/tracker/configs/ms3d_configs/veh_static_kf_iou.yaml'
+            save_fname = f"{Path(args.ps_dict).stem}_tracks_world_veh_static_6280.pkl"
+
+            # Downsample from 5Hz to 1.67Hz (i.e. skip 6)
+            selected_ids = list(range(0,len(ps_dict.keys()),3))
+            ds_ps_dict = {}
+            for i,k in enumerate(ps_dict.keys()):
+                if i in selected_ids:
+                    ds_ps_dict[k] = ps_dict[k]
+            ps_dict = ds_ps_dict.copy()
+
+        else:
+            trk_cfg = '/MS3D/tracker/configs/ms3d_configs/veh_kf_giou.yaml'
+            save_fname = f"{Path(args.ps_dict).stem}_tracks_world_veh.pkl"
     elif args.cls_id == 2:
-        trk_cfg = '/MS3D/tracker/configs/msda_configs/ped_kf_giou.yaml'
+        trk_cfg = '/MS3D/tracker/configs/ms3d_configs/ped_kf_giou.yaml'
         save_fname = f"{Path(args.ps_dict).stem}_tracks_world_ped.pkl"
     elif args.cls_id == 3:
-        trk_cfg = '/MS3D/tracker/configs/msda_configs/cyc_kf_giou.yaml'
+        trk_cfg = '/MS3D/tracker/configs/ms3d_configs/cyc_kf_giou.yaml'
         save_fname = f"{Path(args.ps_dict).stem}_tracks_world_cyc.pkl"
     else:
         print('Only support 3 classes at the moment (1: vehicle, 2: pedestrian, 3: cyclist)')
         raise NotImplementedError
+    
+    
+    trk_cfg = args.trk_cfg if args.trk_cfg is not None else trk_cfg    
+    save_fname = args.save_name if args.save_name is not None else save_fname
     
     tracks_world = tracker_utils.get_tracklets(dataset, ps_dict, cfg_path=trk_cfg, cls_id=args.cls_id)
 

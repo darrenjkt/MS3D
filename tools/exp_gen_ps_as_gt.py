@@ -8,11 +8,11 @@ import numpy as np
 from pathlib import Path
 from pcdet.utils import compatibility_utils as compat
 
-def load_dataset(split):
+def load_dataset(split, sampled_interval):
 
     # Get target dataset    
     cfg.DATA_SPLIT.test = split
-    cfg.SAMPLED_INTERVAL.test = 6
+    cfg.SAMPLED_INTERVAL.test = sampled_interval
     logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
     target_set, _, _ = build_dataloader(
                 dataset_cfg=cfg,
@@ -21,11 +21,11 @@ def load_dataset(split):
             )      
     return target_set
 
-save_ps_path = '/MS3D/tools/cfgs/target_waymo/gt_as_ps_s190_6280.pkl'
+save_ps_path = '/MS3D/tools/cfgs/target_waymo/gt_as_ps_31617.pkl'
 cfg_file = '/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml'
 cfg_from_yaml_file(cfg_file, cfg)
-cfg.USE_CUSTOM_TRAIN_SCENES = True
-dataset = load_dataset(split='train')
+cfg.USE_CUSTOM_TRAIN_SCENES = False
+dataset = load_dataset(split='train', sampled_interval=5)
 print('Dataset loaded')
 
 fake_ps = {}

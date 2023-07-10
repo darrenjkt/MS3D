@@ -2,7 +2,7 @@ running:
   covariance: default
   score_threshold: 0.5
   max_age_since_update: 4
-  min_hits_to_birth: 1
+  min_hits_to_birth: 2
   match_type: bipartite
   asso: iou
   has_velo: false
@@ -16,4 +16,4 @@ redundancy:
   det_score_threshold: 
     iou: 0.1
   det_dist_threshold: 
-    iou: 0.1 # threshold
+    iou: 0.2 # threshold

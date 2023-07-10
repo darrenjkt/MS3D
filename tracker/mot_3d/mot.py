@@ -24,8 +24,8 @@ class MOTModel:
         # giou/iou: 0.1 means that score > 0.1 boxes will be used for confirming object presence (which is then replaced by motion-tracked box)        
         non_key_redundancy_config['redundancy'] = {
             'mode': 'mm',
-            'det_score_threshold': {'giou': 0.1, 'iou': 0.1, 'euler': 0.1}, 
-            'det_dist_threshold': {'giou': -0.5, 'iou': 0.1, 'euler': 4}
+            'det_score_threshold': {'giou': 0.1, 'iou': 0.1, 'iou_2d': 0.1, 'euler': 0.1}, 
+            'det_dist_threshold': {'giou': -0.5, 'iou': 0.1, 'iou_2d': 0.1, 'euler': 4}
         }
         self.non_key_redundancy = RedundancyModule(non_key_redundancy_config)
 

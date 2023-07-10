@@ -17,7 +17,7 @@ DATA_CONFIG_TAR:
     USE_PSEUDO_LABEL: True
     USE_CUSTOM_TRAIN_SCENES: True
     SAVE_PKL_IN_GROUND_FRAME: True   
-    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Vehicle','Cyclist','Pedestrian']
+    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Placeholder','Placeholder','Pedestrian']
     SEQUENCE_CONFIG:
         ENABLED: True
         SAMPLE_OFFSET: [-3, 0]

@@ -80,10 +80,13 @@ def main():
                         help='Another ps_dict for comparison')
     parser.add_argument('--tracks_pkl', type=str, required=False,
                         help='Load in tracks, these are a dict with IDs as keys')
+    parser.add_argument('--tracks_pkl2', type=str, required=False,
+                        help='Load in tracks, these are a dict with IDs as keys')
     parser.add_argument('--idx', type=int, default=0,
                         help='If you wish to only display a certain frame index')
     parser.add_argument('--split', type=str, default='train',
-                        help='Specify train or test split')     
+                        help='Specify train or test split')
+    parser.add_argument('--show_trk_score', action='store_true', default=False)
     args = parser.parse_args()
     
     # Get target dataset
@@ -122,6 +125,9 @@ def main():
     if args.tracks_pkl is not None:
         with open(args.tracks_pkl,'rb') as f:
             tracks = pickle.load(f)
+    if args.tracks_pkl2 is not None:
+        with open(args.tracks_pkl2,'rb') as f:
+            tracks2 = pickle.load(f)
 
     if args.dets_txt is not None:
         det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
@@ -183,11 +189,21 @@ def main():
         from pcdet.utils.tracker_utils import get_frame_track_boxes
         track_boxes = get_frame_track_boxes(tracks, start_frame_id, nhistory=0)
         pose = compat.get_pose(target_set, start_frame_id)
+        score_idx = 7 if args.show_trk_score else 8
         _, track_boxes_ego = world_to_ego(pose, boxes=track_boxes)
         if track_boxes_ego.shape[0] != 0:
             plot_boxes(ax, track_boxes_ego[:,:7], 
-                    scores=track_boxes_ego[:,8],
+                    scores=track_boxes_ego[:,score_idx],
                     label='tracked boxes', color=[1,0,0], linestyle='dotted',
+                    limit_range=limit_range, alpha=1) 
+    if args.tracks_pkl2 is not None:     
+        track_boxes2 = get_frame_track_boxes(tracks2, start_frame_id, nhistory=0)
+        pose = compat.get_pose(target_set, start_frame_id)
+        _, track_boxes_ego2 = world_to_ego(pose, boxes=track_boxes2)
+        if track_boxes_ego2.shape[0] != 0:
+            plot_boxes(ax, track_boxes_ego2[:,:7], 
+                    scores=track_boxes_ego2[:,score_idx],
+                    label='tracked boxes2', color=[1,0.7,0], linestyle='dotted',
                     limit_range=limit_range, alpha=1) 
         
     # Plot ps labels
@@ -263,8 +279,18 @@ def main():
             _, track_boxes_ego = world_to_ego(pose, boxes=track_boxes)
             if track_boxes_ego.shape[0] != 0:
                 plot_boxes(ax, track_boxes_ego[:,:7], 
-                        scores=track_boxes_ego[:,8],
+                        scores=track_boxes_ego[:,score_idx],
                         label='tracked boxes', color=[1,0,0],linestyle='dotted',
+                        limit_range=limit_range, alpha=1) 
+                
+        if args.tracks_pkl2 is not None:     
+            track_boxes2 = get_frame_track_boxes(tracks2, frame_id, nhistory=0)
+            pose = compat.get_pose(target_set, frame_id)
+            _, track_boxes_ego2 = world_to_ego(pose, boxes=track_boxes2)
+            if track_boxes_ego2.shape[0] != 0:
+                plot_boxes(ax, track_boxes_ego2[:,:7], 
+                        scores=track_boxes_ego2[:,score_idx],
+                        label='tracked boxes2', color=[1,0.7,0], linestyle='dotted',
                         limit_range=limit_range, alpha=1) 
             
         ax.set_aspect('equal')

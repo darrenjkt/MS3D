@@ -169,75 +169,75 @@ def assign_box_to_frameid(tracks):
 
             tracks[trk_id]['frameid_to_box'][f_id] = box
 
-def merge_disjointed_tracks(tracks_1f, tracks_16f, matched_trk_ids):
+def merge_disjointed_tracks(tracks_all, tracks_static, matched_trk_ids):
     """Merge disjointed tracks and assign one box per frame """
     # First merge 1f tracks using 16f tracks as "glue" with f16-f1 map    
     matched_trk_ids = list(set(matched_trk_ids))
         
     # Get trk id mapping for 16f -> 1f trk ids  
     # Important to sort by 1f ids since we merge to the lowest trk_id -> this avoids merging to an already deleted track
-    f16_f1_idmap = {}
+    tstatic_tall_idmap = {}
     for tids in sorted(matched_trk_ids, key=lambda x:x[1]):
-        f16_id = tids[0]
-        f1_id = tids[1]
-        if f16_id not in f16_f1_idmap.keys():
-            f16_f1_idmap[f16_id] = []
-        f16_f1_idmap[f16_id].append(f1_id)
+        tstatic_id = tids[0]
+        tall_id = tids[1]
+        if tstatic_id not in tstatic_tall_idmap.keys():
+            tstatic_tall_idmap[tstatic_id] = []
+        tstatic_tall_idmap[tstatic_id].append(tall_id)
 
     # Get trk id mapping for 1f -> 16f trk ids    
     # here we sort by 16f ids for same reason as above
-    f1_f16_idmap = {}
+    tall_tstatic_idmap = {}
     for tids in sorted(matched_trk_ids, key=lambda x:x[0]):
-        f16_id = tids[0]
-        f1_id = tids[1]
-        if f1_id not in f1_f16_idmap.keys():
-            f1_f16_idmap[f1_id] = []
-        f1_f16_idmap[f1_id].append(f16_id)    
+        tstatic_id = tids[0]
+        tall_id = tids[1]
+        if tall_id not in tall_tstatic_idmap.keys():
+            tall_tstatic_idmap[tall_id] = []
+        tall_tstatic_idmap[tall_id].append(tstatic_id)    
         
-    merge_track_ids(f16_f1_idmap, tracks_1f)
+    merge_track_ids(tstatic_tall_idmap, tracks_all)
 
     # Remove track ids in the f1-f16 mapping dict that were merged 
-    f1_keys = list(f1_f16_idmap.keys())
-    for f1_id in f1_keys:
-        if f1_id not in tracks_1f.keys():
-            del f1_f16_idmap[f1_id] 
+    tall_keys = list(tall_tstatic_idmap.keys())
+    for tall_id in tall_keys:
+        if tall_id not in tracks_all.keys():
+            del tall_tstatic_idmap[tall_id] 
             
-    merge_track_ids(f1_f16_idmap, tracks_16f)        
+    merge_track_ids(tall_tstatic_idmap, tracks_static)        
 
     # Remove track ids in the f1-f16 mapping dict that were merged 
-    f16_keys = list(f16_f1_idmap.keys())
-    for f16_id in f16_keys:
-        if f16_id not in tracks_16f.keys():
-            del f16_f1_idmap[f16_id]
+    tstatic_keys = list(tstatic_tall_idmap.keys())
+    for tstatic_id in tstatic_keys:
+        if tstatic_id not in tracks_static.keys():
+            del tstatic_tall_idmap[tstatic_id]
 
-    assign_box_to_frameid(tracks_1f)            
-    assign_box_to_frameid(tracks_16f)
+    assign_box_to_frameid(tracks_all)            
+    assign_box_to_frameid(tracks_static)
 
-def get_track_rolling_kde_interpolation(dataset, tracks_16f, window, ps_score_th, kdebox_min_score):
+def get_track_rolling_kde_interpolation(dataset, tracks_static, window, ps_score_th, kdebox_min_score):
     """
     For static objects, combine historical N boxes as the current frame's box.
     If there are no N historical frames, we take future frames. 
 
     For missing detection frames, we use the previous historical kde box
     """
-    for trk_id in tqdm(tracks_16f.keys(), total=len(tracks_16f), desc='rolling_kde_interp'):
-        tracks_16f[trk_id]['frameid_to_rollingkde'] = {}
-        f2b = tracks_16f[trk_id]['frameid_to_box']
-        if tracks_16f[trk_id]['motion_state'] != 0:
-            tracks_16f[trk_id]['frameid_to_rollingkde'].update(f2b)
+    for trk_id in tqdm(tracks_static.keys(), total=len(tracks_static), desc='rolling_kde_interp'):
+        tracks_static[trk_id]['frameid_to_rollingkde'] = {}
+        f2b = tracks_static[trk_id]['frameid_to_box']
+        if tracks_static[trk_id]['motion_state'] != 0:
+            tracks_static[trk_id]['frameid_to_rollingkde'].update(f2b)
             continue        
         
         trk_frame_inds_set = np.array(list(f2b.keys()))
             
         if len(trk_frame_inds_set) < window:
             boxes = np.array(list(f2b.values()))
-            boxes = np.insert(boxes, 7,1,1) # insert dummy class for kdefusion
+            boxes = np.insert(boxes, 7,1,1) # Static refinement only done for vehicle class so we hardcode class ID
             kdebox = kbf(boxes, box_weights=boxes[:,-1])
             if kdebox[8] > ps_score_th:
                 kdebox[8] = max(kdebox_min_score, kdebox[8])
             kdebox = np.delete(kdebox, 7)
             for frame_idx, f_id in enumerate(trk_frame_inds_set):
-                tracks_16f[trk_id]['frameid_to_rollingkde'][f_id] = kdebox
+                tracks_static[trk_id]['frameid_to_rollingkde'][f_id] = kdebox
         
         else:
             # Get rolling KDE for each key frame
@@ -246,12 +246,12 @@ def get_track_rolling_kde_interpolation(dataset, tracks_16f, window, ps_score_th
                 accum_inds[accum_inds < 0] = abs(accum_inds[accum_inds < 0]) + max(accum_inds)
                 accum_inds = np.clip(accum_inds, 0, len(trk_frame_inds_set)-1)
                 boxes = np.stack([f2b[key] for key in trk_frame_inds_set[np.unique(accum_inds)]])
-                boxes = np.insert(boxes, 7,1,1) # insert dummy class for kdefusion
+                boxes = np.insert(boxes, 7,1,1) # Static refinement only done for vehicle class so we hardcode class ID
                 kdebox = kbf(boxes, box_weights=boxes[:,-1])
                 if kdebox[8] > ps_score_th:
                     kdebox[8] = max(kdebox_min_score, kdebox[8])
                 kdebox = np.delete(kdebox, 7)
-                tracks_16f[trk_id]['frameid_to_rollingkde'][f_id] = kdebox
+                tracks_static[trk_id]['frameid_to_rollingkde'][f_id] = kdebox
             
         # Interpolate between frames
         frame_ids = list(f2b.keys())
@@ -261,20 +261,20 @@ def get_track_rolling_kde_interpolation(dataset, tracks_16f, window, ps_score_th
         prev_box = None
         for ind in all_frame_inds:
             frame_id = get_frame_id(dataset, dataset.infos[ind])
-            if frame_id in tracks_16f[trk_id]['frameid_to_rollingkde'].keys():
-                prev_box = tracks_16f[trk_id]['frameid_to_rollingkde'][frame_id]
+            if frame_id in tracks_static[trk_id]['frameid_to_rollingkde'].keys():
+                prev_box = tracks_static[trk_id]['frameid_to_rollingkde'][frame_id]
             else:
-                tracks_16f[trk_id]['frameid_to_rollingkde'][frame_id] = prev_box            
+                tracks_static[trk_id]['frameid_to_rollingkde'][frame_id] = prev_box            
 
-def propagate_static_boxes(dataset, tracks_16f, score_thresh, min_dets, n_extra_frames, degrade_factor, min_score_clip):
-    for trk_id in tqdm(tracks_16f.keys(), total=len(tracks_16f), desc='propagate_static_boxes'):
-        tracks_16f[trk_id]['frameid_to_extrollingkde'] = {}
-        roll_kde = tracks_16f[trk_id]['frameid_to_rollingkde']
-        tracks_16f[trk_id]['frameid_to_extrollingkde'].update(roll_kde)
-        if tracks_16f[trk_id]['motion_state'] != 0:            
+def propagate_static_boxes(dataset, tracks_static, score_thresh, min_dets, n_extra_frames, degrade_factor, min_score_clip):
+    for trk_id in tqdm(tracks_static.keys(), total=len(tracks_static), desc='propagate_static_boxes'):
+        tracks_static[trk_id]['frameid_to_extrollingkde'] = {}
+        roll_kde = tracks_static[trk_id]['frameid_to_rollingkde']
+        tracks_static[trk_id]['frameid_to_extrollingkde'].update(roll_kde)
+        if tracks_static[trk_id]['motion_state'] != 0:            
             continue       
 
-        boxes = np.array(list(tracks_16f[trk_id]['frameid_to_extrollingkde'].values()))
+        boxes = np.array(list(tracks_static[trk_id]['frameid_to_extrollingkde'].values()))
         if len(boxes[boxes[:,-1] > score_thresh]) < min_dets:
             continue
         
@@ -298,23 +298,23 @@ def propagate_static_boxes(dataset, tracks_16f, score_thresh, min_dets, n_extra_
         prev_box = None
         for ind in frame_inds:
             frame_id = get_frame_id(dataset, dataset.infos[ind])
-            if frame_id in tracks_16f[trk_id]['frameid_to_extrollingkde'].keys():
-                prev_box = tracks_16f[trk_id]['frameid_to_extrollingkde'][frame_id]
+            if frame_id in tracks_static[trk_id]['frameid_to_extrollingkde'].keys():
+                prev_box = tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id]
             else:                            
                 if ind < first_frame_idx:    
-                    tracks_16f[trk_id]['frameid_to_extrollingkde'][frame_id] = copy.deepcopy(first_box)
-                    new_score = tracks_16f[trk_id]['frameid_to_extrollingkde'][frame_id][7]
+                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id] = copy.deepcopy(first_box)
+                    new_score = tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id][7]
                     new_score = np.clip(new_score * degrade_factor**abs(first_frame_idx-ind), min_score_clip, 1.0)
-                    tracks_16f[trk_id]['frameid_to_extrollingkde'][frame_id][7] = new_score
+                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id][7] = new_score
                 elif ind > last_frame_idx:
-                    tracks_16f[trk_id]['frameid_to_extrollingkde'][frame_id] = copy.deepcopy(last_box)
-                    new_score = tracks_16f[trk_id]['frameid_to_extrollingkde'][frame_id][7]
+                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id] = copy.deepcopy(last_box)
+                    new_score = tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id][7]
                     new_score = np.clip(new_score * degrade_factor**abs(ind-last_frame_idx), min_score_clip, 1.0)                
-                    tracks_16f[trk_id]['frameid_to_extrollingkde'][frame_id][7] = new_score                    
+                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id][7] = new_score                    
                 else:
-                    tracks_16f[trk_id]['frameid_to_extrollingkde'][frame_id] = prev_box
+                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id] = prev_box
 
-def update_ps(dataset, ps_dict_1f, tracks_1f, tracks_16f, frame2box_key_16f, frame2box_key_1f=None, frame_ids=None):
+def update_ps(dataset, ps_dict_1f, tracks_1f, tracks_16f, frame2box_key_16f, score_th, frame2box_key_1f=None, frame_ids=None):
     
     final_ps_dict = {}
     if frame_ids is not None:
@@ -335,7 +335,7 @@ def update_ps(dataset, ps_dict_1f, tracks_1f, tracks_16f, frame2box_key_16f, fra
         pose = get_pose(dataset, frame_id)
         _, ego_track1f_boxes = world_to_ego(pose, boxes=track1f_boxes)
         ego_track1f_boxes = np.insert(ego_track1f_boxes[:,:8], 7,1,1)
-        ego_track1f_boxes[:,8][np.where(ego_track1f_boxes[:,8] < cfg.SELF_TRAIN.SCORE_THRESH)[0]] = cfg.SELF_TRAIN.SCORE_THRESH
+        ego_track1f_boxes[:,8][np.where(ego_track1f_boxes[:,8] < score_th)[0]] = score_th
         
         # Add static 16f objects
         track16f_boxes = get_frame_track_boxes(tracks_16f, frame_id, frame2box_key=frame2box_key_16f)

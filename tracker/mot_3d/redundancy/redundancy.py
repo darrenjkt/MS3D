@@ -45,6 +45,8 @@ class RedundancyModule:
 
             if self.asso == 'iou':
                 dists.append(utils.iou3d(pd_det, pred_bbox)[1])
+            if self.asso == 'iou_2d':
+                dists.append(utils.iou3d(pd_det, pred_bbox)[0])
             elif self.asso == 'giou':
                 dists.append(utils.giou3d(pd_det, pred_bbox))
             elif self.asso == 'm_dis':

@@ -35,7 +35,7 @@ class WaymoDataset(DatasetTemplate):
         self.seq_name_to_len = {}
         self.custom_train_seq = None
         if self.dataset_cfg.get('USE_CUSTOM_TRAIN_SCENES', False) and (self.split == 'train'): 
-            custom_train_seq = self.root_path / 'ImageSets' / 'custom_train.txt'
+            custom_train_seq = self.root_path / 'ImageSets' / 'custom_train_190.txt'
             self.custom_train_seq = [x.strip() for x in open(custom_train_seq).readlines()]
         self.seq_name_to_infos = self.include_waymo_data()
 
@@ -441,6 +441,7 @@ class WaymoDataset(DatasetTemplate):
         if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:
             # Remap indices; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist
             # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)
+            
             psid2clsid = {}
             if 'Vehicle' in self.class_names:
                 psid2clsid[1] = self.class_names.index('Vehicle') + 1
@@ -475,7 +476,7 @@ class WaymoDataset(DatasetTemplate):
                 eval_gt_annos, map_name_to_kitti=map_name_to_kitti,
                 info_with_fakelidar=self.dataset_cfg.get('INFO_WITH_FAKELIDAR', False)
             )
-            kitti_class_names = [map_name_to_kitti[x] for x in class_names]
+            kitti_class_names = list(set([map_name_to_kitti[x] for x in class_names if x in map_name_to_kitti.keys()]))
             ap_result_str, ap_dict = kitti_eval.get_official_eval_result(
                 gt_annos=eval_gt_annos, dt_annos=eval_det_annos, current_classes=kitti_class_names
             )

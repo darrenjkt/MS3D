@@ -11,6 +11,7 @@ running:
     giou: 0.8 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) i.e. giou=0.0 is counted a match
 # giou=1.0 is good for 5Hz, giou=1.5 for 2Hz datasets (warning: giou=1.5 causes a lot of ID-switch for parked cars!!)
 
+# Compare ped giou 0.8 vs giou 0.6
 redundancy:
   mode: mm
   max_redundancy_age: 3

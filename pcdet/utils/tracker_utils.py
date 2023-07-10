@@ -63,6 +63,10 @@ def get_tracklets(dataset, ps_dict, cfg_path, cls_id):
     return tracks
 
 def delete_tracks(tracks, min_score, num_min_dets=3):
+    """
+    Count the number of tracked boxes that are above 'min_score'. If total number of tracked boxes < num_min_dets, 
+    delete the track ID
+    """
     all_ids = list(tracks.keys())
     for trk_id in all_ids:    
         for k,v in tracks[trk_id].items():
