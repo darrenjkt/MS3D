@@ -40,6 +40,7 @@ def check_already_exist_pseudo_label(ps_label_dir, start_epoch):
     if start_epoch == 0 and cfg.SELF_TRAIN.get('INIT_PS', None):
         if os.path.exists(cfg.SELF_TRAIN.INIT_PS):
             init_ps_label = pkl.load(open(cfg.SELF_TRAIN.INIT_PS, 'rb'))
+            # filter_ps_by_neg_score(init_ps_label)
             PSEUDO_LABELS.update(init_ps_label)
             if cfg.LOCAL_RANK == 0:
                 ps_path = os.path.join(ps_label_dir, "ps_label_e0.pkl")
@@ -340,7 +341,7 @@ def init_multi_source_ps_label(dataset, ps_label_dir):
                                                      min_score_clip=ms_cfg.PROPAGATE_STATIC_BOXES.MIN_SCORE_CLIP)
             generate_ps_utils.save_data(tracks_16f_world_proprkde, ps_label_dir, name="tracks_16f_world_proprkde.pkl")
         
-        frame2box_key = 'frameid_to_extrollingkde'
+        frame2box_key = 'frameid_to_propboxes'
         tracks_16f_world_final = tracks_16f_world_proprkde
     else:
         frame2box_key = 'frameid_to_rollingkde'

@@ -48,6 +48,7 @@ def get_multi_source_prelim_label(ms_cfg, fusion_cfg, desc='gen_ps_labels', min_
 
 def save_data(data, folder, name):
     ps_path = Path(folder) / name
+    Path(folder).mkdir(parents=True, exist_ok=True)
     with open(str(ps_path), 'wb') as f:
         pkl.dump(data, f)
 
@@ -268,13 +269,13 @@ def get_track_rolling_kde_interpolation(dataset, tracks_static, window, static_s
 
 def propagate_static_boxes(dataset, tracks_static, score_thresh, min_dets, n_extra_frames, degrade_factor, min_score_clip):
     for trk_id in tqdm(tracks_static.keys(), total=len(tracks_static), desc='propagate_static_boxes'):
-        tracks_static[trk_id]['frameid_to_extrollingkde'] = {}
+        tracks_static[trk_id]['frameid_to_propboxes'] = {}
         roll_kde = tracks_static[trk_id]['frameid_to_rollingkde']
-        tracks_static[trk_id]['frameid_to_extrollingkde'].update(roll_kde)
+        tracks_static[trk_id]['frameid_to_propboxes'].update(roll_kde)
         if tracks_static[trk_id]['motion_state'] != 0:            
             continue       
 
-        boxes = np.array(list(tracks_static[trk_id]['frameid_to_extrollingkde'].values()))
+        boxes = np.array(list(tracks_static[trk_id]['frameid_to_propboxes'].values()))
         if len(boxes[boxes[:,-1] > score_thresh]) < min_dets:
             continue
         
@@ -298,21 +299,21 @@ def propagate_static_boxes(dataset, tracks_static, score_thresh, min_dets, n_ext
         prev_box = None
         for ind in frame_inds:
             frame_id = get_frame_id(dataset, dataset.infos[ind])
-            if frame_id in tracks_static[trk_id]['frameid_to_extrollingkde'].keys():
-                prev_box = tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id]
+            if frame_id in tracks_static[trk_id]['frameid_to_propboxes'].keys():
+                prev_box = tracks_static[trk_id]['frameid_to_propboxes'][frame_id]
             else:                            
                 if ind < first_frame_idx:    
-                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id] = copy.deepcopy(first_box)
-                    new_score = tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id][7]
+                    tracks_static[trk_id]['frameid_to_propboxes'][frame_id] = copy.deepcopy(first_box)
+                    new_score = tracks_static[trk_id]['frameid_to_propboxes'][frame_id][7]
                     new_score = np.clip(new_score * degrade_factor**abs(first_frame_idx-ind), min_score_clip, 1.0)
-                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id][7] = new_score
+                    tracks_static[trk_id]['frameid_to_propboxes'][frame_id][7] = new_score
                 elif ind > last_frame_idx:
-                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id] = copy.deepcopy(last_box)
-                    new_score = tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id][7]
+                    tracks_static[trk_id]['frameid_to_propboxes'][frame_id] = copy.deepcopy(last_box)
+                    new_score = tracks_static[trk_id]['frameid_to_propboxes'][frame_id][7]
                     new_score = np.clip(new_score * degrade_factor**abs(ind-last_frame_idx), min_score_clip, 1.0)                
-                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id][7] = new_score                    
+                    tracks_static[trk_id]['frameid_to_propboxes'][frame_id][7] = new_score                    
                 else:
-                    tracks_static[trk_id]['frameid_to_extrollingkde'][frame_id] = prev_box
+                    tracks_static[trk_id]['frameid_to_propboxes'][frame_id] = prev_box
 
 def update_ps(dataset, ps_dict_1f, tracks_1f, tracks_16f, frame2box_key_16f, score_th, frame2box_key_1f=None, frame_ids=None):
     

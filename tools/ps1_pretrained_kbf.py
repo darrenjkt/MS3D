@@ -5,6 +5,7 @@ from pcdet.utils import box_fusion_utils, generate_ps_utils
 import argparse
 from tqdm import tqdm
 from pathlib import Path
+import yaml
 
 # For MS3D labels, re-map every class into super categories with index:category of 1:VEH/CAR, 2:PED, 3:CYC
 # When we load in the labels for fine-tuning the specific detector, we can re-index it based on the pretrained class index
@@ -123,10 +124,13 @@ def get_detection_sets(det_annos, score_th=0.1):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='arg parser')                   
     parser.add_argument('--save_dir', type=str, default='/MS3D/tools/cfgs/target_waymo/ps_labels', help='where to save ps dict')    
-    parser.add_argument('--dets_txt', type=str, help='Use kbf ps_dict')
+    parser.add_argument('--ps_cfg', type=str, help='cfg file with MS3D parameters')
+    parser.add_argument('--dets_txt', type=str, help='specify txt file for detector pkls')
     parser.add_argument('--interval', type=int, default=1, help='set interval')
     args = parser.parse_args()
     
+    ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)
+
     # Load detection sets
     det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
     num_det_sets = len(det_annos)-1 # minus det_cls_weights
@@ -137,13 +141,7 @@ if __name__ == '__main__':
     if args.interval > 1:
         detection_sets = detection_sets[::args.interval] # ::3 is 6280, ::2 is 9420. 9420 has closer results to the full 18840
 
-    # Class-specific hyper parameters
-    pos_th=[0.6,0.4,0.4]
-    neg_th=[0.3,0.15,0.15]
-
     discard=[4,4,4] if num_det_sets >= 8 else [0,0,0] # 4 is good default
-    radius=[1.5, 0.3, 0.2] # prev config for 2000 [1,0.3,0.2] compared to this one, 2000_r0.2 [1.5,0.2,0.2]
-    kbf_nms=[0.1,0.3,0.1]
 
     # Get class specific config
     cls_kbf_config = {}
@@ -153,11 +151,11 @@ if __name__ == '__main__':
         cls_kbf_config[cls] = {}
         cls_kbf_config[cls]['cls_id'] = enum+1 # in OpenPCDet, cls_ids enumerate from 1
         cls_kbf_config[cls]['discard'] = discard[enum]
-        cls_kbf_config[cls]['radius'] = radius[enum]
-        cls_kbf_config[cls]['nms'] = kbf_nms[enum]
-        cls_kbf_config[cls]['pos_th'] = pos_th[enum]
-        cls_kbf_config[cls]['neg_th'] = neg_th[enum]
+        cls_kbf_config[cls]['radius'] = ms3d_configs['pretrained_kbf']['radius'][enum]
+        cls_kbf_config[cls]['nms'] = ms3d_configs['pretrained_kbf']['nms'][enum]
+        cls_kbf_config[cls]['pos_th'] = ms3d_configs['ps_score_th']['pos_th'][enum]
+        cls_kbf_config[cls]['neg_th'] = ms3d_configs['ps_score_th']['neg_th'][enum]
 
     ps_dict = get_multi_source_prelim_label(detection_sets, cls_kbf_config)
-    generate_ps_utils.save_data(ps_dict, args.save_dir, name=f"{Path(args.dets_txt).stem}.pkl")
-    print(f"saved: {Path(args.dets_txt).stem}.pkl\n")
+    generate_ps_utils.save_data(ps_dict, ms3d_configs['save_dir'], name=f"{ms3d_configs['exp_name']}.pkl")
+    print(f"saved: {ms3d_configs['exp_name']}.pkl\n")

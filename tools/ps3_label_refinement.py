@@ -9,7 +9,7 @@ from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.utils import common_utils
 from pcdet.datasets import build_dataloader
 import yaml
-
+from pathlib import Path
 from tqdm import tqdm
 from pcdet.utils.tracker_utils import get_frame_track_boxes
 from pcdet.utils.compatibility_utils import get_lidar, get_pose
@@ -37,7 +37,7 @@ def load_pkl(file):
 
 def update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped=None, 
               veh_pos_th=0.6, veh_nms_th=0.05, ped_nms_th=0.5, 
-              frame2box_key_static='frameid_to_extrollingkde', frame2box_key='frameid_to_box', frame_ids=None):
+              frame2box_key_static='frameid_to_propboxes', frame2box_key='frameid_to_box', frame_ids=None):
     """
     Add everything to the frame and use NMS to filter out by score. 
     """
@@ -129,17 +129,17 @@ def update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped=No
     return final_ps_dict
 
 def refine_veh_labels(tracks_veh_all, tracks_veh_static, 
-                      trk_score_th_static, veh_cfgs, ps_label_dir):
+                      trk_score_th_static, ms3d_configs):
     """
     Refine vehicle labels. Updates tracks_veh_all and tracks_veh_static in-place.
     Saving of pkl files makes it easier to analyze the results
     """
-    tracker_utils.delete_tracks(tracks_veh_all, min_score=veh_cfgs['pos_th_veh'], num_min_dets=veh_cfgs['min_dets_for_tracks_all'])                   
-    tracker_utils.delete_tracks(tracks_veh_static, min_score=trk_score_th_static, num_min_dets=veh_cfgs['min_dets_for_tracks_static'])   
+    tracker_utils.delete_tracks(tracks_veh_all, min_score=ms3d_configs['ps_score_th']['pos_th'][0], num_min_dets=ms3d_configs['tracking']['min_dets_for_tracks_veh_all'])                   
+    tracker_utils.delete_tracks(tracks_veh_static, min_score=trk_score_th_static, num_min_dets=ms3d_configs['tracking']['min_dets_for_tracks_veh_static'])   
     
      # Get static boxes using tracking information
     for trk_id in tracks_veh_all.keys():
-        score_mask = tracks_veh_all[trk_id]['boxes'][:,7] > veh_cfgs['pos_th_veh']
+        score_mask = tracks_veh_all[trk_id]['boxes'][:,7] > ms3d_configs['ps_score_th']['pos_th'][0]
         tracks_veh_all[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_veh_all[trk_id]['boxes'][score_mask])    
     for trk_id in tracks_veh_static.keys():
         score_mask = tracks_veh_static[trk_id]['boxes'][:,7] > trk_score_th_static
@@ -150,29 +150,24 @@ def refine_veh_labels(tracks_veh_all, tracks_veh_static,
 
     # Merge disjointed tracks and assign one box per frame in the ego-vehicle frame
     generate_ps_utils.merge_disjointed_tracks(tracks_veh_all, tracks_veh_static, matched_trk_ids)    
-    generate_ps_utils.save_data(tracks_veh_all, ps_label_dir, name="tracks_all_world_refined.pkl")
-    generate_ps_utils.save_data(tracks_veh_static, ps_label_dir, name="tracks_static_world_refined.pkl")
+    generate_ps_utils.save_data(tracks_veh_all, ms3d_configs["save_dir"], name="tracks_all_world_refined.pkl")
+    generate_ps_utils.save_data(tracks_veh_static, ms3d_configs["save_dir"], name="tracks_static_world_refined.pkl")
 
-    generate_ps_utils.get_track_rolling_kde_interpolation(dataset, tracks_veh_static, window=veh_cfgs['rkde']['rolling_kde_window'], 
-                                                              static_score_th=trk_score_th_static, kdebox_min_score=veh_cfgs['rkde']['min_static_score'])  # 16MIN for 18840
-    generate_ps_utils.save_data(tracks_veh_static, ps_label_dir, name="tracks_static_world_rkde.pkl")
-
-
-    tracks_veh_all = load_pkl('/MS3D/tools/cfgs/target_waymo/final_ps_labels/tracks_all_world_refined.pkl')
-    tracks_veh_static = load_pkl('/MS3D/tools/cfgs/target_waymo/final_ps_labels/tracks_static_world_rkde.pkl')
+    generate_ps_utils.get_track_rolling_kde_interpolation(dataset, tracks_veh_static, window=ms3d_configs['refinement']['rolling_kbf']['rolling_kde_window'], 
+                                                              static_score_th=trk_score_th_static, kdebox_min_score=ms3d_configs['refinement']['rolling_kbf']['min_static_score'])  # 16MIN for 18840
+    generate_ps_utils.save_data(tracks_veh_static, ms3d_configs["save_dir"], name="tracks_static_world_rkde.pkl")
     generate_ps_utils.propagate_static_boxes(dataset, tracks_veh_static, 
                                                      score_thresh=trk_score_th_static,
-                                                     min_dets=veh_cfgs['proprkde']['propagate_boxes_min_dets'],
-                                                     n_extra_frames=veh_cfgs['proprkde']['n_extra_frames'], 
-                                                     degrade_factor=veh_cfgs['proprkde']['degrade_factor'], 
-                                                     min_score_clip=veh_cfgs['proprkde']['min_score_clip']) # < 1 min for 18840
-    generate_ps_utils.save_data(tracks_veh_static, ps_label_dir, name="tracks_static_world_proprkde.pkl")
+                                                     min_dets=ms3d_configs['refinement']['propagate_boxes']['min_dets'],
+                                                     n_extra_frames=ms3d_configs['refinement']['propagate_boxes']['n_extra_frames'], 
+                                                     degrade_factor=ms3d_configs['refinement']['propagate_boxes']['degrade_factor'], 
+                                                     min_score_clip=ms3d_configs['refinement']['propagate_boxes']['min_score_clip']) # < 1 min for 18840
+    generate_ps_utils.save_data(tracks_veh_static, ms3d_configs["save_dir"], name="tracks_static_world_prop_boxes.pkl")
     return tracks_veh_all, tracks_veh_static
 
 def refine_ped_labels(tracks_ped, trk_cfg_ped_th, min_dets_for_ped_tracks, pos_th_ped):
     """
-    Refine pedestrian labels
-    
+    Refine pedestrian labels    
     """
     tracker_utils.delete_tracks(tracks_ped, min_score=trk_cfg_ped_th, num_min_dets=min_dets_for_ped_tracks)                   
     for trk_id in tracks_ped.keys():
@@ -189,82 +184,92 @@ def refine_ped_labels(tracks_ped, trk_cfg_ped_th, min_dets_for_ped_tracks, pos_t
             tracks_ped[trk_id]['boxes'][:,7][mask] = pos_th_ped
     return tracks_ped
 
-def load_veh_cfgs(args):
-    # TODO: Move these to a cfg file?
-    veh_cfgs = {}
-    veh_cfgs['pos_th_veh'] = args.pos_th_veh
-    veh_cfgs['min_dets_for_tracks_all'] = args.min_dets_for_tracks_all
-    veh_cfgs['min_dets_for_tracks_static'] = args.min_dets_for_tracks_static
-    veh_cfgs['rkde'] = {}
-    veh_cfgs['rkde']['min_static_score'] = args.min_static_score
-    veh_cfgs['rkde']['rolling_kde_window'] = args.rolling_kde_window
-    veh_cfgs['proprkde'] = {}
-    veh_cfgs['proprkde']['propagate_boxes_min_dets'] = args.propagate_boxes_min_dets
-    veh_cfgs['proprkde']['n_extra_frames'] = args.n_extra_frames
-    veh_cfgs['proprkde']['degrade_factor'] = args.degrade_factor
-    veh_cfgs['proprkde']['min_score_clip'] = args.min_score_clip
-    return veh_cfgs
+def select_ps_by_th(ps_dict, pos_th):
+    """
+    Select which labels are not used as pseudo-labels by specifying -ve class label if score < pos_th
+
+    pos_th: [veh_th, ped_th, cyc_th]
+
+    Only supports two classes at the moment
+    """
+    for frame_id in ps_dict.keys():
+        
+        veh_mask = np.logical_and(abs(ps_dict[frame_id]['gt_boxes'][:,7]) == 1, 
+                                ps_dict[frame_id]['gt_boxes'][:,8] < pos_th[0])
+        ps_dict[frame_id]['gt_boxes'][:,7][veh_mask] = -abs(ps_dict[frame_id]['gt_boxes'][:,7][veh_mask])
+
+        ped_mask = np.logical_and(abs(ps_dict[frame_id]['gt_boxes'][:,7]) == 2, 
+                                ps_dict[frame_id]['gt_boxes'][:,8] < pos_th[1])
+        ps_dict[frame_id]['gt_boxes'][:,7][ped_mask] = -abs(ps_dict[frame_id]['gt_boxes'][:,7][ped_mask])
+
+        cyc_mask = np.logical_and(abs(ps_dict[frame_id]['gt_boxes'][:,7]) == 2, 
+                                ps_dict[frame_id]['gt_boxes'][:,8] < pos_th[2])
+        ps_dict[frame_id]['gt_boxes'][:,7][cyc_mask] = -abs(ps_dict[frame_id]['gt_boxes'][:,7][cyc_mask])
+
+    return ps_dict
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='arg parser')                   
     parser.add_argument('--cfg_file', type=str, default='/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml',
                         help='just use the target dataset cfg file')
-    parser.add_argument('--ps_label_dir', type=str, default='/MS3D/tools/cfgs/target_waymo/final_ps_labels',
-                        help='Folder to save intermediate ps label pkl files')
+    parser.add_argument('--ps_cfg', type=str, help='cfg file with MS3D parameters')
     
-    # Initial pseudo-label and track thresholds
-    parser.add_argument('--pos_th_veh', type=float, default=0.6, help='Vehicle detections above this threshold is used as pseudo-label')
-    parser.add_argument('--pos_th_ped', type=float, default=0.5, help='Pedestrian detections above this threshold is used as pseudo-label')    
-    parser.add_argument('--min_dets_for_tracks_all', type=int, default=4, help='Every track should have a minimum of N detections above the trk_cfg_veh_th')
-    parser.add_argument('--min_dets_for_tracks_static', type=int, default=6, help='Every track (static) should have a minimum of N detections above the trk_cfg_veh_th')
-    parser.add_argument('--min_dets_for_ped_tracks', type=int, default=6, help='Every ped track should have a minimum of N detections above the trk_cfg_veh_th')
+    # # Initial pseudo-label and track thresholds
+    # parser.add_argument('--pos_th_veh', type=float, default=0.6, help='Vehicle detections above this threshold is used as pseudo-label')
+    # parser.add_argument('--pos_th_ped', type=float, default=0.5, help='Pedestrian detections above this threshold is used as pseudo-label')    
+    # parser.add_argument('--min_dets_for_tracks_all', type=int, default=4, help='Every track should have a minimum of N detections above the trk_cfg_veh_th')
+    # parser.add_argument('--min_dets_for_tracks_static', type=int, default=6, help='Every track (static) should have a minimum of N detections above the trk_cfg_veh_th')
+    # parser.add_argument('--min_dets_for_ped_tracks', type=int, default=6, help='Every ped track should have a minimum of N detections above the trk_cfg_veh_th')
     
-    # Configs for refining boxes of static vehicles
-    parser.add_argument('--min_static_score', type=float, default=0.7, help='Minimum score for static boxes after refinement')
-    parser.add_argument('--rolling_kde_window', type=int, default=16, help='Number of boxes to use for KBF of a single static object')
+    # # Configs for refining boxes of static vehicles
+    # parser.add_argument('--min_static_score', type=float, default=0.7, help='Minimum score for static boxes after refinement')
+    # parser.add_argument('--rolling_kde_window', type=int, default=16, help='Number of boxes to use for KBF of a single static object')
 
-    # Configs for propogating boxes
-    parser.add_argument('--propagate_boxes_min_dets', type=int, default=12, help='Minimum number of dets for static object to decide if we want to propagate boxes')
-    parser.add_argument('--n_extra_frames', type=int, default=100, help='Number of frames to propagate') # prev 40 for 1.67Hz
-    parser.add_argument('--degrade_factor', type=float, default=0.98, help='For every propagated frame, the box score will be multiplied by degrade factor') # prev 0.95 for 1.67Hz
-    parser.add_argument('--min_score_clip', type=float, default=0.5, help='Set minimum score that the box can be degraded to. This is not so necessary (more for experiments)')
+    # # Configs for propogating boxes
+    # parser.add_argument('--propagate_boxes_min_dets', type=int, default=12, help='Minimum number of dets for static object to decide if we want to propagate boxes')
+    # parser.add_argument('--n_extra_frames', type=int, default=100, help='Number of frames to propagate') # prev 40 for 1.67Hz
+    # parser.add_argument('--degrade_factor', type=float, default=0.98, help='For every propagated frame, the box score will be multiplied by degrade factor') # prev 0.95 for 1.67Hz
+    # parser.add_argument('--min_score_clip', type=float, default=0.5, help='Set minimum score that the box can be degraded to. This is not so necessary (more for experiments)')
     args = parser.parse_args()
 
+    ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)
     cfg_from_yaml_file(args.cfg_file, cfg)
     dataset = load_dataset(split='train')
     
-    # Paths
-    ps_pth = '/MS3D/tools/cfgs/target_waymo/ps_labels/N_L_VMFI_TTA_PA_PC_VA_VC_64_WEIGHTED.pkl'
-    tracks_veh_all_pth = '/MS3D/tools/cfgs/target_waymo/ps_labels/N_L_VMFI_TTA_PA_PC_VA_VC_64_WEIGHTED_tracks_world_veh.pkl'
-    tracks_veh_static_pth = '/MS3D/tools/cfgs/target_waymo/ps_labels/N_L_VMFI_TTA_PA_PC_VA_VC_64_WEIGHTED_tracks_world_veh_static_iou2d.pkl'
-    tracks_ped_pth = '/MS3D/tools/cfgs/target_waymo/ps_labels/N_L_VMFI_TTA_PA_PC_VA_VC_64_WEIGHTED_tracks_world_ped_th02.pkl'
-
     # Load pkls
+    ps_pth = Path(ms3d_configs["save_dir"]) / f'{ms3d_configs["exp_name"]}.pkl'
+    tracks_veh_all_pth = Path(ms3d_configs["save_dir"]) / f'{ms3d_configs["exp_name"]}_tracks_world_veh.pkl'
+    tracks_veh_static_pth = Path(ms3d_configs["save_dir"]) / f'{ms3d_configs["exp_name"]}_tracks_world_veh_static.pkl'
+    tracks_ped_pth = Path(ms3d_configs["save_dir"]) / f'{ms3d_configs["exp_name"]}_tracks_world_ped.pkl'
     ps_dict = load_pkl(ps_pth)
     tracks_veh_all = load_pkl(tracks_veh_all_pth)
     tracks_veh_static = load_pkl(tracks_veh_static_pth)
     tracks_ped = load_pkl(tracks_ped_pth)
 
     # Get vehicle labels
-    print('Refining vehicle labels') # TODO: rename static_kf_iou to *_iou2d.yaml and modify other files to reflect this
-    trk_cfg_veh_static = '/MS3D/tracker/configs/ms3d_configs/veh_static_kf_iou.yaml' # Only need this for the tracking score_th
-    configs = yaml.load(open(trk_cfg_veh_static, 'r'), Loader=yaml.Loader)
-    trk_cfg_veh_static_th = configs['running']['score_threshold']
-    veh_cfgs = load_veh_cfgs(args)
-    tracks_veh_all, tracks_veh_static = refine_veh_labels(tracks_veh_all, tracks_veh_static, trk_cfg_veh_static_th, veh_cfgs, args.ps_label_dir)
+    print('Refining vehicle labels')
+    trk_cfg_veh_static = yaml.load(open(ms3d_configs['tracking']['veh_static_cfg'], 'r'), Loader=yaml.Loader)
+    tracks_veh_all, tracks_veh_static = refine_veh_labels(tracks_veh_all, 
+                                                          tracks_veh_static, 
+                                                          trk_cfg_veh_static['running']['score_threshold'], 
+                                                          ms3d_configs)
 
     # Get pedestrian labels
     print('Refining pedestrian labels')
-    trk_cfg_ped = '/MS3D/tracker/configs/ms3d_configs/ped_kf_giou.yaml' # Only need this for the tracking score_th
-    configs = yaml.load(open(trk_cfg_ped, 'r'), Loader=yaml.Loader)
-    trk_cfg_ped_th = configs['running']['score_threshold']
-    tracks_ped = refine_ped_labels(tracks_ped, trk_cfg_ped_th, args.min_dets_for_ped_tracks, args.pos_th_ped)
+    trk_cfg_ped = yaml.load(open(ms3d_configs['tracking']['ped_cfg'], 'r'), Loader=yaml.Loader)
+    tracks_ped = refine_ped_labels(tracks_ped, trk_cfg_ped['running']['score_threshold'], 
+                                   ms3d_configs['tracking']['min_dets_for_tracks_ped'], 
+                                   ms3d_configs['ps_score_th']['pos_th'][1])
 
     # Combine pseudo-labels for each class and filter with NMS
     print('Combining pseudo-labels for each class')
     final_ps_dict = update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped, 
-              veh_pos_th=args.pos_th_veh, veh_nms_th=0.05, ped_nms_th=0.5, 
-              frame2box_key_static='frameid_to_extrollingkde', frame2box_key='frameid_to_box', frame_ids=list(ps_dict.keys()))
+              veh_pos_th=ms3d_configs['ps_score_th']['pos_th'][0], 
+              veh_nms_th=0.05, ped_nms_th=0.5, 
+              frame2box_key_static='frameid_to_propboxes', 
+              frame2box_key='frameid_to_box', frame_ids=list(ps_dict.keys()))
 
-    generate_ps_utils.save_data(final_ps_dict, args.ps_label_dir, name="final_ps_dict.pkl")
+    final_ps_dict = select_ps_by_th(final_ps_dict, ms3d_configs['ps_score_th']['pos_th'])
+
+    generate_ps_utils.save_data(final_ps_dict, str(Path(ms3d_configs["save_dir"])), name="final_ps_dict.pkl")
     print('Finished generating pseudo-labels')
