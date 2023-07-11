@@ -59,7 +59,7 @@ if __name__ == '__main__':
     if args.cls_id == 1:        
         if args.static_veh:
             trk_cfg = '/MS3D/tracker/configs/ms3d_configs/veh_static_kf_iou.yaml'
-            save_fname = f"{Path(args.ps_dict).stem}_tracks_world_veh_static_6280.pkl"
+            save_fname = f"{Path(args.ps_dict).stem}_tracks_world_veh_static.pkl"            
 
             # Downsample from 5Hz to 1.67Hz (i.e. skip 6)
             selected_ids = list(range(0,len(ps_dict.keys()),3))
@@ -68,13 +68,13 @@ if __name__ == '__main__':
                 if i in selected_ids:
                     ds_ps_dict[k] = ps_dict[k]
             ps_dict = ds_ps_dict.copy()
-
+            
         else:
             trk_cfg = '/MS3D/tracker/configs/ms3d_configs/veh_kf_giou.yaml'
             save_fname = f"{Path(args.ps_dict).stem}_tracks_world_veh.pkl"
     elif args.cls_id == 2:
         trk_cfg = '/MS3D/tracker/configs/ms3d_configs/ped_kf_giou.yaml'
-        save_fname = f"{Path(args.ps_dict).stem}_tracks_world_ped.pkl"
+        save_fname = f"{Path(args.ps_dict).stem}_tracks_world_ped_th02.pkl"
     elif args.cls_id == 3:
         trk_cfg = '/MS3D/tracker/configs/ms3d_configs/cyc_kf_giou.yaml'
         save_fname = f"{Path(args.ps_dict).stem}_tracks_world_cyc.pkl"

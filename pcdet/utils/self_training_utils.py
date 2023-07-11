@@ -40,7 +40,6 @@ def check_already_exist_pseudo_label(ps_label_dir, start_epoch):
     if start_epoch == 0 and cfg.SELF_TRAIN.get('INIT_PS', None):
         if os.path.exists(cfg.SELF_TRAIN.INIT_PS):
             init_ps_label = pkl.load(open(cfg.SELF_TRAIN.INIT_PS, 'rb'))
-            filter_ps_by_neg_score(init_ps_label)
             PSEUDO_LABELS.update(init_ps_label)
             if cfg.LOCAL_RANK == 0:
                 ps_path = os.path.join(ps_label_dir, "ps_label_e0.pkl")
@@ -49,21 +48,21 @@ def check_already_exist_pseudo_label(ps_label_dir, start_epoch):
 
             return cfg.SELF_TRAIN.INIT_PS
 
-    ps_label_list = glob.glob(os.path.join(ps_label_dir, 'ps_label_e*.pkl'))
-    if len(ps_label_list) == 0:
-        return
+    # ps_label_list = glob.glob(os.path.join(ps_label_dir, 'ps_label_e*.pkl'))
+    # if len(ps_label_list) == 0:
+    #     return
 
-    ps_label_list.sort(key=os.path.getmtime, reverse=True)
-    for cur_pkl in ps_label_list:
-        num_epoch = re.findall('ps_label_e(.*).pkl', cur_pkl)
-        assert len(num_epoch) == 1
+    # ps_label_list.sort(key=os.path.getmtime, reverse=True)
+    # for cur_pkl in ps_label_list:
+    #     num_epoch = re.findall('ps_label_e(.*).pkl', cur_pkl)
+    #     assert len(num_epoch) == 1
 
-        # load pseudo label and return
-        if int(num_epoch[0]) <= start_epoch:
-            latest_ps_label = pkl.load(open(cur_pkl, 'rb'))
-            filter_ps_by_neg_score(latest_ps_label)
-            PSEUDO_LABELS.update(latest_ps_label)            
-            return cur_pkl
+    #     # load pseudo label and return
+    #     if int(num_epoch[0]) <= start_epoch:
+    #         latest_ps_label = pkl.load(open(cur_pkl, 'rb'))
+    #         filter_ps_by_neg_score(latest_ps_label)
+    #         PSEUDO_LABELS.update(latest_ps_label)            
+    #         return cur_pkl
 
     return None
 
@@ -326,7 +325,7 @@ def init_multi_source_ps_label(dataset, ps_label_dir):
     if tracks_16f_world_rke is None:
         tracks_16f_world_rke = tracks_16f_world_refined
         generate_ps_utils.get_track_rolling_kde_interpolation(dataset, tracks_16f_world_rke, window=ms_cfg.ROLLING_KDE_WINDOW, 
-                                                              ps_score_th=cfg.SELF_TRAIN.SCORE_THRESH, kdebox_min_score=ms_cfg.MIN_STATIC_SCORE)
+                                                              static_score_th=cfg.SELF_TRAIN.SCORE_THRESH, kdebox_min_score=ms_cfg.MIN_STATIC_SCORE)
         generate_ps_utils.save_data(tracks_16f_world_rke, ps_label_dir, name="tracks_16f_world_rkde.pkl")
 
     if ms_cfg.PROPAGATE_STATIC_BOXES.ENABLED:

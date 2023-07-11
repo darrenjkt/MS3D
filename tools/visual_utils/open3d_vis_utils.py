@@ -11,10 +11,10 @@ import numpy as np
 open3d.utility.set_verbosity_level(open3d.utility.VerbosityLevel(0)) # Suppress paint_uniform_color warning
 
 box_colormap = [
-    [1, 1, 1], 
+    [1, 1, 1], # ignore
     [0, 0, 1], # car
-    [0, 1, 1],
-    [1, 1, 0],
+    [1, 0.55, 0], # ped
+    [0, 0.8, 0.8], # cyc
     [0.21568627, 0.49411765, 0.72156863],
     [0.89411765, 0.10196078, 0.10980392],
     [0.59607843, 0.30588235, 0.63921569],
@@ -144,7 +144,7 @@ def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None,
         geometries.append(pts)
 
     if gt_boxes is not None:
-        box = get_box(gt_boxes, (0, 0, 1.0), use_linemesh=use_linemesh)
+        box = get_box(gt_boxes, (0, 0, 1.0), ref_labels, use_linemesh=use_linemesh)
         geometries.extend(box)
 
     if ref_boxes is not None:
@@ -157,21 +157,34 @@ def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None,
     return geometries
 
 def get_box(boxes, color=(0, 1, 0), ref_labels=None, score=None, line_thickness=0.06, use_linemesh=True): #0.02
+    """
+    Linemesh gives much thicker box lines but is extremely slow. Use only if you don't need to change viewpoint
+    """
     ret_boxes = []
         
     # cmap = np.array([[49,131,106],[176,73,73],[160,155,30],[25,97,120],[0,0,0],[120,59,24],[120,24,110]])/255 # for track vis
     for i in range(boxes.shape[0]):
         # color = cmap[i % len(cmap)] # delete later
-        line_set, box3d = translate_boxes_to_open3d_instance(boxes[i], use_linemesh=True, line_thickness=line_thickness)
-        if ref_labels is None:
-            for lines in line_set:
-                lines.paint_uniform_color(color)
-                ret_boxes.append(lines)
-        else:
-            for lines in line_set:
-                # lines.paint_uniform_color(box_colormap[ref_labels[i]])
-                lines.paint_uniform_color(color)
-                ret_boxes.append(lines)                
+        line_set, box3d = translate_boxes_to_open3d_instance(boxes[i], use_linemesh=use_linemesh, line_thickness=line_thickness)
+        if ref_labels is None: # Pred boxes
+            if use_linemesh:
+                for lines in line_set:
+                    lines.paint_uniform_color(color)
+                    ret_boxes.append(lines)
+            else:
+                line_set.paint_uniform_color(color)
+                ret_boxes.append(line_set)
+
+        else:  # GT boxes
+            if use_linemesh:
+                for lines in line_set:
+                    lines.paint_uniform_color(box_colormap[ref_labels[i]])
+                    # lines.paint_uniform_color(color)
+                    ret_boxes.append(lines)      
+            else:
+                line_set.paint_uniform_color(box_colormap[ref_labels[i]])
+                # line_set.paint_uniform_color(color)
+                ret_boxes.append(line_set)
     return ret_boxes
 
 

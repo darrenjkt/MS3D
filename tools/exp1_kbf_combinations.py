@@ -61,7 +61,7 @@ def get_multi_source_prelim_label(detection_sets, cls_kbf_config):
         else:
             ps_label_nms = np.empty((0,9))
             
-        # neg_th < score < pos_th: ignore for training but keep for update step
+        # neg_th < score < pos_th: ignore for training but keep in-case we need it
         pred_boxes = ps_label_nms[:,:7]
         pred_labels = ps_label_nms[:,7]
         pred_scores = ps_label_nms[:,8]

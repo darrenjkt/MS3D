@@ -9,6 +9,19 @@ from pcdet.utils import common_utils
 from pcdet.utils.transform_utils import get_rotation_near_weighted_mean
 from tqdm import tqdm 
 
+# For MS3D labels, re-map every class into super categories with index:category of 1:VEH/CAR, 2:PED, 3:CYC
+# When we load in the labels for fine-tuning the specific detector, we can re-index it based on the pretrained class index
+SUPERCATEGORIES = ['Vehicle','Pedestrian','Cyclist']
+SUPER_MAPPING = {'car': 'Vehicle',
+                'truck': 'Vehicle',
+                'bus': 'Vehicle',
+                'Vehicle': 'Vehicle',
+                'pedestrian': 'Pedestrian',
+                'Pedestrian': 'Pedestrian',
+                'motorcycle': 'Cyclist', # TODO: Waymo maps motorcycle to Vehicle
+                'bicycle': 'Cyclist',
+                'Cyclist': 'Cyclist'}
+
 def get_matching_boxes(boxes, discard=3, radius=1.0):
     """
     Get all centroids nearby and discard any detections 
@@ -147,22 +160,38 @@ def load_src_paths_txt(src_paths_txt):
             det_annos['det_cls_weights'][label] = det_cls_weights
     return det_annos
 
-def combine_box_pkls(det_annos, score_th=0.1):
-    # TODO: Update this with the function in exp_kbf_combinations
-    combined_dets = []
-    len_data = len(det_annos[list(det_annos.keys())[0]])
-    for idx in tqdm(range(len_data), total=len_data, desc='aggregating_proposals'):
+def get_detection_sets(det_annos, score_th=0.1):
+    """
+    This function returns a list where each element contains all the detection sets for one frame.
+    When we generate the detection sets with test.py, we map the class names to the target domain, but not the class_id.
+
+    No matter the target domain, combine all detection sets as veh,ped,cyc with index 1,2,3 first. Later on, when we load in the labels for 
+    training, we'll adapt it for the source pretrained model's classes with the DATA_CONFIG.CLASS_NAMES. This is because we need to maintain 
+    the original pre-trained detector's class indexing. If motorcycle was idx=4, we should use cyclist as idx=4 at training.
+    """
+    detection_sets = []
+    src_keys = list(det_annos.keys())
+    src_keys.remove('det_cls_weights')
+    len_data = len(det_annos[src_keys[0]])
+    for idx in tqdm(range(len_data), total=len_data, desc='load detection sets'):
         frame_dets = {}
-        frame_dets['boxes_lidar'], frame_dets['score'], frame_dets['source'], frame_dets['source_id'], frame_dets['frame_id'], frame_dets['class_ids'], frame_dets['names'] = [],[],[],[],[],[],[]
-        for src_id, key in enumerate(det_annos.keys()):    
+        frame_dets['boxes_lidar'], frame_dets['score'], frame_dets['source'], frame_dets['source_id'], frame_dets['frame_id'], frame_dets['class_ids'], frame_dets['names'], frame_dets['box_weights'] = [],[],[],[],[],[],[],[]
+        for src_id, key in enumerate(src_keys):
             frame_dets['frame_id'] = det_annos[key][idx]['frame_id']
             score_mask = det_annos[key][idx]['score'] > score_th            
             frame_dets['boxes_lidar'].extend(det_annos[key][idx]['boxes_lidar'][score_mask])
             frame_dets['score'].extend(det_annos[key][idx]['score'][score_mask])
             frame_dets['source'].extend([key for i in range(len(det_annos[key][idx]['score'][score_mask]))])
             frame_dets['source_id'].extend([src_id for i in range(len(det_annos[key][idx]['score'][score_mask]))])
-            frame_dets['class_ids'].extend(det_annos[key][idx]['pred_labels'][score_mask])
-            frame_dets['names'].extend(det_annos[key][idx]['name'][score_mask])
+            
+            # Remap every class_id to the supercategory class_id of 1:veh/car, 2:ped, 3:cyc
+            # TODO: Confirm that this works for every target domain
+            pred_names = det_annos[key][idx]['name'][score_mask]
+            superclass_ids = np.array([SUPERCATEGORIES.index(SUPER_MAPPING[name])+1 for name in pred_names])
+            frame_dets['class_ids'].extend(superclass_ids)
+            frame_dets['names'].extend(pred_names)
+            det_cls_weights = det_annos['det_cls_weights'][key]
+            frame_dets['box_weights'].extend(np.array([det_cls_weights[cid-1] for cid in superclass_ids]))
 
         frame_dets['boxes_lidar'] = np.vstack(frame_dets['boxes_lidar']) if len(frame_dets['score']) != 0  else np.array([]).reshape(-1,7)
         frame_dets['score'] = np.hstack(frame_dets['score']) if len(frame_dets['score']) != 0 else np.array([])
@@ -170,9 +199,11 @@ def combine_box_pkls(det_annos, score_th=0.1):
         frame_dets['source_id'] = np.array(frame_dets['source_id']) if len(frame_dets['score']) != 0 else np.array([])
         frame_dets['class_ids'] = np.array(frame_dets['class_ids'], dtype=np.int32) if len(frame_dets['score']) != 0 else  np.array([])
         frame_dets['names'] = np.array(frame_dets['names']) if len(frame_dets['score']) != 0 else  np.array([])
-        combined_dets.append(frame_dets)
+        frame_dets['box_weights'] = np.array(frame_dets['box_weights'], dtype=np.int32) if len(frame_dets['score']) != 0 else  np.array([])
+        detection_sets.append(frame_dets)
         assert frame_dets['class_ids'].shape == frame_dets['score'].shape
-    return combined_dets
+
+    return detection_sets
 
 def kbf(boxes, box_weights, bw_c=1.0, bw_dim=2.0, bw_ry=0.1, bw_cls=0.5, bw_score=2.0):
     """

@@ -98,7 +98,7 @@ def main():
                 continue
             V.draw_scenes(points=data_dict['points'][:, 1:], 
                           gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None,                           
-                          draw_origin=False)
+                          draw_origin=False, use_linemesh=False, ref_labels=list(data_dict['gt_boxes'][0][:,7].astype(int)))
 
     # Visualize pkls
     if (args.det_pkl is not None) or (args.ps_pkl is not None) or (args.dets_txt is not None):    

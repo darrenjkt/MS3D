@@ -131,7 +131,7 @@ def main():
 
     if args.dets_txt is not None:
         det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
-        detection_sets = box_fusion_utils.combine_box_pkls(det_annos, score_th=0.3)
+        detection_sets = box_fusion_utils.get_detection_sets(det_annos, score_th=0.3)
         if args.ps_pkl is None:
             start_frame_id = detection_sets[start_idx]['frame_id']   
         else:

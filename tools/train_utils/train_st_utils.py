@@ -180,21 +180,13 @@ def train_model_st(model, optimizer, source_loader, target_loader, model_func, l
     # for continue training.
     # if already exist generated pseudo label result
     ps_pkl = self_training_utils.check_already_exist_pseudo_label(ps_label_dir, start_epoch)
-    if ps_pkl is not None:
-        logger.info('==> Loading pseudo labels from {}'.format(ps_pkl))
-    else:
-        if cfg.SELF_TRAIN.get('MS_DETECTOR_PS', None):
-            logger.info('==> Generating pseudo-labels using multiple source detectors')
-            self_training_utils.init_multi_source_ps_label(target_loader.dataset, ps_label_dir=ps_label_dir)
-
-    # if cfg.SELF_TRAIN.get('MS_DETECTOR_PS', None) and (cfg.SELF_TRAIN.MS_DETECTOR_PS.NUM_TOP_STATIC_FRAMES > 0):
-    #     # Filter GT by frame quality
-    #     logger.info('==> Total training data for self-training: {}'.format(len(target_loader.dataset)))
-    #     self_training_utils.select_top_n_static_frames(target_loader.dataset)
-    #     logger.info('==> Sampled training data for self-training: {}'.format(len(target_loader.dataset)))
-
-    # if target_loader.dataset.data_augmentor.prog_range:
-    #     target_loader.dataset.data_augmentor.adjust_range(cur_epoch=0)
+    logger.info('==> Loading pseudo labels from {}'.format(ps_pkl))
+    # if ps_pkl is not None:
+    #     logger.info('==> Loading pseudo labels from {}'.format(ps_pkl))
+    # else:
+    #     if cfg.SELF_TRAIN.get('MS_DETECTOR_PS', None):
+    #         logger.info('==> Generating pseudo-labels using multiple source detectors')
+    #         self_training_utils.init_multi_source_ps_label(target_loader.dataset, ps_label_dir=ps_label_dir)
 
     with tqdm.trange(start_epoch, total_epochs, desc='epochs', dynamic_ncols=True,
                      leave=(rank == 0)) as tbar:
@@ -217,15 +209,15 @@ def train_model_st(model, optimizer, source_loader, target_loader, model_func, l
                 cur_scheduler = lr_scheduler            
             
             # update pseudo label
-            if (cur_epoch in cfg.SELF_TRAIN.UPDATE_PSEUDO_LABEL) or \
-                ((cur_epoch % cfg.SELF_TRAIN.UPDATE_PSEUDO_LABEL_INTERVAL == 0)
-                     and cur_epoch != 0):
-                target_loader.dataset.eval()
-                self_training_utils.save_pseudo_label_epoch(
-                    model, target_loader, rank,
-                    leave_pbar=True, ps_label_dir=ps_label_dir, cur_epoch=cur_epoch
-                )
-                target_loader.dataset.train()
+            # if (cur_epoch in cfg.SELF_TRAIN.UPDATE_PSEUDO_LABEL) or \
+            #     ((cur_epoch % cfg.SELF_TRAIN.UPDATE_PSEUDO_LABEL_INTERVAL == 0)
+            #          and cur_epoch != 0):
+            #     target_loader.dataset.eval()
+            #     self_training_utils.save_pseudo_label_epoch(
+            #         model, target_loader, rank,
+            #         leave_pbar=True, ps_label_dir=ps_label_dir, cur_epoch=cur_epoch
+            #     )
+            #     target_loader.dataset.train()
 
             accumulated_iter = train_one_epoch_st(
                 model, optimizer, source_reader, target_loader, model_func,

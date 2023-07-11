@@ -439,7 +439,7 @@ class WaymoDataset(DatasetTemplate):
                 input_dict['gt_boxes'] = None
 
         if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:
-            # Remap indices; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist
+            # Remap indices from pseudo-label 1-3 to order of det head classes; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist
             # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)
             
             psid2clsid = {}

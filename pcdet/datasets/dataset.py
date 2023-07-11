@@ -139,7 +139,15 @@ class DatasetTemplate(torch_data.Dataset):
 
         gt_scores = gt_boxes[:, 8]
         gt_classes = gt_boxes[:, 7]
-        remapped_classes = np.array([psid2clsid[cls_id] for cls_id in gt_classes])
+
+        remapped_classes = []
+        for cls_id in gt_classes:
+            if cls_id < 0:
+                remapped_id = -psid2clsid[abs(cls_id)]
+            else:
+                remapped_id = psid2clsid[cls_id]
+            remapped_classes.append(remapped_id)    
+        remapped_classes = np.array(remapped_classes)
         gt_boxes = gt_boxes[:, :7]
         gt_names = np.array(self.class_names)[np.abs(remapped_classes.astype(np.int32)) - 1]
 

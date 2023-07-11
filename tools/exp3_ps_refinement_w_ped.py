@@ -9,6 +9,7 @@ from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.utils import common_utils
 from pcdet.datasets import build_dataloader
 import yaml
+from tqdm import tqdm
 
 def load_dataset(split):
 
@@ -34,8 +35,9 @@ if __name__ == '__main__':
                         help='just use the target dataset cfg file')
     parser.add_argument('--pos_th_veh', type=float, default=0.6, help='Vehicle detections above this threshold is used as pseudo-label')
     parser.add_argument('--pos_th_ped', type=float, default=0.5, help='Pedestrian detections above this threshold is used as pseudo-label')    
-    parser.add_argument('--min_dets_for_tracks_all', type=int, default=3, help='Every track should have a minimum of N detections')
-    parser.add_argument('--min_dets_for_tracks_static', type=int, default=3, help='Every track (static) should have a minimum of N detections')
+    parser.add_argument('--min_dets_for_veh_tracks_all', type=int, default=3, help='Every track should have a minimum of N detections')
+    parser.add_argument('--min_dets_for_veh_tracks_static', type=int, default=3, help='Every track (static) should have a minimum of N detections')
+    parser.add_argument('--min_dets_for_ped_tracks', type=int, default=3, help='Every ped track should have a minimum of N detections')
     parser.add_argument('--ps_label_dir', type=str, default='/MS3D/tools/cfgs/target_waymo/ps_labels',
                         help='Folder to save intermediate ps label pkl files')
     
@@ -60,50 +62,68 @@ if __name__ == '__main__':
     tracks_ped_pth = '/MS3D/tools/cfgs/target_waymo/ps_labels/N_L_VMFI_TTA_PA_PC_VA_VC_64_WEIGHTED_tracks_world_ped.pkl'
 
     ps_dict = load_pkl(ps_pth)
-    tracks_veh_all = load_pkl(tracks_veh_all_pth)
-    tracks_veh_static = load_pkl(tracks_veh_static_pth)
     tracks_ped = load_pkl(tracks_ped_pth)
 
-
-    trk_cfg_veh_static = '/MS3D/tracker/configs/ms3d_configs/veh_static_kf_iou.yaml'
-    configs = yaml.load(open(trk_cfg_veh_static, 'r'), Loader=yaml.Loader)
-    trk_score_th_static = configs['running']['score_threshold']
-
     # TODO: Add pedestrian refinement
+    """
+    2. Find all tracks where pedestrian is moving and tracked for at least 10 frames (~2s @ 5Hz)
+    4. If valid track, assign box score of 0.5 for all track boxes
+    5. Project dynamic tracks into all frames and do NMS
+    """
+    trk_cfg_ped = '/MS3D/tracker/configs/ms3d_configs/ped_kf_giou.yaml'
+    configs = yaml.load(open(trk_cfg_ped, 'r'), Loader=yaml.Loader)
+    trk_cfg_ped_th = configs['running']['score_threshold']
+    tracker_utils.delete_tracks(tracks_ped, min_score=trk_cfg_ped_th, num_min_dets=args.min_dets_for_ped_tracks)                   
+    for trk_id in tracks_ped.keys():
+        score_mask = tracks_ped[trk_id]['boxes'][:,7] > trk_cfg_ped_th
+        tracks_ped[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_ped[trk_id]['boxes'][score_mask], s2e_th=1)  
 
-    # Start refinement
-    tracker_utils.delete_tracks(tracks_veh_all, min_score=args.pos_th_veh, num_min_dets=args.min_dets_for_tracks_all)                   
-    tracker_utils.delete_tracks(tracks_veh_static, min_score=trk_score_th_static, num_min_dets=args.min_dets_for_tracks_static)   
-    
-     # Get static boxes using tracking information
-    for trk_id in tracks_veh_all.keys():
-        score_mask = tracks_veh_all[trk_id]['boxes'][:,7] > args.pos_th_veh
-        tracks_veh_all[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_veh_all[trk_id]['boxes'][score_mask])    
-    for trk_id in tracks_veh_static.keys():
-        score_mask = tracks_veh_static[trk_id]['boxes'][:,7] > trk_score_th_static
-        tracks_veh_static[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_veh_static[trk_id]['boxes'][score_mask])        
+    # Delete stationary pedestrian tracks, retain only dynamic tracks
+    all_ids = list(tracks_ped.keys())
+    for trk_id in all_ids:
+        if tracks_ped[trk_id]['motion_state'] != 1:
+            del tracks_ped[trk_id]
+        else:
+            mask = tracks_ped[trk_id]['boxes'][:,7] < args.pos_th_ped
+            tracks_ped[trk_id]['boxes'][:,7][mask] = args.pos_th_ped
 
-    # Updates motion-state of track dicts in-place
-    matched_trk_ids = generate_ps_utils.motion_state_refinement(tracks_veh_all, tracks_veh_static, list(ps_dict.keys()))                
+    from pcdet.utils.tracker_utils import get_frame_track_boxes
+    from pcdet.utils.compatibility_utils import get_lidar, get_pose
+    from pcdet.utils.transform_utils import world_to_ego
+    from pcdet.utils.box_fusion_utils import nms
+    from pcdet.datasets.augmentor.augmentor_utils import get_points_in_box
 
-    # Merge disjointed tracks and assign one box per frame in the ego-vehicle frame
-    generate_ps_utils.merge_disjointed_tracks(tracks_veh_all, tracks_veh_static, matched_trk_ids)    
-    generate_ps_utils.save_data(tracks_veh_all, args.ps_label_dir, name="tracks_all_world_refined.pkl")
-    generate_ps_utils.save_data(tracks_veh_static, args.ps_label_dir, name="tracks_static_world_refined.pkl")
+    final_ps_dict = {}
+    final_ps_dict.update(ps_dict)
+    for idx, (frame_id, ps) in enumerate(tqdm(final_ps_dict.items(), total=len(final_ps_dict.keys()), desc='update_ps')):        
+        if idx > 1000:
+            break
+        cur_gt_boxes = final_ps_dict[frame_id]['gt_boxes']
 
-    generate_ps_utils.get_track_rolling_kde_interpolation(dataset, tracks_veh_static, window=args.rolling_kde_window, 
-                                                              ps_score_th=args.pos_th_veh, kdebox_min_score=args.min_static_score)
-    generate_ps_utils.save_data(tracks_veh_static, args.ps_label_dir, name="tracks_static_world_rkde.pkl")
+        # Focus on pedestrian for now
+        ped_mask = abs(ps_dict[frame_id]['gt_boxes'][:,7]) == 2
+        cur_gt_boxes = cur_gt_boxes[ped_mask]
 
-    generate_ps_utils.propagate_static_boxes(dataset, tracks_veh_static, 
-                                                     score_thresh=trk_score_th_static,
-                                                     min_dets=args.propagate_boxes_min_dets,
-                                                     n_extra_frames=args.n_extra_frames, 
-                                                     degrade_factor=args.degrade_factor, 
-                                                     min_score_clip=args.min_score_clip)
-    generate_ps_utils.save_data(tracks_veh_static, args.ps_label_dir, name="tracks_static_world_proprkde.pkl")
+        track_boxes_ped = get_frame_track_boxes(tracks_ped, frame_id) # (N,9): [x,y,z,dx,dy,dz,heading,score,trk_id]
+        pose = get_pose(dataset, frame_id)
+        _, ego_track_boxes_ped = world_to_ego(pose, boxes=track_boxes_ped)
+        ego_track_boxes_ped = np.insert(ego_track_boxes_ped[:,:8], 7, axis=1, values=2) # (N,9): [x,y,z,dx,dy,dz,heading,cls_id,score] ; ped class_id = 2        
+        new_boxes = np.vstack([cur_gt_boxes, ego_track_boxes_ped])        
+        if len(new_boxes) > 1:            
+            nms_mask = nms(new_boxes[:,:7].astype(np.float32), 
+                            new_boxes[:,8].astype(np.float32),
+                            thresh=0.5) # ped_nms = 0.5, veh_nms = 0.05
+            new_boxes = new_boxes[nms_mask]
+        
+        points_1frame = get_lidar(dataset, frame_id) # 1 sweep lidar
+        points_1frame[:,:3] += dataset.dataset_cfg.SHIFT_COOR
+        num_pts = []    
+        for box in new_boxes:
+            box_points, _ = get_points_in_box(points_1frame, box)
+            num_pts.append(len(box_points))
+        num_pts = np.array(num_pts)
+        final_ps_dict[frame_id]['gt_boxes'] = new_boxes[num_pts > 1]
+        final_ps_dict[frame_id]['num_pts'] = num_pts[num_pts > 1] 
+        final_ps_dict[frame_id]['memory_counter'] = np.zeros(final_ps_dict[frame_id]['gt_boxes'].shape[0])
 
-    frame2box_key = 'frameid_to_extrollingkde'
-    final_ps_dict = generate_ps_utils.update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, 
-                                                frame2box_key_16f=frame2box_key, frame2box_key_1f='frameid_to_box', frame_ids=list(ps_dict.keys()))
-    generate_ps_utils.save_data(final_ps_dict, args.ps_label_dir, name="final_ps_dict.pkl")
+    generate_ps_utils.save_data(final_ps_dict, args.ps_label_dir, name="final_ps_dict_ped_min3.pkl")

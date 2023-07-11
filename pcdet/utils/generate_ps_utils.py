@@ -213,7 +213,7 @@ def merge_disjointed_tracks(tracks_all, tracks_static, matched_trk_ids):
     assign_box_to_frameid(tracks_all)            
     assign_box_to_frameid(tracks_static)
 
-def get_track_rolling_kde_interpolation(dataset, tracks_static, window, ps_score_th, kdebox_min_score):
+def get_track_rolling_kde_interpolation(dataset, tracks_static, window, static_score_th, kdebox_min_score):
     """
     For static objects, combine historical N boxes as the current frame's box.
     If there are no N historical frames, we take future frames. 
@@ -232,8 +232,8 @@ def get_track_rolling_kde_interpolation(dataset, tracks_static, window, ps_score
         if len(trk_frame_inds_set) < window:
             boxes = np.array(list(f2b.values()))
             boxes = np.insert(boxes, 7,1,1) # Static refinement only done for vehicle class so we hardcode class ID
-            kdebox = kbf(boxes, box_weights=boxes[:,-1])
-            if kdebox[8] > ps_score_th:
+            kdebox = kbf(boxes, box_weights=boxes[:,-1], bw_score=1.0)
+            if kdebox[8] > static_score_th:
                 kdebox[8] = max(kdebox_min_score, kdebox[8])
             kdebox = np.delete(kdebox, 7)
             for frame_idx, f_id in enumerate(trk_frame_inds_set):
@@ -247,8 +247,8 @@ def get_track_rolling_kde_interpolation(dataset, tracks_static, window, ps_score
                 accum_inds = np.clip(accum_inds, 0, len(trk_frame_inds_set)-1)
                 boxes = np.stack([f2b[key] for key in trk_frame_inds_set[np.unique(accum_inds)]])
                 boxes = np.insert(boxes, 7,1,1) # Static refinement only done for vehicle class so we hardcode class ID
-                kdebox = kbf(boxes, box_weights=boxes[:,-1])
-                if kdebox[8] > ps_score_th:
+                kdebox = kbf(boxes, box_weights=boxes[:,-1], bw_score=1.0)
+                if kdebox[8] > static_score_th:
                     kdebox[8] = max(kdebox_min_score, kdebox[8])
                 kdebox = np.delete(kdebox, 7)
                 tracks_static[trk_id]['frameid_to_rollingkde'][f_id] = kdebox
@@ -326,8 +326,9 @@ def update_ps(dataset, ps_dict_1f, tracks_1f, tracks_16f, frame2box_key_16f, sco
     else:
         final_ps_dict.update(ps_dict_1f)
     
-    for frame_id, ps in tqdm(final_ps_dict.items(), total=len(final_ps_dict.keys()), desc='update_ps'):        
-        
+    for idx, (frame_id, ps) in enumerate(tqdm(final_ps_dict.items(), total=len(final_ps_dict.keys()), desc='update_ps')):        
+        if idx > 1000:
+            return final_ps_dict # TODO: Delete
         cur_gt_boxes = final_ps_dict[frame_id]['gt_boxes']
         
         # Add dynamic 1f interpolated/extrapolated tracks to replace lower scoring dets
@@ -352,8 +353,8 @@ def update_ps(dataset, ps_dict_1f, tracks_1f, tracks_16f, frame2box_key_16f, sco
                             thresh=0.05)
             new_boxes = new_boxes[nms_mask]
         
-        # Only keep if more than 1 pt in the box
-        points_1frame = get_lidar(dataset, frame_id)
+        # Only keep if more than 1 pt in the box - officially, the evaluation counts the num pts in the box for 1 lidar sweep
+        points_1frame = get_lidar(dataset, frame_id) # 1 sweep lidar
         points_1frame[:,:3] += dataset.dataset_cfg.SHIFT_COOR
         num_pts = []    
         for box in new_boxes:
@@ -361,7 +362,7 @@ def update_ps(dataset, ps_dict_1f, tracks_1f, tracks_16f, frame2box_key_16f, sco
             num_pts.append(len(box_points))
         num_pts = np.array(num_pts)
         final_ps_dict[frame_id]['gt_boxes'] = new_boxes[num_pts > 1]
-        final_ps_dict[frame_id]['num_pts'] = num_pts[num_pts > 1]
+        final_ps_dict[frame_id]['num_pts'] = num_pts[num_pts > 1] 
         final_ps_dict[frame_id]['memory_counter'] = np.zeros(final_ps_dict[frame_id]['gt_boxes'].shape[0])
 
     # Remove boxes at the ego-vehicle position due to lidar hitting the roof/racks
