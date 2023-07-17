@@ -33,6 +33,12 @@ class DatasetTemplate(torch_data.Dataset):
         self.data_augmentor = DataAugmentor(
             self.root_path, self.dataset_cfg.DATA_AUGMENTOR, self.class_names, logger=self.logger
         ) if self.training or self.dataset_cfg.get('USE_TTA', False) else None
+        if self.dataset_cfg.get('USE_TTA',False):
+            for aug in self.dataset_cfg.DATA_AUGMENTOR.AUG_CONFIG_LIST:
+                if aug['NAME'] not in ['random_world_flip','random_world_rotation']:
+                    print(f'ERROR: {aug["NAME"]} not supported for TTA\n')
+                    raise NotImplementedError            
+
         self.data_processor = DataProcessor(
             self.dataset_cfg.DATA_PROCESSOR, point_cloud_range=self.point_cloud_range,
             training=self.training, num_point_features=self.point_feature_encoder.num_point_features
@@ -136,7 +142,9 @@ class DatasetTemplate(torch_data.Dataset):
         """
         
         gt_boxes = self_training_utils.load_ps_label(input_dict['frame_id'])                
-
+        
+        class_of_interest = np.isin(gt_boxes[:, 7], list(psid2clsid.keys()))
+        gt_boxes = gt_boxes[class_of_interest]
         gt_scores = gt_boxes[:, 8]
         gt_classes = gt_boxes[:, 7]
 
@@ -269,6 +277,7 @@ class DatasetTemplate(torch_data.Dataset):
         )
 
         if self.training and len(data_dict['gt_boxes']) == 0:
+            # If gt boxes are constantly empty, this will end up looping endlessly, leading to large CPU RAM consumption!
             new_index = np.random.randint(self.__len__())
             return self.__getitem__(new_index)
 

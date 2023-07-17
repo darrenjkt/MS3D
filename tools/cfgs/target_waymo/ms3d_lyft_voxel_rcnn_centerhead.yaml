@@ -236,7 +236,7 @@ SELF_TRAIN:
     # UPDATE_PSEUDO_LABEL: [-1]
     # UPDATE_PSEUDO_LABEL_INTERVAL: 100
 
-    INIT_PS: /MS3D/tools/cfgs/target_waymo/final_ps_labels/final_ps_dict.pkl
+    INIT_PS: /MS3D/tools/cfgs/target_waymo/gt_as_ps_s190_6280.pkl
     SRC:
         USE_DATA: False
         USE_GRAD: False

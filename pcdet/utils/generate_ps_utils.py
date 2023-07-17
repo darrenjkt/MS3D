@@ -108,7 +108,7 @@ def merge_track_ids(trk_mapping, tracks):
             if del_ids in tracks.keys():
                 del tracks[del_ids]
                 
-def motion_state_refinement(tracks_1f, tracks_16f, frame_ids):
+def motion_state_refinement(tracks_all, tracks_static, frame_ids):
     """
     Compute iou of motion trails from the 1-frame tracklets against the 16-frame tracklets
     to refine motion states
@@ -120,36 +120,36 @@ def motion_state_refinement(tracks_1f, tracks_16f, frame_ids):
 
     # Add 16f tracks to 1f tracks frame. Compare if they overlap
     for frame_id in tqdm(frame_ids, total=len(frame_ids), desc='motion_state_refinement'):
-        boxes16f = get_frame_track_boxes(tracks_16f, frame_id, nhistory=0)
-        if len(boxes16f) == 0:
+        boxes_static = get_frame_track_boxes(tracks_static, frame_id, nhistory=0)
+        if len(boxes_static) == 0:
             continue
             
-        boxes1f = get_frame_track_boxes(tracks_1f, frame_id, nhistory=0)
-        if len(boxes1f) == 0:
+        boxes_all = get_frame_track_boxes(tracks_all, frame_id, nhistory=0)
+        if len(boxes_all) == 0:
             continue
 
         # Get all motion trail if obj is dynamic
-        for box in boxes1f:
+        for box in boxes_all:
             trk_id = box[-1]
-            if tracks_1f[trk_id]['motion_state'] == 1:
-                tboxes = np.hstack([tracks_1f[trk_id]['boxes'], np.ones((tracks_1f[trk_id]['boxes'].shape[0],1))*trk_id])
-                boxes1f = np.vstack([boxes1f, tboxes])
+            if tracks_all[trk_id]['motion_state'] == 1:
+                tboxes = np.hstack([tracks_all[trk_id]['boxes'], np.ones((tracks_all[trk_id]['boxes'].shape[0],1))*trk_id])
+                boxes_all = np.vstack([boxes_all, tboxes])
                 
-        ious, matched_pairs = compute_iou(boxes16f, boxes1f)
+        ious, matched_pairs = compute_iou(boxes_static, boxes_all)
         matched_pairs = matched_pairs[ious > 0.1]
 
         # Compare matched pairs. If one is labelled dynamic, then set both tracklet to dynamic 
         for pair in matched_pairs:
-            trkid_16f = boxes16f[pair[0],-1]
-            trkid_1f = boxes1f[pair[1],-1]
-            motion_state = tracks_16f[trkid_16f]['motion_state'] | tracks_1f[trkid_1f]['motion_state']
-            tracks_16f[trkid_16f]['motion_state'] = motion_state
-            tracks_1f[trkid_1f]['motion_state'] = motion_state
+            trkid_static = boxes_static[pair[0],-1]
+            trkid_all = boxes_all[pair[1],-1]
+            motion_state = tracks_static[trkid_static]['motion_state'] | tracks_all[trkid_all]['motion_state']
+            tracks_static[trkid_static]['motion_state'] = motion_state
+            tracks_all[trkid_all]['motion_state'] = motion_state
 
             # Only keep track of static obj ID matches for merging disjointed tracks. It shouldn't matter that we 
             # got the whole motion trail
             if motion_state == 0:
-                matched_trk_ids.append((int(trkid_16f), int(trkid_1f)))
+                matched_trk_ids.append((int(trkid_static), int(trkid_all)))
     
     return list(set(matched_trk_ids))
 
@@ -267,7 +267,7 @@ def get_track_rolling_kde_interpolation(dataset, tracks_static, window, static_s
             else:
                 tracks_static[trk_id]['frameid_to_rollingkde'][frame_id] = prev_box            
 
-def propagate_static_boxes(dataset, tracks_static, score_thresh, min_dets, n_extra_frames, degrade_factor, min_score_clip):
+def propagate_static_boxes(dataset, tracks_static, score_thresh, min_static_tracks, n_extra_frames, degrade_factor, min_score_clip):
     for trk_id in tqdm(tracks_static.keys(), total=len(tracks_static), desc='propagate_static_boxes'):
         tracks_static[trk_id]['frameid_to_propboxes'] = {}
         roll_kde = tracks_static[trk_id]['frameid_to_rollingkde']
@@ -276,7 +276,7 @@ def propagate_static_boxes(dataset, tracks_static, score_thresh, min_dets, n_ext
             continue       
 
         boxes = np.array(list(tracks_static[trk_id]['frameid_to_propboxes'].values()))
-        if len(boxes[boxes[:,-1] > score_thresh]) < min_dets:
+        if len(boxes[boxes[:,-1] > score_thresh]) < min_static_tracks:
             continue
         
         frame_ids = list(roll_kde.keys())

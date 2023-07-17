@@ -61,16 +61,7 @@ if __name__ == '__main__':
     if args.cls_id == 1:        
         if args.static_veh:
             trk_cfg = ms3d_configs['tracking']['veh_static_cfg']
-            save_fname = f"{ms3d_configs['exp_name']}_tracks_world_veh_static.pkl"            
-
-            # # Downsample from 5Hz to 1.67Hz (i.e. skip 6)
-            # selected_ids = list(range(0,len(ps_dict.keys()),3))
-            # ds_ps_dict = {}
-            # for i,k in enumerate(ps_dict.keys()):
-            #     if i in selected_ids:
-            #         ds_ps_dict[k] = ps_dict[k]
-            # ps_dict = ds_ps_dict.copy()
-            
+            save_fname = f"{ms3d_configs['exp_name']}_tracks_world_veh_static.pkl"                    
         else:
             trk_cfg = ms3d_configs['tracking']['veh_all_cfg']
             save_fname = f"{ms3d_configs['exp_name']}_tracks_world_veh.pkl"

@@ -37,6 +37,13 @@ DATA_CONFIG_TAR:
         used_feature_list: ['x', 'y', 'z','timestamp'],
         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
+    DATA_AUGMENTOR: 
+        DISABLE_AUG_LIST: ['placeholder']
+        AUG_CONFIG_LIST:
+            - NAME: random_world_flip
+              ALONG_AXIS_LIST: [ 'x', 'y' ]
+            - NAME: random_world_rotation
+              WORLD_ROT_ANGLE: [-3.1415926, 3.1415926]
     DATA_PROCESSOR:
         -   NAME: mask_points_and_boxes_outside_range
             REMOVE_OUTSIDE_BOXES: True

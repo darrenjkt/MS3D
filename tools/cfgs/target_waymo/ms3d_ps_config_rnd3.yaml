@@ -1,0 +1,27 @@
+exp_name: 'RND2_VOXA_VOXC' # all files will be named/searched with this as prefix
+save_dir: '/MS3D/tools/cfgs/target_waymo/ps_labels_rnd2' 
+ps_score_th: # veh,ped,cyc
+  pos_th: [0.7,0.6,0.5]
+  neg_th: [0.3,0.3,0.2]
+pretrained_kbf:
+  discard: [1,1,1]
+  radius: [1.5, 0.3, 0.2]
+  nms: [0.1, 0.3, 0.1]
+tracking:
+  veh_all_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd2/veh_kf_giou.yaml'
+  veh_static_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd2/veh_static_kf_iou2d.yaml'
+  ped_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd2/ped_kf_giou.yaml'
+label_refinement:
+  track_filtering:
+    min_dets_above_pos_th_for_tracks_veh_all: 5
+    min_dets_above_pos_th_for_tracks_veh_static: 5
+    min_dets_above_pos_th_for_tracks_ped: 0
+    min_num_ped_tracks: 10
+  rolling_kbf:
+    min_static_score: 0.85
+    rolling_kde_window: 16
+  propagate_boxes:
+    min_static_tracks: 24
+    n_extra_frames: 100
+    degrade_factor: 0.99
+    min_score_clip: 0.5

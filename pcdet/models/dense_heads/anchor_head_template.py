@@ -41,7 +41,7 @@ class AnchorHeadTemplate(nn.Module):
             anchor_generator_config=anchor_generator_cfg
         )
         feature_map_size = [grid_size[:2] // config['feature_map_stride'] for config in anchor_generator_cfg]
-        anchors_list, num_anchors_per_location_list = anchor_generator.generate_anchors(feature_map_size)
+        anchors_list, num_anchors_per_location_list = anchor_generator.generate_anchors(feature_map_size) # len(anchors_list) = num_classes
 
         if anchor_ndim != 7:
             for idx, anchors in enumerate(anchors_list):

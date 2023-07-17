@@ -53,8 +53,8 @@ def get_multi_source_prelim_label(detection_sets, cls_kbf_config):
                                            nms_thresh=cls_kbf_config[class_name]['nms'], 
                                            use_box_weights=True)            
 
-            ignore_mask = cls_kbf_boxes[:,8] < cls_kbf_config[class_name]['pos_th']
-            cls_kbf_boxes[:,7][ignore_mask] = -cls_kbf_boxes[:,7][ignore_mask]
+            # ignore_mask = cls_kbf_boxes[:,8] < cls_kbf_config[class_name]['pos_th']
+            # cls_kbf_boxes[:,7][ignore_mask] = -cls_kbf_boxes[:,7][ignore_mask] # This is now done in label_refinement
             ps_label_nms.extend(cls_kbf_boxes)
 
         if ps_label_nms:
@@ -62,7 +62,6 @@ def get_multi_source_prelim_label(detection_sets, cls_kbf_config):
         else:
             ps_label_nms = np.empty((0,9))
             
-        # neg_th < score < pos_th: ignore for training but keep in-case we need it
         pred_boxes = ps_label_nms[:,:7]
         pred_labels = ps_label_nms[:,7]
         pred_scores = ps_label_nms[:,8]
@@ -123,9 +122,8 @@ def get_detection_sets(det_annos, score_th=0.1):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='arg parser')                   
-    parser.add_argument('--save_dir', type=str, default='/MS3D/tools/cfgs/target_waymo/ps_labels', help='where to save ps dict')    
     parser.add_argument('--ps_cfg', type=str, help='cfg file with MS3D parameters')
-    parser.add_argument('--dets_txt', type=str, help='specify txt file for detector pkls')
+    parser.add_argument('--dets_txt', type=str, default=None, help='specify txt file for detector pkls')
     parser.add_argument('--interval', type=int, default=1, help='set interval')
     args = parser.parse_args()
     
@@ -141,7 +139,7 @@ if __name__ == '__main__':
     if args.interval > 1:
         detection_sets = detection_sets[::args.interval] # ::3 is 6280, ::2 is 9420. 9420 has closer results to the full 18840
 
-    discard=[4,4,4] if num_det_sets >= 8 else [0,0,0] # 4 is good default
+    # discard=[4,4,4] if num_det_sets >= 8 else [0,0,0] # 4 is good default
 
     # Get class specific config
     cls_kbf_config = {}
@@ -150,7 +148,7 @@ if __name__ == '__main__':
             continue
         cls_kbf_config[cls] = {}
         cls_kbf_config[cls]['cls_id'] = enum+1 # in OpenPCDet, cls_ids enumerate from 1
-        cls_kbf_config[cls]['discard'] = discard[enum]
+        cls_kbf_config[cls]['discard'] = ms3d_configs['pretrained_kbf']['discard'][enum]
         cls_kbf_config[cls]['radius'] = ms3d_configs['pretrained_kbf']['radius'][enum]
         cls_kbf_config[cls]['nms'] = ms3d_configs['pretrained_kbf']['nms'][enum]
         cls_kbf_config[cls]['pos_th'] = ms3d_configs['ps_score_th']['pos_th'][enum]

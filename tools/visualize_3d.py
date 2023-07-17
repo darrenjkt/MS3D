@@ -46,6 +46,7 @@ def main():
     parser.add_argument('--show_gt', action='store_true', default=False)
     parser.add_argument('--sweeps', action='store_true', default=False)
     parser.add_argument('--bev_vis', action='store_true', default=False)
+    parser.add_argument('--use_linemesh', action='store_true', default=False)
     args = parser.parse_args()
     
     if args.bev_vis:
@@ -98,7 +99,7 @@ def main():
                 continue
             V.draw_scenes(points=data_dict['points'][:, 1:], 
                           gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None,                           
-                          draw_origin=False, use_linemesh=False, ref_labels=list(data_dict['gt_boxes'][0][:,7].astype(int)))
+                          draw_origin=False, use_linemesh=args.use_linemesh, ref_labels=list(data_dict['gt_boxes'][0][:,7].astype(int)))
 
     # Visualize pkls
     if (args.det_pkl is not None) or (args.ps_pkl is not None) or (args.dets_txt is not None):    
@@ -118,7 +119,7 @@ def main():
                                         ref_scores=eval_det_annos[idx]['score'][eval_det_annos[idx]['score'] > 0.6], 
                                         ref_labels=[1 for i in range(len(eval_det_annos[idx]['boxes_lidar'][eval_det_annos[idx]['score'] > 0.6]))],
                                         gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
-                                        draw_origin=False)
+                                        draw_origin=False, use_linemesh=args.use_linemesh)
         if args.ps_pkl is not None:
             with open(args.ps_pkl,'rb') as f:
                 ps_dict = pickle.load(f)
@@ -129,13 +130,13 @@ def main():
                     continue
 
                 frame_id = idx_to_frameid[idx]
-                mask = ps_dict[frame_id]['gt_boxes'][:,8] > 0.4 #0.6 for ps_label, 0.4 for ps_dict_1f
+                # mask = ps_dict[frame_id]['gt_boxes'][:,8] > 0.4 #0.6 for ps_label, 0.4 for ps_dict_1f
                 V.draw_scenes(points=data_dict['points'][:, 1:], 
-                                        ref_boxes=ps_dict[frame_id]['gt_boxes'][mask],                         
-                                        ref_scores=ps_dict[frame_id]['gt_boxes'][mask][:,8], 
-                                        ref_labels=[1 for i in range(len(ps_dict[frame_id]['gt_boxes'][mask]))],
-                                        gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
-                                        draw_origin=False)
+                                ref_boxes=ps_dict[frame_id]['gt_boxes'][:,:7],                         
+                                ref_scores=ps_dict[frame_id]['gt_boxes'][:,8], 
+                                ref_labels=list(abs(ps_dict[frame_id]['gt_boxes'][:,7].astype(int))),
+                                gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
+                                draw_origin=False, use_linemesh=args.use_linemesh)
         else:                        
             det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
             
@@ -183,7 +184,7 @@ def main():
                 if args.save_video:
                     geom = V.get_geometries(
                                 points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=pred_dicts[0]['pred_boxes'], 
-                                ref_scores=pred_dicts[0]['pred_scores'], ref_labels=pred_dicts[0]['pred_labels']
+                                ref_scores=pred_dicts[0]['pred_scores'], ref_labels=pred_dicts[0]['pred_labels'], use_linemesh=args.use_linemesh
                             )
                     vis.clear_geometries()
                     for g in geom:                
@@ -239,7 +240,7 @@ def main():
                     else:
                         V.draw_scenes(
                             points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=ref_boxes, 
-                            ref_scores=ref_scores, ref_labels=ref_labels, use_linemesh=False
+                            ref_scores=ref_scores, ref_labels=ref_labels, use_linemesh=args.use_linemesh
                         )
 
 

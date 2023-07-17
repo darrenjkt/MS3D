@@ -62,7 +62,7 @@ def get_tracklets(dataset, ps_dict, cfg_path, cls_id):
         
     return tracks
 
-def delete_tracks(tracks, min_score, num_min_dets=3):
+def delete_tracks(tracks, min_score, num_boxes_abv_score=3):
     """
     Count the number of tracked boxes that are above 'min_score'. If total number of tracked boxes < num_min_dets, 
     delete the track ID
@@ -71,7 +71,7 @@ def delete_tracks(tracks, min_score, num_min_dets=3):
     for trk_id in all_ids:    
         for k,v in tracks[trk_id].items():
             tracks[trk_id][k] = np.array(v)
-        if len(np.argwhere(tracks[trk_id]['boxes'][:,7] > min_score)) < num_min_dets:
+        if len(np.argwhere(tracks[trk_id]['boxes'][:,7] > min_score)) < num_boxes_abv_score:
             del tracks[trk_id]      
 
 def get_motion_state(box_seq, s2e_th=1, var_th=0.1):

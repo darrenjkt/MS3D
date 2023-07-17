@@ -303,8 +303,8 @@ def init_multi_source_ps_label(dataset, ps_label_dir):
     if (tracks_1f_world_refined is None) and (tracks_16f_world_refined is None):
         tracks_1f_world_refined = tracks_1f_world
         tracks_16f_world_refined = tracks_16f_world
-        tracker_utils.delete_tracks(tracks_1f_world_refined, min_score=cfg.SELF_TRAIN.SCORE_THRESH, num_min_dets=ms_cfg.MIN_DETS_FOR_TRACK_1F)                   
-        tracker_utils.delete_tracks(tracks_16f_world_refined, min_score=trk_score_th_16f, num_min_dets=ms_cfg.MIN_DETS_FOR_TRACK_16F)   
+        tracker_utils.delete_tracks(tracks_1f_world_refined, min_score=cfg.SELF_TRAIN.SCORE_THRESH, num_boxes_abv_score=ms_cfg.MIN_DETS_FOR_TRACK_1F)                   
+        tracker_utils.delete_tracks(tracks_16f_world_refined, min_score=trk_score_th_16f, num_boxes_abv_score=ms_cfg.MIN_DETS_FOR_TRACK_16F)   
         
         # Get static boxes using tracking information
         for trk_id in tracks_1f_world_refined.keys():
@@ -335,7 +335,7 @@ def init_multi_source_ps_label(dataset, ps_label_dir):
             tracks_16f_world_proprkde = tracks_16f_world_rke
             generate_ps_utils.propagate_static_boxes(dataset, tracks_16f_world_proprkde, 
                                                      score_thresh=trk_score_th_16f,
-                                                     min_dets=ms_cfg.PROPAGATE_STATIC_BOXES.MIN_DETS,
+                                                     min_static_tracks=ms_cfg.PROPAGATE_STATIC_BOXES.MIN_DETS,
                                                      n_extra_frames=ms_cfg.PROPAGATE_STATIC_BOXES.N_EXTRA_FRAMES, 
                                                      degrade_factor=ms_cfg.PROPAGATE_STATIC_BOXES.DEGRADE_FACTOR, 
                                                      min_score_clip=ms_cfg.PROPAGATE_STATIC_BOXES.MIN_SCORE_CLIP)

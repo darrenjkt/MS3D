@@ -4,6 +4,7 @@ ps_score_th: # veh,ped,cyc
   pos_th: [0.6,0.5,0.5]
   neg_th: [0.3,0.2,0.2]
 pretrained_kbf:
+  discard: [4,4,4]
   radius: [1.5, 0.3, 0.2]
   nms: [0.1, 0.3, 0.1]
 tracking:
@@ -22,3 +23,6 @@ refinement:
     n_extra_frames: 100
     degrade_factor: 0.98
     min_score_clip: 0.5
+
+# For this setting, I managed to get 64.1 / 51.4 BEV / 3D for VOX-C on just 1 round of fine-tuning L3 -> W4
+# I used track_th for min_dets_for_tracks instead of the strict cfgs

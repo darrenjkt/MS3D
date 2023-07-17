@@ -67,7 +67,7 @@ def update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped=No
         ego_trackall_boxes = np.insert(ego_trackall_boxes[:,:8], 7,1,1)
         ego_trackall_boxes[:,8][np.where(ego_trackall_boxes[:,8] < veh_pos_th)[0]] = veh_pos_th
         
-        # Add static 16f objects
+        # Add static objects
         trackstatic_boxes = get_frame_track_boxes(tracks_veh_static, frame_id, frame2box_key=frame2box_key_static)
         static_track_ids = np.array([trk_id for trk_id in trackstatic_boxes[:,-1] if tracks_veh_static[trk_id]['motion_state'] == 0])
         static_mask = np.isin(trackstatic_boxes[:,-1], static_track_ids)
@@ -134,8 +134,10 @@ def refine_veh_labels(tracks_veh_all, tracks_veh_static,
     Refine vehicle labels. Updates tracks_veh_all and tracks_veh_static in-place.
     Saving of pkl files makes it easier to analyze the results
     """
-    tracker_utils.delete_tracks(tracks_veh_all, min_score=ms3d_configs['ps_score_th']['pos_th'][0], num_min_dets=ms3d_configs['tracking']['min_dets_for_tracks_veh_all'])                   
-    tracker_utils.delete_tracks(tracks_veh_static, min_score=trk_score_th_static, num_min_dets=ms3d_configs['tracking']['min_dets_for_tracks_veh_static'])   
+
+    # Use pos_th for static min_score so that we ensure to have some confident detections in the static track
+    tracker_utils.delete_tracks(tracks_veh_all, min_score=ms3d_configs['ps_score_th']['pos_th'][0], num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_dets_above_pos_th_for_tracks_veh_all'])                   
+    tracker_utils.delete_tracks(tracks_veh_static, min_score=ms3d_configs['ps_score_th']['pos_th'][0], num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_dets_above_pos_th_for_tracks_veh_static'])   
     
      # Get static boxes using tracking information
     for trk_id in tracks_veh_all.keys():
@@ -153,26 +155,30 @@ def refine_veh_labels(tracks_veh_all, tracks_veh_static,
     generate_ps_utils.save_data(tracks_veh_all, ms3d_configs["save_dir"], name="tracks_all_world_refined.pkl")
     generate_ps_utils.save_data(tracks_veh_static, ms3d_configs["save_dir"], name="tracks_static_world_refined.pkl")
 
-    generate_ps_utils.get_track_rolling_kde_interpolation(dataset, tracks_veh_static, window=ms3d_configs['refinement']['rolling_kbf']['rolling_kde_window'], 
-                                                              static_score_th=trk_score_th_static, kdebox_min_score=ms3d_configs['refinement']['rolling_kbf']['min_static_score'])  # 16MIN for 18840
+    generate_ps_utils.get_track_rolling_kde_interpolation(dataset, tracks_veh_static, window=ms3d_configs['label_refinement']['rolling_kbf']['rolling_kde_window'], 
+                                                              static_score_th=trk_score_th_static, kdebox_min_score=ms3d_configs['label_refinement']['rolling_kbf']['min_static_score'])  # 16MIN for 18840
     generate_ps_utils.save_data(tracks_veh_static, ms3d_configs["save_dir"], name="tracks_static_world_rkde.pkl")
     generate_ps_utils.propagate_static_boxes(dataset, tracks_veh_static, 
-                                                     score_thresh=trk_score_th_static,
-                                                     min_dets=ms3d_configs['refinement']['propagate_boxes']['min_dets'],
-                                                     n_extra_frames=ms3d_configs['refinement']['propagate_boxes']['n_extra_frames'], 
-                                                     degrade_factor=ms3d_configs['refinement']['propagate_boxes']['degrade_factor'], 
-                                                     min_score_clip=ms3d_configs['refinement']['propagate_boxes']['min_score_clip']) # < 1 min for 18840
+                                                     score_thresh=ms3d_configs['ps_score_th']['pos_th'][0],
+                                                     min_static_tracks=ms3d_configs['label_refinement']['propagate_boxes']['min_static_tracks'],
+                                                     n_extra_frames=ms3d_configs['label_refinement']['propagate_boxes']['n_extra_frames'], 
+                                                     degrade_factor=ms3d_configs['label_refinement']['propagate_boxes']['degrade_factor'], 
+                                                     min_score_clip=ms3d_configs['label_refinement']['propagate_boxes']['min_score_clip']) # < 1 min for 18840
     generate_ps_utils.save_data(tracks_veh_static, ms3d_configs["save_dir"], name="tracks_static_world_prop_boxes.pkl")
     return tracks_veh_all, tracks_veh_static
 
-def refine_ped_labels(tracks_ped, trk_cfg_ped_th, min_dets_for_ped_tracks, pos_th_ped):
+def refine_ped_labels(tracks_ped, ms3d_configs):
     """
     Refine pedestrian labels    
     """
-    tracker_utils.delete_tracks(tracks_ped, min_score=trk_cfg_ped_th, num_min_dets=min_dets_for_ped_tracks)                   
+    # Classify if track is static or dynamic
+    pos_th_ped = ms3d_configs['ps_score_th']['pos_th'][1]
+    tracker_utils.delete_tracks(tracks_ped, min_score=pos_th_ped, num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_dets_above_pos_th_for_tracks_ped'])                   
     for trk_id in tracks_ped.keys():
-        score_mask = tracks_ped[trk_id]['boxes'][:,7] > trk_cfg_ped_th
-        tracks_ped[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_ped[trk_id]['boxes'][score_mask], s2e_th=1)  
+        tracks_ped[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_ped[trk_id]['boxes'], s2e_th=1)  
+
+    # Delete tracks if less than N tracks
+    tracker_utils.delete_tracks(tracks_ped, min_score=0.0, num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_num_ped_tracks'])    
 
     # Delete stationary pedestrian tracks, retain only dynamic tracks and set score to pos_th_ped
     all_ids = list(tracks_ped.keys())
@@ -257,9 +263,7 @@ if __name__ == '__main__':
     # Get pedestrian labels
     print('Refining pedestrian labels')
     trk_cfg_ped = yaml.load(open(ms3d_configs['tracking']['ped_cfg'], 'r'), Loader=yaml.Loader)
-    tracks_ped = refine_ped_labels(tracks_ped, trk_cfg_ped['running']['score_threshold'], 
-                                   ms3d_configs['tracking']['min_dets_for_tracks_ped'], 
-                                   ms3d_configs['ps_score_th']['pos_th'][1])
+    tracks_ped = refine_ped_labels(tracks_ped, ms3d_configs)
 
     # Combine pseudo-labels for each class and filter with NMS
     print('Combining pseudo-labels for each class')

@@ -73,7 +73,11 @@ def main():
     parser.add_argument('--cfg_file', type=str, default='/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml',
                         help='just use the target dataset cfg file')
     parser.add_argument('--dets_txt', type=str, default=None, required=False,
-                        help='txt file containing detector pkl paths')                        
+                        help='txt file containing detector pkl paths')       
+    parser.add_argument('--det_pkl', type=str, default=None, required=False,
+                        help='result.pkl file from test.py, assumd that boxes are in groud frame')
+    parser.add_argument('--det_pkl2', type=str, default=None, required=False,
+                        help='Another result.pkl file for comparison')
     parser.add_argument('--ps_pkl', type=str, required=False,
                         help='These are the ps_dict_*, ps_label_e*.pkl files generated from MS3D')
     parser.add_argument('--ps_pkl2', type=str, required=False,
@@ -84,9 +88,13 @@ def main():
                         help='Load in tracks, these are a dict with IDs as keys')
     parser.add_argument('--idx', type=int, default=0,
                         help='If you wish to only display a certain frame index')
+    parser.add_argument('--conf_th', type=float, default=0.0,
+                        help='If you wish to only display a certain frame index')
     parser.add_argument('--split', type=str, default='train',
                         help='Specify train or test split')
     parser.add_argument('--show_trk_score', action='store_true', default=False)
+    parser.add_argument('--frame2box_key', type=str, required=False, default=None, 
+                        help='options: frameid_to_box, frameid_to_rollingkde, frameid_to_propboxes')
     args = parser.parse_args()
     
     # Get target dataset
@@ -129,13 +137,26 @@ def main():
         with open(args.tracks_pkl2,'rb') as f:
             tracks2 = pickle.load(f)
 
+    detection_sets = None
     if args.dets_txt is not None:
         det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
-        detection_sets = box_fusion_utils.get_detection_sets(det_annos, score_th=0.3)
+        detection_sets = box_fusion_utils.get_detection_sets(det_annos, score_th=0.1)
         if args.ps_pkl is None:
             start_frame_id = detection_sets[start_idx]['frame_id']   
         else:
             get_frame_id_from_ps = True
+
+    if args.det_pkl is not None:
+        with open(args.det_pkl,'rb') as f:
+            detection_sets = pickle.load(f)
+        if args.ps_pkl is None:
+            start_frame_id = detection_sets[start_idx]['frame_id']   
+        else:
+            get_frame_id_from_ps = True
+
+    if args.det_pkl2 is not None:
+        with open(args.det_pkl2,'rb') as f:
+            det2 = pickle.load(f)
 
     pts = target_set[target_set.frameid_to_idx[start_frame_id]]['points']
     pcr = 80
@@ -150,44 +171,54 @@ def main():
     # Plot GT boxes
     class_mask = np.isin(compat.get_gt_names(target_set, start_frame_id), ['Vehicle','car','truck','bus'])
     plot_boxes(ax, compat.get_gt_boxes(target_set, start_frame_id)[class_mask], color=[0,0,1],
-        limit_range=limit_range, label='gt_boxes',
+        limit_range=limit_range, label='gt_vehicle',
         scores=np.ones(compat.get_gt_boxes(target_set, start_frame_id)[class_mask].shape[0]))
     
     class_mask = np.isin(compat.get_gt_names(target_set, start_frame_id), ['Pedestrian','pedestrian'])
     plot_boxes(ax, compat.get_gt_boxes(target_set, start_frame_id)[class_mask], color=[0.5,0,0.5],
-        limit_range=limit_range, label='gt_boxes',
+        limit_range=limit_range, label='gt_pedestrian',
         scores=np.ones(compat.get_gt_boxes(target_set, start_frame_id)[class_mask].shape[0]))
     
     class_mask = np.isin(compat.get_gt_names(target_set, start_frame_id), ['Cyclist','bicycle','motorcycle'])
     plot_boxes(ax, compat.get_gt_boxes(target_set, start_frame_id)[class_mask], color=[0,0.5,0.5],
-        limit_range=limit_range, label='gt_boxes',
+        limit_range=limit_range, label='gt_cyclist',
         scores=np.ones(compat.get_gt_boxes(target_set, start_frame_id)[class_mask].shape[0]))
 
     # Plot det boxes
-    if args.dets_txt is not None:
+    if detection_sets is not None:
         det_start_idx = get_frame_id_from_dets(start_frame_id, detection_sets) if get_frame_id_from_ps else start_idx            
         plot_boxes(ax, detection_sets[det_start_idx]['boxes_lidar'], 
                 scores=detection_sets[det_start_idx]['score'],
-                source_id=detection_sets[det_start_idx]['source_id'],
-                source_labels=detection_sets[det_start_idx]['source'],
-                limit_range=limit_range, alpha=0.5)
+                source_id=detection_sets[det_start_idx]['source_id'] if 'source_id' in detection_sets[det_start_idx].keys() else None,
+                source_labels=detection_sets[det_start_idx]['source'] if 'source' in detection_sets[det_start_idx].keys() else None,
+                color=[1,0,0] if 'source_id' not in detection_sets[det_start_idx].keys() else [0,0,1],
+                limit_range=limit_range, alpha=0.5 if 'source_id' in detection_sets[det_start_idx].keys() else 1.0,
+                label='det pkl' if 'source_id' not in detection_sets[det_start_idx].keys() else None)
+        
+        if args.det_pkl2 is not None:
+            plot_boxes(ax, det2[det_start_idx]['boxes_lidar'], 
+                scores=det2[det_start_idx]['score'],
+                label='det pkl 2', color=[0.6,0.4,0],
+                limit_range=limit_range, alpha=1)
         
     if args.ps_pkl is not None:
-        plot_boxes(ax, ps_dict[ps_frame_ids[start_idx]]['gt_boxes'], 
-                scores=ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][:,8],
+        conf_mask = ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][:,8] > args.conf_th
+        plot_boxes(ax, ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][conf_mask], 
+                scores=ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][conf_mask][:,8],
                 label='ps labels', color=[0,1,0],
                 limit_range=limit_range, alpha=1)
         
     if args.ps_pkl2 is not None:
-        plot_boxes(ax, ps_dict2[ps_frame_ids[start_idx]]['gt_boxes'], 
-                scores=ps_dict2[ps_frame_ids[start_idx]]['gt_boxes'][:,8],
+        conf_mask = ps_dict2[ps_frame_ids[start_idx]]['gt_boxes'][:,8] > args.conf_th
+        plot_boxes(ax, ps_dict2[ps_frame_ids[start_idx]]['gt_boxes'][conf_mask], 
+                scores=ps_dict2[ps_frame_ids[start_idx]]['gt_boxes'][conf_mask][:,8],
                 label='ps labels 2', color=[1,0,0],
                 limit_range=limit_range, alpha=1) 
         
     if args.tracks_pkl is not None:     
         from pcdet.utils.transform_utils import world_to_ego   
         from pcdet.utils.tracker_utils import get_frame_track_boxes
-        track_boxes = get_frame_track_boxes(tracks, start_frame_id, nhistory=0)
+        track_boxes = get_frame_track_boxes(tracks, start_frame_id, frame2box_key=args.frame2box_key, nhistory=0)
         pose = compat.get_pose(target_set, start_frame_id)
         score_idx = 7 if args.show_trk_score else 8
         _, track_boxes_ego = world_to_ego(pose, boxes=track_boxes)
@@ -226,7 +257,7 @@ def main():
         if args.ps_pkl is not None:
             frame_idx = ind % len(ps_frame_ids)
             frame_id = ps_frame_ids[frame_idx]
-        elif args.dets_txt is not None:
+        elif detection_sets is not None:
             frame_idx = ind % len(detection_sets)
             frame_id = detection_sets[frame_idx]['frame_id']        
 
@@ -239,42 +270,54 @@ def main():
         # Plot GT boxes
         class_mask = np.isin(compat.get_gt_names(target_set, frame_id), ['Vehicle','car','truck','bus'])
         plot_boxes(ax, compat.get_gt_boxes(target_set, frame_id)[class_mask], color=[0,0,1],
-            limit_range=limit_range, label='gt_boxes',
+            limit_range=limit_range, label='gt_vehicle',
             scores=np.ones(compat.get_gt_boxes(target_set, frame_id)[class_mask].shape[0]))
         
         class_mask = np.isin(compat.get_gt_names(target_set, frame_id), ['Pedestrian','pedestrian'])
         plot_boxes(ax, compat.get_gt_boxes(target_set, frame_id)[class_mask], color=[0.5,0,0.5],
-            limit_range=limit_range, label='gt_boxes',
+            limit_range=limit_range, label='gt_pedestrian',
             scores=np.ones(compat.get_gt_boxes(target_set, frame_id)[class_mask].shape[0]))
         
         class_mask = np.isin(compat.get_gt_names(target_set, frame_id), ['Cyclist','bicycle','motorcycle'])
         plot_boxes(ax, compat.get_gt_boxes(target_set, frame_id)[class_mask], color=[0,0.5,0.5],
-            limit_range=limit_range, label='gt_boxes',
+            limit_range=limit_range, label='gt_cyclist',
             scores=np.ones(compat.get_gt_boxes(target_set, frame_id)[class_mask].shape[0]))
 
         # Plot det boxes
-        if args.dets_txt is not None:
-            det_frame_idx = get_frame_id_from_dets(frame_id, detection_sets) if get_frame_id_from_ps else frame_idx            
-            plot_boxes(ax, detection_sets[det_frame_idx]['boxes_lidar'], 
-                    scores=detection_sets[det_frame_idx]['score'],
-                    source_id=detection_sets[det_frame_idx]['source_id'],
-                    source_labels=detection_sets[det_frame_idx]['source'],
-                    limit_range=limit_range, alpha=0.5)  
+        if detection_sets is not None:
+            det_frame_idx = get_frame_id_from_dets(frame_id, detection_sets) if get_frame_id_from_ps else frame_idx    
+            mask = detection_sets[det_frame_idx]['score'] > 0.2       
+            plot_boxes(ax, detection_sets[det_frame_idx]['boxes_lidar'][mask], 
+                    scores=detection_sets[det_frame_idx]['score'][mask],
+                    source_id=detection_sets[det_frame_idx]['source_id'] if 'source_id' in detection_sets[det_frame_idx].keys() else None,
+                    source_labels=detection_sets[det_frame_idx]['source'] if 'source' in detection_sets[det_frame_idx].keys() else None,
+                    color=[1,0,0] if 'source_id' not in detection_sets[det_frame_idx].keys() else [0,0,1],
+                    limit_range=limit_range, alpha=0.5 if 'source_id' in detection_sets[det_frame_idx].keys() else 1.0,
+                    label='det pkl' if 'source_id' not in detection_sets[det_frame_idx].keys() else None)
+
+            if args.det_pkl2 is not None:
+                mask = det2[det_frame_idx]['score'] > 0.2
+                plot_boxes(ax, det2[det_frame_idx]['boxes_lidar'][mask], 
+                    scores=det2[det_frame_idx]['score'][mask],
+                    label='det pkl 2', color=[0.6,0.4,0],
+                    limit_range=limit_range, alpha=1)
              
         if args.ps_pkl is not None:
-            plot_boxes(ax, ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'], 
-                scores=ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][:,8],
+            conf_mask = ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][:,8] > args.conf_th
+            plot_boxes(ax, ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][conf_mask], 
+                scores=ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][conf_mask][:,8],
                 label='ps labels', color=[0,1,0],
                 limit_range=limit_range, alpha=1) 
             
         if args.ps_pkl2 is not None:
-            plot_boxes(ax, ps_dict2[ps_frame_ids[frame_idx]]['gt_boxes'], 
-                scores=ps_dict2[ps_frame_ids[frame_idx]]['gt_boxes'][:,8],
+            conf_mask = ps_dict2[ps_frame_ids[frame_idx]]['gt_boxes'][:,8] > args.conf_th
+            plot_boxes(ax, ps_dict2[ps_frame_ids[frame_idx]]['gt_boxes'][conf_mask], 
+                scores=ps_dict2[ps_frame_ids[frame_idx]]['gt_boxes'][conf_mask][:,8],
                 label='ps labels 2', color=[1,0,0],
                 limit_range=limit_range, alpha=1) 
             
         if args.tracks_pkl is not None:
-            track_boxes = get_frame_track_boxes(tracks, frame_id, nhistory=0)
+            track_boxes = get_frame_track_boxes(tracks, frame_id, frame2box_key=args.frame2box_key, nhistory=0)
             pose = compat.get_pose(target_set, frame_id)
             _, track_boxes_ego = world_to_ego(pose, boxes=track_boxes)
             if track_boxes_ego.shape[0] != 0:

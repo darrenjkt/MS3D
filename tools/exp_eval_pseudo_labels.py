@@ -69,7 +69,7 @@ if __name__ == '__main__':
         pred_annos, gt_annos = [], []
         eval_gt_annos = copy.deepcopy(dataset.infos)
         for frame_id in tqdm(ps_dict.keys(), total=len(ps_dict.keys())):  
-            boxes = ps_dict[frame_id]['gt_boxes'].copy()            
+            boxes = ps_dict[frame_id]['gt_boxes'].copy() # orig
             boxes[:,:3] -= dataset.dataset_cfg.SHIFT_COOR # Translate ground frame bboxes to dataset label sensor frame
             p_anno = {"frame_id": frame_id,
                     "name": np.array([cfg.CLASS_NAMES[int(abs(box[7]))-1] for box in boxes]), # TODO: map supercategory to dataset specific class names

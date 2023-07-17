@@ -73,7 +73,7 @@ if __name__ == '__main__':
     trk_cfg_ped = '/MS3D/tracker/configs/ms3d_configs/ped_kf_giou.yaml'
     configs = yaml.load(open(trk_cfg_ped, 'r'), Loader=yaml.Loader)
     trk_cfg_ped_th = configs['running']['score_threshold']
-    tracker_utils.delete_tracks(tracks_ped, min_score=trk_cfg_ped_th, num_min_dets=args.min_dets_for_ped_tracks)                   
+    tracker_utils.delete_tracks(tracks_ped, min_score=trk_cfg_ped_th, num_boxes_abv_score=args.min_dets_for_ped_tracks)                   
     for trk_id in tracks_ped.keys():
         score_mask = tracks_ped[trk_id]['boxes'][:,7] > trk_cfg_ped_th
         tracks_ped[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_ped[trk_id]['boxes'][score_mask], s2e_th=1)  

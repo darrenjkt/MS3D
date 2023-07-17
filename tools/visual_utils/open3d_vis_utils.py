@@ -79,7 +79,7 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc
     vis.destroy_window()
 
 def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scores=None, ref_box_colors=None, 
-                point_colors=None, draw_origin=False, use_linemesh=True):
+                point_colors=None, draw_origin=False, use_linemesh=False):
 
     vis = open3d.visualization.Visualizer()
     vis.create_window()
@@ -122,7 +122,7 @@ def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref
 
 def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None, 
                    ref_scores=None, ref_box_colors=None, point_colors=None, 
-                   draw_origin=False, line_thickness=0.06, use_linemesh=True):
+                   draw_origin=False, line_thickness=0.06, use_linemesh=False):
     if isinstance(points, torch.Tensor):
         points = points.cpu().numpy()
     if isinstance(gt_boxes, torch.Tensor):
@@ -144,14 +144,14 @@ def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None,
         geometries.append(pts)
 
     if gt_boxes is not None:
-        box = get_box(gt_boxes, (0, 0, 1.0), ref_labels, use_linemesh=use_linemesh)
+        box = get_box(gt_boxes, (0, 0, 1.0), list(gt_boxes[:,7].astype(int)), use_linemesh=use_linemesh)
         geometries.extend(box)
 
     if ref_boxes is not None:
         # color = ref_box_colors if ref_box_colors is not None else (0,0.6,0)
         # color = ref_box_colors if ref_box_colors is not None else (0.255,0.518,0.89)
         color = ref_box_colors if ref_box_colors is not None else (0.19215686, 0.59215686, 0.41568627)
-        box = get_box(ref_boxes, color, ref_labels, ref_scores, line_thickness=line_thickness, use_linemesh=use_linemesh)
+        box = get_box(ref_boxes, color, line_thickness=line_thickness, use_linemesh=use_linemesh)
         geometries.extend(box)
 
     return geometries

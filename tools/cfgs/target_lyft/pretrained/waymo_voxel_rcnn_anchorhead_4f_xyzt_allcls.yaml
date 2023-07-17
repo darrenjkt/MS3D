@@ -20,11 +20,11 @@ DATA_CONFIG:
         -   NAME: transform_points_to_voxels_placeholder
             VOXEL_SIZE: [0.1, 0.1, 0.15]
 
-DATA_CONFIG_TAR: 
-    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_da.yaml
-    TARGET: True
-    MAX_SWEEPS: 10
+DATA_CONFIG_TAR:
+    _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
+    MAX_SWEEPS: 3
     CLASS_NAMES: ['car','pedestrian','bicycle']
+    TARGET: True
     USE_TTA: False
     USE_PSEUDO_LABEL: False
     USE_CUSTOM_TRAIN_SCENES: True
@@ -78,47 +78,62 @@ MODEL:
         NUM_UPSAMPLE_FILTERS: [256, 256]
 
     DENSE_HEAD:
-        NAME: CenterHead
+        NAME: AnchorHeadSingle
         CLASS_AGNOSTIC: False
 
-        CLASS_NAMES_EACH_HEAD: [
-            [ 'Vehicle', 'Pedestrian', 'Cyclist' ]
+        USE_DIRECTION_CLASSIFIER: True
+        DIR_OFFSET: 0.78539
+        DIR_LIMIT_OFFSET: 0.0
+        NUM_DIR_BINS: 2
+
+        ANCHOR_GENERATOR_CONFIG: [
+            {
+                'class_name': 'Vehicle',
+                'anchor_sizes': [[4.7, 2.1, 1.7]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.55,
+                'unmatched_threshold': 0.4
+            },
+            {
+                'class_name': 'Pedestrian',
+                'anchor_sizes': [[0.91, 0.86, 1.73]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.5,
+                'unmatched_threshold': 0.35
+            },
+            {
+                'class_name': 'Cyclist',
+                'anchor_sizes': [[1.78, 0.84, 1.78]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.5,
+                'unmatched_threshold': 0.35
+            }
         ]
 
-        SHARED_CONV_CHANNEL: 64
-        USE_BIAS_BEFORE_NORM: True
-        NUM_HM_CONV: 2
-        SEPARATE_HEAD_CFG:
-            HEAD_ORDER: [ 'center', 'center_z', 'dim', 'rot' ]
-            HEAD_DICT: {
-                'center': { 'out_channels': 2, 'num_conv': 2 },
-                'center_z': { 'out_channels': 1, 'num_conv': 2 },
-                'dim': { 'out_channels': 3, 'num_conv': 2 },
-                'rot': { 'out_channels': 2, 'num_conv': 2 },
-            }
-
         TARGET_ASSIGNER_CONFIG:
-            FEATURE_MAP_STRIDE: 8
-            NUM_MAX_OBJS: 500
-            GAUSSIAN_OVERLAP: 0.1
-            MIN_RADIUS: 2
+            NAME: AxisAlignedTargetAssigner
+            POS_FRACTION: -1.0
+            SAMPLE_SIZE: 512
+            NORM_BY_NUM_EXAMPLES: False
+            MATCH_HEIGHT: False
+            BOX_CODER: ResidualCoder
 
         LOSS_CONFIG:
             LOSS_WEIGHTS: {
                 'cls_weight': 1.0,
                 'loc_weight': 2.0,
-                'code_weights': [ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 ]
+                'dir_weight': 0.2,
+                'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
-
-        POST_PROCESSING:
-            SCORE_THRESH: 0.1
-            POST_CENTER_LIMIT_RANGE: [ -75.2, -75.2, -2, 75.2, 75.2, 4 ]
-            MAX_OBJ_PER_SAMPLE: 500
-            NMS_CONFIG:
-                NMS_TYPE: nms_gpu
-                NMS_THRESH: 0.7
-                NMS_PRE_MAXSIZE: 4096
-                NMS_POST_MAXSIZE: 500
 
     ROI_HEAD:
         NAME: VoxelRCNNHead
