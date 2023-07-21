@@ -16,13 +16,12 @@ SUPER_MAPPING = {'car': 'Vehicle',
                 'Vehicle': 'Vehicle',
                 'pedestrian': 'Pedestrian',
                 'Pedestrian': 'Pedestrian',
-                'motorcycle': 'Cyclist', # Mapping motorcycle to vehicle may confuse the fine-tuning of the detectors
+                'motorcycle': 'Cyclist', 
                 'bicycle': 'Cyclist',
                 'Cyclist': 'Cyclist'}
 
 # Note: Label discrepancy for "motorcycle" class - Waymo maps motorcycle to Vehicle but nuScenes/Lyft/KITTI has separate category
-# Makes more sense for anchor boxes to map motorcycle to cyclist class
-# For now, we map motorcycle to Cyclist and leave cyclist evaluation for future work
+# Makes more sense for anchor boxes to map motorcycle to cyclist class?
 
 def get_multi_source_prelim_label(detection_sets, cls_kbf_config): 
     """
@@ -104,7 +103,7 @@ def get_detection_sets(det_annos, score_th=0.1):
             pred_names = det_annos[key][idx]['name'][score_mask]
             superclass_ids = np.array([SUPERCATEGORIES.index(SUPER_MAPPING[name])+1 for name in pred_names])
             frame_dets['class_ids'].extend(superclass_ids)
-            frame_dets['names'].extend(pred_names)
+            frame_dets['names'].extend([SUPER_MAPPING[name] for name in pred_names])
             det_cls_weights = det_annos['det_cls_weights'][key]
             frame_dets['box_weights'].extend(np.array([det_cls_weights[cid-1] for cid in superclass_ids]))
 
@@ -125,6 +124,8 @@ if __name__ == '__main__':
     parser.add_argument('--ps_cfg', type=str, help='cfg file with MS3D parameters')
     parser.add_argument('--dets_txt', type=str, default=None, help='specify txt file for detector pkls')
     parser.add_argument('--interval', type=int, default=1, help='set interval')
+    parser.add_argument('--save_dir', type=str, default=None, help='Overwrite save dir in the cfg file')
+    parser.add_argument('--exp_name', type=str, default=None, help='Overwrite exp_name in the cfg file')
     args = parser.parse_args()
     
     ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)
@@ -138,8 +139,6 @@ if __name__ == '__main__':
     # Downsample for debugging
     if args.interval > 1:
         detection_sets = detection_sets[::args.interval] # ::3 is 6280, ::2 is 9420. 9420 has closer results to the full 18840
-
-    # discard=[4,4,4] if num_det_sets >= 8 else [0,0,0] # 4 is good default
 
     # Get class specific config
     cls_kbf_config = {}
@@ -155,5 +154,7 @@ if __name__ == '__main__':
         cls_kbf_config[cls]['neg_th'] = ms3d_configs['ps_score_th']['neg_th'][enum]
 
     ps_dict = get_multi_source_prelim_label(detection_sets, cls_kbf_config)
-    generate_ps_utils.save_data(ps_dict, ms3d_configs['save_dir'], name=f"{ms3d_configs['exp_name']}.pkl")
-    print(f"saved: {ms3d_configs['exp_name']}.pkl\n")
+    save_dir = ms3d_configs['save_dir'] if args.save_dir is None else args.save_dir
+    exp_name = ms3d_configs['exp_name'] if args.exp_name is None else args.exp_name
+    generate_ps_utils.save_data(ps_dict, save_dir, name=f"{exp_name}.pkl")
+    print(f"saved: {exp_name}.pkl\n")

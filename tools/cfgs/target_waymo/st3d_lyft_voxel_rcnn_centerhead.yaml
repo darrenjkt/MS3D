@@ -1,14 +1,14 @@
-CLASS_NAMES: ['Vehicle','Pedestrian']
-DATA_CONFIG: 
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
-    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'    
-    SEQUENCE_CONFIG:
-        ENABLED: True
-        SAMPLE_OFFSET: [-3, 0]
-    SAMPLED_INTERVAL: {
-        'train': 6,
-        'test': 5
+CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
+
+DATA_CONFIG:
+    _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
+    MAX_SWEEPS: 3
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z','timestamp'],
+        src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
+
     DATA_PROCESSOR:
         -   NAME: mask_points_and_boxes_outside_range
             REMOVE_OUTSIDE_BOXES: True
@@ -31,7 +31,7 @@ DATA_CONFIG_TAR:
     USE_PSEUDO_LABEL: True
     USE_CUSTOM_TRAIN_SCENES: True
     SAVE_PKL_IN_GROUND_FRAME: True   
-    CLASS_NAMES: ['Vehicle','Pedestrian']
+    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
     SEQUENCE_CONFIG:
         ENABLED: True
         SAMPLE_OFFSET: [-3, 0]
@@ -80,7 +80,7 @@ MODEL:
         CLASS_AGNOSTIC: False
 
         CLASS_NAMES_EACH_HEAD: [
-            ['Vehicle','Pedestrian']
+            ['car','truck','bus','motorcycle','bicycle','pedestrian']
         ]
 
         SHARED_CONV_CHANNEL: 64
@@ -214,7 +214,7 @@ OPTIMIZATION:
     NUM_EPOCHS: 30
 
     OPTIMIZER: adam_onecycle
-    LR: 0.01
+    LR: 0.0015
     WEIGHT_DECAY: 0.001
     MOMENTUM: 0.9
 
@@ -231,12 +231,16 @@ OPTIMIZATION:
     GRAD_NORM_CLIP: 10
 
 SELF_TRAIN:
-    # SCORE_THRESH: 0.6
-    # NEG_THRESH: 0.4
-    # UPDATE_PSEUDO_LABEL: [-1]
-    # UPDATE_PSEUDO_LABEL_INTERVAL: 100
+    SCORE_THRESH: [0.6,0.55,0.5]
+    NEG_THRESH: [0.3,0.3,0.3]
+    UPDATE_PSEUDO_LABEL: [0]
+    UPDATE_PSEUDO_LABEL_INTERVAL: 100
+    INIT_PS: None
 
-    INIT_PS: /MS3D/tools/cfgs/target_waymo/ps_labels_rnd3/final_ps_dict.pkl
+    PROG_AUG:
+        ENABLED: False
+        UPDATE_AUG: [5, 10, 20, 25]
+        SCALE: 1.1
     SRC:
         USE_DATA: False
         USE_GRAD: False
@@ -246,6 +250,11 @@ SELF_TRAIN:
         LOSS_WEIGHT: 1.0
 
     MEMORY_ENSEMBLE:
-        ENABLED: True
-        NAME: simplified_cons_ensemble
+        ENABLED: False
+        NAME: consistency_ensemble
         IOU_THRESH: 0.1
+
+        MEMORY_VOTING:
+            ENABLED: False
+            IGNORE_THRESH: 2
+            RM_THRESH: 3

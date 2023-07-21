@@ -29,7 +29,8 @@ def load_dataset(split):
 
     # Get target dataset    
     cfg.DATA_SPLIT.test = split
-    cfg.SAMPLED_INTERVAL.test = 1
+    if cfg.get('SAMPLED_INTERVAL', False):
+        cfg.SAMPLED_INTERVAL.test = 1
     logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
     target_set, _, _ = build_dataloader(
                 dataset_cfg=cfg,
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)
-    cfg_from_yaml_file(args.cfg_file, cfg)
+    cfg_from_yaml_file(ms3d_configs["dataset_cfg"], cfg)
     dataset = load_dataset(split='train')
 
     ps_dict_pth = Path(ms3d_configs["save_dir"]) / f'{ms3d_configs["exp_name"]}.pkl'

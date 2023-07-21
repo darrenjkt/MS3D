@@ -88,6 +88,8 @@ def main():
                         help='Load in tracks, these are a dict with IDs as keys')
     parser.add_argument('--idx', type=int, default=0,
                         help='If you wish to only display a certain frame index')
+    parser.add_argument('--sweeps', type=int, default=None,
+                        help='Num accum pc')
     parser.add_argument('--conf_th', type=float, default=0.0,
                         help='If you wish to only display a certain frame index')
     parser.add_argument('--split', type=str, default='train',
@@ -100,13 +102,17 @@ def main():
     # Get target dataset
     cfg_from_yaml_file(args.cfg_file, cfg)
     cfg.DATA_SPLIT.test = args.split
-    cfg.SAMPLED_INTERVAL.test = 1
-    # cfg.USE_CUSTOM_TRAIN_SCENES = args.custom_train_split
+    if cfg.get('SAMPLED_INTERVAL', False):
+        cfg.SAMPLED_INTERVAL.test = 1
 
-    # dataset_cfg.SEQUENCE_CONFIG.ENABLED = True
-    # if dataset_cfg.SEQUENCE_CONFIG.ENABLED:
-    #     dataset_cfg.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-15,0]
-    #     # dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp']
+    if args.sweeps is not None:
+        # If dataset name in lyft,nusc
+        cfg.MAX_SWEEPS = args.sweeps
+
+        # else
+        # dataset_cfg.SEQUENCE_CONFIG.ENABLED = True
+    #     dataset_cfg.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-(args.sweeps-1),0]
+    #     dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp']
     #     dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp']
     #     dataset_cfg.POINT_FEATURE_ENCODING.used_feature_list=['x','y','z']        
     
@@ -286,9 +292,8 @@ def main():
         # Plot det boxes
         if detection_sets is not None:
             det_frame_idx = get_frame_id_from_dets(frame_id, detection_sets) if get_frame_id_from_ps else frame_idx    
-            mask = detection_sets[det_frame_idx]['score'] > 0.2       
-            plot_boxes(ax, detection_sets[det_frame_idx]['boxes_lidar'][mask], 
-                    scores=detection_sets[det_frame_idx]['score'][mask],
+            plot_boxes(ax, detection_sets[det_frame_idx]['boxes_lidar'], 
+                    scores=detection_sets[det_frame_idx]['score'],
                     source_id=detection_sets[det_frame_idx]['source_id'] if 'source_id' in detection_sets[det_frame_idx].keys() else None,
                     source_labels=detection_sets[det_frame_idx]['source'] if 'source' in detection_sets[det_frame_idx].keys() else None,
                     color=[1,0,0] if 'source_id' not in detection_sets[det_frame_idx].keys() else [0,0,1],
@@ -296,9 +301,8 @@ def main():
                     label='det pkl' if 'source_id' not in detection_sets[det_frame_idx].keys() else None)
 
             if args.det_pkl2 is not None:
-                mask = det2[det_frame_idx]['score'] > 0.2
-                plot_boxes(ax, det2[det_frame_idx]['boxes_lidar'][mask], 
-                    scores=det2[det_frame_idx]['score'][mask],
+                plot_boxes(ax, det2[det_frame_idx]['boxes_lidar'], 
+                    scores=det2[det_frame_idx]['score'],
                     label='det pkl 2', color=[0.6,0.4,0],
                     limit_range=limit_range, alpha=1)
              

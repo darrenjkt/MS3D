@@ -1,0 +1,1687 @@
+[1mdiff --git a/pcdet/datasets/lyft/lyft_dataset.py b/pcdet/datasets/lyft/lyft_dataset.py[m
+[1mindex b329270..7fc8674 100644[m
+[1m--- a/pcdet/datasets/lyft/lyft_dataset.py[m
+[1m+++ b/pcdet/datasets/lyft/lyft_dataset.py[m
+[36m@@ -105,8 +105,6 @@[m [mclass LyftDataset(DatasetTemplate):[m
+         sweep_points_list = [points][m
+         sweep_times_list = [np.zeros((points.shape[0], 1))][m
+ [m
+[31m-        # Don't do random selection from infos cause my re-generated infos are for 16 frames[m
+[31m-        # for k in np.random.choice(len(info['sweeps']), max_sweeps - 1, replace=False):[m
+         for k in np.random.choice(max_sweeps, max_sweeps - 1, replace=False): # not sure why they don't do it sequentially? maybe data aug effect?[m
+             points_sweep, times_sweep = self.get_sweep(info['sweeps'][k])[m
+             sweep_points_list.append(points_sweep)[m
+[36m@@ -151,7 +149,16 @@[m [mclass LyftDataset(DatasetTemplate):[m
+                 input_dict['gt_boxes'] = None[m
+             [m
+         if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:[m
+[31m-            self.fill_pseudo_labels(input_dict)[m
+[32m+[m[32m            # Remap indices from pseudo-label 1-3 to order of det head classes; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist[m
+[32m+[m[32m            # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)[m
+[32m+[m[41m            [m
+[32m+[m[32m            psid2clsid = {}[m
+[32m+[m[32m            if 'car' in self.class_names:[m
+[32m+[m[32m                psid2clsid[1] = self.class_names.index('car') + 1[m
+[32m+[m[32m            if 'pedestrian' in self.class_names:[m
+[32m+[m[32m                psid2clsid[2] = self.class_names.index('pedestrian') + 1[m[41m                [m
+[32m+[m[32m            self.fill_pseudo_labels(input_dict, psid2clsid)[m
+[32m+[m[41m            [m
+         data_dict = self.prepare_data(data_dict=input_dict)[m
+ [m
+         return data_dict[m
+[1mdiff --git a/pcdet/datasets/nuscenes/nuscenes_dataset.py b/pcdet/datasets/nuscenes/nuscenes_dataset.py[m
+[1mindex 7baa69d..7f4d5ba 100644[m
+[1m--- a/pcdet/datasets/nuscenes/nuscenes_dataset.py[m
+[1m+++ b/pcdet/datasets/nuscenes/nuscenes_dataset.py[m
+[36m@@ -77,7 +77,7 @@[m [mclass NuScenesDataset(DatasetTemplate):[m
+                 seq_name_to_infos[seq_id] += 1[m
+ [m
+             if self.logger is not None:[m
+[31m-                self.logger.info('Total sampled samples for Waymo dataset: %d' % len(self.infos))        [m
+[32m+[m[32m                self.logger.info('Total sampled samples for NuScenes dataset: %d' % len(self.infos))[m[41m        [m
+ [m
+         self.seq_name_to_len = seq_name_to_len[m
+         return seq_name_to_infos[m
+[36m@@ -196,7 +196,15 @@[m [mclass NuScenesDataset(DatasetTemplate):[m
+                 input_dict['gt_boxes'] = None[m
+ [m
+         if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:[m
+[31m-            self.fill_pseudo_labels(input_dict)[m
+[32m+[m[32m            # Remap indices from pseudo-label 1-3 to order of det head classes; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist[m
+[32m+[m[32m            # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)[m
+[32m+[m[41m            [m
+[32m+[m[32m            psid2clsid = {}[m
+[32m+[m[32m            if 'car' in self.class_names:[m
+[32m+[m[32m                psid2clsid[1] = self.class_names.index('car') + 1[m
+[32m+[m[32m            if 'pedestrian' in self.class_names:[m
+[32m+[m[32m                psid2clsid[2] = self.class_names.index('pedestrian') + 1[m[41m                [m
+[32m+[m[32m            self.fill_pseudo_labels(input_dict, psid2clsid)[m
+ [m
+         if self.dataset_cfg.get('SET_NAN_VELOCITY_TO_ZEROS', False) and not self.dataset_cfg.get('USE_PSEUDO_LABEL', None):[m
+             gt_boxes = input_dict['gt_boxes'][m
+[1mdiff --git a/pcdet/utils/generate_ps_utils.py b/pcdet/utils/generate_ps_utils.py[m
+[1mindex 6418604..bf1a497 100644[m
+[1m--- a/pcdet/utils/generate_ps_utils.py[m
+[1m+++ b/pcdet/utils/generate_ps_utils.py[m
+[36m@@ -155,7 +155,7 @@[m [mdef motion_state_refinement(tracks_all, tracks_static, frame_ids):[m
+ [m
+ [m
+ def assign_box_to_frameid(tracks):[m
+[31m-    # assign one box per frame_id; if duplicate, then keep higher scoring box[m
+[32m+[m[32m    # assign one tracker box per frame_id; if duplicate, then keep higher scoring box[m
+     for trk_id in tracks.keys():[m
+         tracks[trk_id]['frameid_to_box'] = {}[m
+         fid_list = tracks[trk_id]['frame_id'][m
+[36m@@ -232,7 +232,7 @@[m [mdef get_track_rolling_kde_interpolation(dataset, tracks_static, window, static_s[m
+             [m
+         if len(trk_frame_inds_set) < window:[m
+             boxes = np.array(list(f2b.values()))[m
+[31m-            boxes = np.insert(boxes, 7,1,1) # Static refinement only done for vehicle class so we hardcode class ID[m
+[32m+[m[32m            boxes = np.insert(boxes, 7,1,1) # Static refinement only done for vehicle class so we hardcode class ID: 1[m
+             kdebox = kbf(boxes, box_weights=boxes[:,-1], bw_score=1.0)[m
+             if kdebox[8] > static_score_th:[m
+                 kdebox[8] = max(kdebox_min_score, kdebox[8])[m
+[36m@@ -243,7 +243,9 @@[m [mdef get_track_rolling_kde_interpolation(dataset, tracks_static, window, static_s[m
+         else:[m
+             # Get rolling KDE for each key frame[m
+             for frame_idx, f_id in enumerate(trk_frame_inds_set):[m
+[31m-                accum_inds = int(frame_idx) + np.arange(-window, 0)[m
+[32m+[m[32m                # TODO: It might actually work better to use [-window/2, window/2] rather than historical only [-window, 0] in this implementation[m
+[32m+[m[32m                # cause seeing boxes from future frames may provide better context for refinement; but it may be an incremental improvement[m
+[32m+[m[32m                accum_inds = int(frame_idx) + np.arange(-window, 0)[m[41m [m
+                 accum_inds[accum_inds < 0] = abs(accum_inds[accum_inds < 0]) + max(accum_inds)[m
+                 accum_inds = np.clip(accum_inds, 0, len(trk_frame_inds_set)-1)[m
+                 boxes = np.stack([f2b[key] for key in trk_frame_inds_set[np.unique(accum_inds)]])[m
+[1mdiff --git a/pcdet/utils/memory_ensemble_utils.py b/pcdet/utils/memory_ensemble_utils.py[m
+[1mindex 179c931..5a50601 100644[m
+[1m--- a/pcdet/utils/memory_ensemble_utils.py[m
+[1m+++ b/pcdet/utils/memory_ensemble_utils.py[m
+[36m@@ -5,8 +5,8 @@[m [mfrom pcdet.utils import common_utils[m
+ from pcdet.ops.iou3d_nms import iou3d_nms_utils[m
+ from pcdet.models.model_utils.model_nms_utils import class_agnostic_nms[m
+ [m
+[31m-def simplified_cons_ensemble(gt_infos_a, gt_infos_b, st_cfg):[m
+[31m-    memory_ensemble_cfg = st_cfg.MEMORY_ENSEMBLE[m
+[32m+[m[32mdef simplified_cons_ensemble(gt_infos_a, gt_infos_b, memory_ensemble_cfg):[m
+[32m+[m
+     gt_box_a, _ = common_utils.check_numpy_to_torch(gt_infos_a['gt_boxes'])[m
+     gt_box_b, _ = common_utils.check_numpy_to_torch(gt_infos_b['gt_boxes'])[m
+     gt_box_a, gt_box_b = gt_box_a.cuda(), gt_box_b.cuda()[m
+[36m@@ -49,27 +49,37 @@[m [mdef simplified_cons_ensemble(gt_infos_a, gt_infos_b, st_cfg):[m
+ [m
+     return new_gt_infos[m
+ [m
+[31m-def consistency_ensemble(gt_infos_a, gt_infos_b, st_cfg):[m
+[32m+[m[32mdef consistency_ensemble(gt_infos_a, gt_infos_b, memory_ensemble_cfg):[m
+     """[m
+     Args:[m
+         gt_infos_a:[m
+             gt_boxes: (N, 9) [x, y, z, dx, dy, dz, heading, label, scores]  in LiDAR for previous pseudo boxes[m
+[32m+[m[32m            cls_scores: (N)[m
+[32m+[m[32m            iou_scores: (N)[m
+             memory_counter: (N)[m
+[32m+[m
+         gt_infos_b:[m
+             gt_boxes: (M, 9) [x, y, z, dx, dy, dz, heading, label, scores]  in LiDAR for current pseudo boxes[m
+[32m+[m[32m            cls_scores: (M)[m
+[32m+[m[32m            iou_scores: (M)[m
+             memory_counter: (M)[m
+[32m+[m
+         memory_ensemble_cfg:[m
+[32m+[m
+     Returns:[m
+         gt_infos:[m
+             gt_boxes: (K, 9) [x, y, z, dx, dy, dz, heading, label, scores]  in LiDAR for merged pseudo boxes[m
+[32m+[m[32m            cls_scores: (K)[m
+[32m+[m[32m            iou_scores: (K)[m
+             memory_counter: (K)[m
+     """[m
+[31m-    memory_ensemble_cfg = st_cfg.MEMORY_ENSEMBLE[m
+     gt_box_a, _ = common_utils.check_numpy_to_torch(gt_infos_a['gt_boxes'])[m
+     gt_box_b, _ = common_utils.check_numpy_to_torch(gt_infos_b['gt_boxes'])[m
+     gt_box_a, gt_box_b = gt_box_a.cuda(), gt_box_b.cuda()[m
+ [m
+     new_gt_box = gt_infos_a['gt_boxes'][m
+[32m+[m[32m    new_cls_scores = gt_infos_a['cls_scores'][m
+[32m+[m[32m    new_iou_scores = gt_infos_a['iou_scores'][m
+     new_memory_counter = gt_infos_a['memory_counter'][m
+ [m
+     # if gt_box_b or gt_box_a don't have any predictions[m
+[36m@@ -94,13 +104,7 @@[m [mdef consistency_ensemble(gt_infos_a, gt_infos_b, st_cfg):[m
+     # filter matched pair boxes by IoU[m
+     # if matching succeeded, use boxes with higher confidence[m
+     #########################################################[m
+[31m-    """    [m
+[31m-    MY UNDERSTANDING:[m
+[31m-    Ignore boxes (but in gt_boxes) are labelled with neg class[m
+[31m-        [m
+[31m-    When there's a new, better box, the new box has positive class, so it'll replace the[m
+[31m-    old neg class box[m
+[31m-    """[m
+[32m+[m
+     iou_mask = (ious >= memory_ensemble_cfg.IOU_THRESH)[m
+ [m
+     matching_selected = match_pairs_idx[iou_mask][m
+[36m@@ -120,213 +124,20 @@[m [mdef consistency_ensemble(gt_infos_a, gt_infos_b, st_cfg):[m
+     else:[m
+         new_gt_box[matching_selected[score_mask, 0], :] = gt_box_selected_b[score_mask, :][m
+ [m
+[31m-[m
+[31m-    # for matching pairs, clear the ignore counter[m
+[31m-    new_memory_counter[matching_selected[:, 0]] = 0[m
+[31m-[m
+[31m-    #######################################################[m
+[31m-    # If previous bboxes disappeared: ious <= 0.1[m
+[31m-    #######################################################[m
+[31m-    """[m
+[31m-    MY UNDERSTANDING:[m
+[31m-    For already ignored boxes, there'll already be a neg class, so they just [m
+[31m-    increment mem_counter[m
+[31m-    [m
+[31m-    new_gt_box[ignore_mask, 7] = -1 --> for the positive categories, it can also [m
+[31m-    be unmatched. So it may start off as 1, but it becomes ignored (-1) in training[m
+[31m-    if there are no matches over time[m
+[31m-    [m
+[31m-    If any boxes have mem_counter > RM_THRESH=3, they discard it        [m
+[31m-    """[m
+[31m-    disappear_idx = (ious < memory_ensemble_cfg.IOU_THRESH).nonzero()[0][m
+[31m-[m
+[31m-    if memory_ensemble_cfg.get('MEMORY_VOTING', None) and memory_ensemble_cfg.MEMORY_VOTING.ENABLED:[m
+[31m-        new_memory_counter[disappear_idx] += 1[m
+[31m-        # ignore gt_boxes that ignore_count == IGNORE_THRESH[m
+[31m-        ignore_mask = new_memory_counter >= memory_ensemble_cfg.MEMORY_VOTING.IGNORE_THRESH[m
+[31m-        new_gt_box[ignore_mask, 7] = -1[m
+[31m-[m
+[31m-        # remove gt_boxes that ignore_count >= RM_THRESH[m
+[31m-        remain_mask = new_memory_counter < memory_ensemble_cfg.MEMORY_VOTING.RM_THRESH[m
+[31m-        new_gt_box = new_gt_box[remain_mask][m
+[31m-        new_memory_counter = new_memory_counter[remain_mask][m
+[31m-[m
+[31m-    """[m
+[31m-    MY UNDERSTANDING:[m
+[31m-    For new boxes, if there is no match (ious_b2a < memory_ensemble_cfg.IOU_THRESH)[m
+[31m-    for any current frame pred box in historical box, then add it into the pseudo-labels[m
+[31m-    [m
+[31m-    NEG_THRESH < score < POS_THRESH filtering is done in "save_pseudo_label_batch". So in [m
+[31m-    that case, even if score_new=0.4 replaces a score_old=0.3, the new gt_box still has a [m
+[31m-    neg class[m
+[31m-[m
+[31m-    Comment this section out if don't want to add new boxes[m
+[31m-    """[m
+[31m-    # Add new appear boxes[m
+[31m-    ious_b2a, match_idx_b2a = torch.max(iou_matrix, dim=0)[m
+[31m-    ious_b2a, match_idx_b2a = ious_b2a.numpy(), match_idx_b2a.numpy()[m
+[31m-[m
+[31m-    newboxes_idx = (ious_b2a < memory_ensemble_cfg.IOU_THRESH).nonzero()[0][m
+[31m-    if newboxes_idx.shape[0] != 0:[m
+[31m-        new_gt_box = np.concatenate((new_gt_box, gt_infos_b['gt_boxes'][newboxes_idx, :]), axis=0)[m
+[31m-        new_memory_counter = np.concatenate((new_memory_counter, gt_infos_b['memory_counter'][newboxes_idx]), axis=0)[m
+[31m-[m
+[31m-    new_gt_infos = {[m
+[31m-        'gt_boxes': new_gt_box,[m
+[31m-        'memory_counter': new_memory_counter[m
+[31m-    }[m
+[31m-[m
+[31m-    return new_gt_infos[m
+[31m-[m
+[31m-def nms_ensemble(gt_infos_a, gt_infos_b, memory_ensemble_cfg):[m
+[31m-    """[m
+[31m-    Args:[m
+[31m-        gt_infos_a:[m
+[31m-            gt_boxes: (N, 9) [x, y, z, dx, dy, dz, heading, label, scores]  in LiDAR for previous pseudo boxes[m
+[31m-            memory_counter: (N)[m
+[31m-        gt_infos_b:[m
+[31m-            gt_boxes: (M, 9) [x, y, z, dx, dy, dz, heading, label, scores]  in LiDAR for current pseudo boxes[m
+[31m-            memory_counter: (M)[m
+[31m-        memory_ensemble_cfg:[m
+[31m-    Returns:[m
+[31m-        gt_infos:[m
+[31m-            gt_boxes: (K, 9) [x, y, z, dx, dy, dz, heading, label, scores]  in LiDAR for merged pseudo boxes[m
+[31m-            memory_counter: (K)[m
+[31m-    """[m
+[31m-    [m
+[31m-    gt_box_a, _ = common_utils.check_numpy_to_torch(gt_infos_a['gt_boxes'])[m
+[31m-    gt_box_b, _ = common_utils.check_numpy_to_torch(gt_infos_b['gt_boxes'])[m
+[31m-    [m
+[31m-    if gt_box_b.shape[0] == 0:[m
+[31m-        if memory_ensemble_cfg.get('MEMORY_VOTING', None) and memory_ensemble_cfg.MEMORY_VOTING.ENABLED:[m
+[31m-            gt_infos_a['memory_counter'] += 1[m
+[31m-        return gt_infos_a[m
+[31m-    elif gt_box_a.shape[0] == 0:[m
+[31m-        return gt_infos_b[m
+[31m-[m
+[31m-    gt_box_a, gt_box_b = gt_box_a.cuda(), gt_box_b.cuda()[m
+[31m-[m
+[31m-    gt_boxes = torch.cat((gt_box_a, gt_box_b), dim=0)[m
+[31m-    new_memory_counter = np.concatenate((gt_infos_a['memory_counter'], gt_infos_b['memory_counter']), axis=0)[m
+[31m-[m
+[31m-    selected, selected_scores = class_agnostic_nms([m
+[31m-        box_scores=gt_boxes[:, -1], box_preds=gt_boxes[:, :7], nms_config=memory_ensemble_cfg.NMS_CONFIG[m
+[31m-    )[m
+[31m-[m
+[31m-    gt_boxes = gt_boxes.cpu().numpy()[m
+[31m-    if isinstance(selected, list):[m
+[31m-        selected = np.array(selected)[m
+[31m-    else:[m
+[31m-        selected = selected.cpu().numpy()[m
+[31m-[m
+[31m-    if memory_ensemble_cfg.get('MEMORY_VOTING', None) and memory_ensemble_cfg.MEMORY_VOTING.ENABLED:[m
+[31m-        iou_matrix = iou3d_nms_utils.boxes_iou3d_gpu(gt_box_a[:, :7], gt_box_b[:, :7])[m
+[31m-[m
+[31m-        ious, _ = torch.max(iou_matrix, dim=1)[m
+[31m-        ious = ious.cpu().numpy()[m
+[31m-[m
+[31m-        gt_box_a_size = gt_box_a.shape[0][m
+[31m-        selected_a = selected[selected < gt_box_a_size][m
+[31m-        matched_mask = (ious[selected_a] > memory_ensemble_cfg.NMS_CONFIG.NMS_THRESH)[m
+[31m-        match_idx = selected_a[matched_mask][m
+[31m-        new_memory_counter[match_idx] = 0[m
+[31m-[m
+[31m-        # for previous bboxes disappeared[m
+[31m-        disappear_idx = (ious < memory_ensemble_cfg.NMS_CONFIG.NMS_THRESH).nonzero()[0][m
+[31m-        new_memory_counter[disappear_idx] += 1[m
+[31m-        # ignore gt_boxes that ignore_count == IGNORE_THRESH[m
+[31m-        ignore_mask = new_memory_counter >= memory_ensemble_cfg.MEMORY_VOTING.IGNORE_THRESH[m
+[31m-        gt_boxes[ignore_mask, 7] = -1[m
+[31m-[m
+[31m-        # remove gt_boxes that ignore_count >= RM_THRESH[m
+[31m-        rm_idx = (new_memory_counter >= memory_ensemble_cfg.MEMORY_VOTING.RM_THRESH).nonzero()[0][m
+[31m-        selected = np.setdiff1d(selected, rm_idx)[m
+[31m-[m
+[31m-    selected_gt_boxes = gt_boxes[selected][m
+[31m-[m
+[31m-    new_gt_infos = {[m
+[31m-        'gt_boxes': selected_gt_boxes,[m
+[31m-        'memory_counter': new_memory_counter[selected][m
+[31m-    }[m
+[31m-[m
+[31m-    return new_gt_infos[m
+[31m-[m
+[31m-[m
+[31m-def bipartite_ensemble(gt_infos_a, gt_infos_b, memory_ensemble_cfg):[m
+[31m-    """[m
+[31m-    Args:[m
+[31m-        gt_infos_a:[m
+[31m-            gt_boxes: (N, 9) [x, y, z, dx, dy, dz, heading, label, scores]  in LiDAR for previous pseudo boxes[m
+[31m-            cls_scores: (N)[m
+[31m-            iou_scores: (N)[m
+[31m-            memory_counter: (N)[m
+[31m-        gt_infos_b:[m
+[31m-            gt_boxes: (M, 9) [x, y, z, dx, dy, dz, heading, label, scores]  in LiDAR for current pseudo boxes[m
+[31m-            cls_scores: (M)[m
+[31m-            iou_scores: (M)[m
+[31m-            memory_counter: (M)[m
+[31m-        memory_ensemble_cfg:[m
+[31m-    Returns:[m
+[31m-        gt_infos:[m
+[31m-            gt_boxes: (K, 9) [x, y, z, dx, dy, dz, heading, label, scores]  in LiDAR for merged pseudo boxes[m
+[31m-            cls_scores: (K)[m
+[31m-            iou_scores: (K)[m
+[31m-            memory_counter: (K)[m
+[31m-    """[m
+[31m-    gt_box_a, _ = common_utils.check_numpy_to_torch(gt_infos_a['gt_boxes'])[m
+[31m-    gt_box_b, _ = common_utils.check_numpy_to_torch(gt_infos_b['gt_boxes'])[m
+[31m-    gt_box_a, gt_box_b = gt_box_a.cuda(), gt_box_b.cuda()[m
+[31m-[m
+[31m-    new_gt_box = gt_infos_a['gt_boxes'][m
+[31m-    new_cls_scores = gt_infos_a['cls_scores'][m
+[31m-    new_iou_scores = gt_infos_a['iou_scores'][m
+[31m-    new_memory_counter = gt_infos_a['memory_counter'][m
+[31m-[m
+[31m-    # if gt_box_b or gt_box_a don't have any predictions[m
+[31m-    if gt_box_b.shape[0] == 0:[m
+[31m-        gt_infos_a['memory_counter'] += 1[m
+[31m-        return gt_infos_a[m
+[31m-    elif gt_box_a.shape[0] == 0:[m
+[31m-        return gt_infos_b[m
+[31m-[m
+[31m-    # bipartite matching[m
+[31m-    iou_matrix = iou3d_nms_utils.boxes_iou3d_gpu(gt_box_a[:, :7], gt_box_b[:, :7])[m
+[31m-[m
+[31m-    iou_matrix = iou_matrix.cpu().numpy()[m
+[31m-[m
+[31m-    a_idx, b_idx = linear_sum_assignment(-iou_matrix)[m
+[31m-[m
+[31m-    gt_box_a, gt_box_b = gt_box_a.cpu().numpy(), gt_box_b.cpu().numpy()[m
+[31m-[m
+[31m-    matching_paris_idx = np.concatenate((a_idx.reshape(-1, 1), b_idx.reshape(-1, 1)), axis=1)[m
+[31m-[m
+[31m-    ious = iou_matrix[matching_paris_idx[:, 0], matching_paris_idx[:, 1]][m
+[31m-[m
+[31m-    # matched a boxes.[m
+[31m-    matched_mask = ious > memory_ensemble_cfg.IOU_THRESH[m
+[31m-[m
+[31m-    matching_selected = matching_paris_idx[matched_mask][m
+[31m-    gt_box_selected_a = gt_box_a[matching_selected[:, 0]][m
+[31m-    gt_box_selected_b = gt_box_b[matching_selected[:, 1]][m
+[31m-[m
+[31m-    # assign boxes with higher confidence[m
+[31m-    score_mask = gt_box_selected_a[:, 8] < gt_box_selected_b[:, 8][m
+[31m-    new_gt_box[matching_selected[score_mask, 0], :] = gt_box_selected_b[score_mask, :][m
+     if gt_infos_a['cls_scores'] is not None:[m
+         new_cls_scores[matching_selected[score_mask, 0]] = gt_infos_b['cls_scores'][[m
+             matching_selected[score_mask, 1]][m
+     if gt_infos_a['iou_scores'] is not None:[m
+         new_iou_scores[matching_selected[score_mask, 0]] = gt_infos_b['iou_scores'][[m
+             matching_selected[score_mask, 1]][m
+[31m-[m
+[31m-    # for matched pairs, clear the ignore counter[m
+[32m+[m[41m    [m
+[32m+[m[32m    # for matching pairs, clear the ignore counter[m
+     new_memory_counter[matching_selected[:, 0]] = 0[m
+ [m
+[31m-    ##############################################[m
+[31m-    # disppeared boxes for previous pseudo boxes[m
+[31m-    ##############################################[m
+[31m-    gt_box_a_idx = np.array(list(range(gt_box_a.shape[0])))[m
+[31m-    disappear_idx = np.setdiff1d(gt_box_a_idx, matching_selected[:, 0])[m
+[32m+[m[32m    #######################################################[m
+[32m+[m[32m    # If previous bboxes disappeared: ious <= 0.1[m
+[32m+[m[32m    #######################################################[m
+[32m+[m[32m    disappear_idx = (ious < memory_ensemble_cfg.IOU_THRESH).nonzero()[0][m
+ [m
+     if memory_ensemble_cfg.get('MEMORY_VOTING', None) and memory_ensemble_cfg.MEMORY_VOTING.ENABLED:[m
+         new_memory_counter[disappear_idx] += 1[m
+[36m@@ -343,21 +154,18 @@[m [mdef bipartite_ensemble(gt_infos_a, gt_infos_b, memory_ensemble_cfg):[m
+         if gt_infos_a['iou_scores'] is not None:[m
+             new_iou_scores = new_iou_scores[remain_mask][m
+ [m
+[31m-    ##############################################[m
+[31m-    # new appear boxes for current pseudo boxes[m
+[31m-    ##############################################[m
+[31m-    gt_box_b_idx = np.array(list(range(gt_box_b.shape[0])))[m
+[31m-    newboxes_idx = np.setdiff1d(gt_box_b_idx, matching_selected[:, 1])[m
+[32m+[m[32m    # Add new appear boxes[m
+[32m+[m[32m    ious_b2a, match_idx_b2a = torch.max(iou_matrix, dim=0)[m
+[32m+[m[32m    ious_b2a, match_idx_b2a = ious_b2a.numpy(), match_idx_b2a.numpy()[m
+[32m+[m
+[32m+[m[32m    newboxes_idx = (ious_b2a < memory_ensemble_cfg.IOU_THRESH).nonzero()[0][m
+     if newboxes_idx.shape[0] != 0:[m
+         new_gt_box = np.concatenate((new_gt_box, gt_infos_b['gt_boxes'][newboxes_idx, :]), axis=0)[m
+         if gt_infos_a['cls_scores'] is not None:[m
+[31m-            new_cls_scores = np.concatenate((new_cls_scores, [m
+[31m-                                            gt_infos_b['cls_scores'][newboxes_idx]), axis=0)[m
+[32m+[m[32m            new_cls_scores = np.concatenate((new_cls_scores, gt_infos_b['cls_scores'][newboxes_idx]), axis=0)[m
+         if gt_infos_a['iou_scores'] is not None:[m
+[31m-            new_iou_scores = np.concatenate((new_iou_scores, [m
+[31m-                                            gt_infos_b['iou_scores'][newboxes_idx]), axis=0)[m
+[31m-        new_memory_counter = np.concatenate((new_memory_counter,[m
+[31m-                                            gt_infos_b['memory_counter'][newboxes_idx]), axis=0)[m
+[32m+[m[32m            new_iou_scores = np.concatenate((new_iou_scores, gt_infos_b['iou_scores'][newboxes_idx]), axis=0)[m
+[32m+[m[32m        new_memory_counter = np.concatenate((new_memory_counter, gt_infos_b['memory_counter'][newboxes_idx]), axis=0)[m
+ [m
+     new_gt_infos = {[m
+         'gt_boxes': new_gt_box,[m
+[36m@@ -367,33 +175,3 @@[m [mdef bipartite_ensemble(gt_infos_a, gt_infos_b, memory_ensemble_cfg):[m
+     }[m
+ [m
+     return new_gt_infos[m
+[31m-[m
+[31m-[m
+[31m-def memory_ensemble(gt_infos_a, gt_infos_b, memory_ensemble_cfg, ensemble_func):[m
+[31m-    # if there are multiple classes[m
+[31m-    classes_a = np.unique(np.abs(gt_infos_a['gt_boxes'][:, -2]))[m
+[31m-    classes_b = np.unique(np.abs(gt_infos_b['gt_boxes'][:, -2]))[m
+[31m-[m
+[31m-    n_classes = max(classes_a.shape[0], classes_b.shape[0])[m
+[31m-    if n_classes == 0:[m
+[31m-        return gt_infos_a        [m
+[31m-    elif n_classes == 1:[m
+[31m-        return ensemble_func(gt_infos_a, gt_infos_b, memory_ensemble_cfg)[m
+[31m-    else:[m
+[31m-        # Multi-class has not been implemented[m
+[31m-        print(f'classes_a: {classes_a}, classes_b: {classes_b}')[m
+[31m-        raise NotImplementedError[m
+[31m-    [m
+[31m-    # # for multi class case[m
+[31m-    # merged_infos = {}[m
+[31m-    # for i in np.union1d(classes_a, classes_b):[m
+[31m-    #     mask_a = np.abs(gt_infos_a['gt_boxes'][:, -2]) == i[m
+[31m-    #     gt_infos_a_i = common_utils.mask_dict(gt_infos_a, mask_a)[m
+[31m-[m
+[31m-    #     mask_b = np.abs(gt_infos_b['gt_boxes'][:, -2]) == i[m
+[31m-    #     gt_infos_b_i = common_utils.mask_dict(gt_infos_b, mask_b)[m
+[31m-[m
+[31m-    #     gt_infos = ensemble_func(gt_infos_a_i, gt_infos_b_i, memory_ensemble_cfg)[m
+[31m-    #     merged_infos = common_utils.concatenate_array_inside_dict(merged_infos, gt_infos)[m
+[31m-        [m
+[31m-    # return merged_infos[m
+\ No newline at end of file[m
+[1mdiff --git a/pcdet/utils/self_training_utils.py b/pcdet/utils/self_training_utils.py[m
+[1mindex 751f2a1..4776535 100644[m
+[1m--- a/pcdet/utils/self_training_utils.py[m
+[1m+++ b/pcdet/utils/self_training_utils.py[m
+[36m@@ -25,45 +25,52 @@[m [mimport yaml[m
+ PSEUDO_LABELS = {}[m
+ NEW_PSEUDO_LABELS = {}  [m
+ [m
+[32m+[m
+ def check_already_exist_pseudo_label(ps_label_dir, start_epoch):[m
+     """[m
+     if we continue training, use this to directly[m
+     load pseudo labels from exsiting result pkl[m
+[32m+[m
+     if exsit, load latest result pkl to PSEUDO LABEL[m
+     otherwise, return false and[m
+[32m+[m
+     Args:[m
+         ps_label_dir: dir to save pseudo label results pkls.[m
+         start_epoch: start epoc[m
+     Returns:[m
+[32m+[m
+     """[m
+     # support init ps_label given by cfg[m
+     if start_epoch == 0 and cfg.SELF_TRAIN.get('INIT_PS', None):[m
+[31m-        if os.path.exists(cfg.SELF_TRAIN.INIT_PS):[m
+[31m-            init_ps_label = pkl.load(open(cfg.SELF_TRAIN.INIT_PS, 'rb'))[m
+[31m-            # filter_ps_by_neg_score(init_ps_label)[m
+[31m-            PSEUDO_LABELS.update(init_ps_label)[m
+[31m-            if cfg.LOCAL_RANK == 0:[m
+[31m-                ps_path = os.path.join(ps_label_dir, "ps_label_e0.pkl")[m
+[31m-                with open(ps_path, 'wb') as f:[m
+[31m-                    pkl.dump(init_ps_label, f)[m
+[31m-[m
+[31m-            return cfg.SELF_TRAIN.INIT_PS[m
+[31m-[m
+[31m-    # ps_label_list = glob.glob(os.path.join(ps_label_dir, 'ps_label_e*.pkl'))[m
+[31m-    # if len(ps_label_list) == 0:[m
+[31m-    #     return[m
+[31m-[m
+[31m-    # ps_label_list.sort(key=os.path.getmtime, reverse=True)[m
+[31m-    # for cur_pkl in ps_label_list:[m
+[31m-    #     num_epoch = re.findall('ps_label_e(.*).pkl', cur_pkl)[m
+[31m-    #     assert len(num_epoch) == 1[m
+[31m-[m
+[31m-    #     # load pseudo label and return[m
+[31m-    #     if int(num_epoch[0]) <= start_epoch:[m
+[31m-    #         latest_ps_label = pkl.load(open(cur_pkl, 'rb'))[m
+[31m-    #         filter_ps_by_neg_score(latest_ps_label)[m
+[31m-    #         PSEUDO_LABELS.update(latest_ps_label)            [m
+[31m-    #         return cur_pkl[m
+[32m+[m[32m        if cfg.SELF_TRAIN.INIT_PS is not None:[m
+[32m+[m[32m            if os.path.exists(cfg.SELF_TRAIN.INIT_PS):[m
+[32m+[m[32m                init_ps_label = pkl.load(open(cfg.SELF_TRAIN.INIT_PS, 'rb'))[m
+[32m+[m[32m                # filter_ps_by_neg_score(init_ps_label)[m
+[32m+[m[32m                PSEUDO_LABELS.update(init_ps_label)[m
+[32m+[m[32m                if cfg.LOCAL_RANK == 0:[m
+[32m+[m[32m                    ps_path = os.path.join(ps_label_dir, "ps_label_e0.pkl")[m
+[32m+[m[32m                    with open(ps_path, 'wb') as f:[m
+[32m+[m[32m                        pkl.dump(init_ps_label, f)[m
+[32m+[m
+[32m+[m[32m                return cfg.SELF_TRAIN.INIT_PS[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                print("No file found at: ", cfg.SELF_TRAIN.INIT_PS)[m
+[32m+[m[32m                raise FileNotFoundError[m
+[32m+[m
+[32m+[m[32m    ps_label_list = glob.glob(os.path.join(ps_label_dir, 'ps_label_e*.pkl'))[m
+[32m+[m[32m    if len(ps_label_list) == 0:[m
+[32m+[m[32m        return[m
+[32m+[m
+[32m+[m[32m    ps_label_list.sort(key=os.path.getmtime, reverse=True)[m
+[32m+[m[32m    for cur_pkl in ps_label_list:[m
+[32m+[m[32m        num_epoch = re.findall('ps_label_e(.*).pkl', cur_pkl)[m
+[32m+[m[32m        assert len(num_epoch) == 1[m
+[32m+[m
+[32m+[m[32m        # load pseudo label and return[m
+[32m+[m[32m        if int(num_epoch[0]) <= start_epoch:[m
+[32m+[m[32m            latest_ps_label = pkl.load(open(cur_pkl, 'rb'))[m
+[32m+[m[32m            PSEUDO_LABELS.update(latest_ps_label)[m
+[32m+[m[32m            return cur_pkl[m
+ [m
+     return None[m
+ [m
+[36m@@ -162,6 +169,7 @@[m [mdef save_pseudo_label_batch(input_dict,[m
+     Save pseudo label for give batch.[m
+     If model is given, use model to inference pred_dicts,[m
+     otherwise, directly use given pred_dicts.[m
+[32m+[m
+     Args:[m
+         input_dict: batch data read from dataloader[m
+         pred_dicts: Dict if not given model.[m
+[36m@@ -174,34 +182,31 @@[m [mdef save_pseudo_label_batch(input_dict,[m
+ [m
+     batch_size = len(pred_dicts)[m
+     for b_idx in range(batch_size):[m
+[32m+[m[32m        pred_cls_scores = pred_iou_scores = None[m
+         if 'pred_boxes' in pred_dicts[b_idx]:[m
+             # Exist predicted boxes passing self-training score threshold[m
+             pred_boxes = pred_dicts[b_idx]['pred_boxes'].detach().cpu().numpy()[m
+             pred_labels = pred_dicts[b_idx]['pred_labels'].detach().cpu().numpy()[m
+             pred_scores = pred_dicts[b_idx]['pred_scores'].detach().cpu().numpy()[m
+[31m-[m
+[31m-            # Transferring Lyft/nuScenes -> Waymo we want to combine car/truck/bus into Vehicle[m
+[31m-            # Class merging - need to address other areas of code too[m
+[31m-            # pred_labels = pred_labels[pred_labels <= len(cfg.CLASS_NAMES)][m
+[31m-            # pred_boxes = pred_boxes[pred_labels <= len(cfg.CLASS_NAMES)][m
+[31m-            # pred_scores = pred_scores[pred_labels <= len(cfg.CLASS_NAMES)][m
+[31m-            # pred_names = np.array(cfg.CLASS_NAMES)[pred_labels - 1][m
+[31m-            # mapped_names = np.array([cfg.DATA_CONFIG_TAR.CLASS_MAPPING[name] for name in pred_names])[m
+[31m-            # pred_labels = np.array([cfg.DATA_CONFIG_TAR.CLASS_NAMES.index(n) + 1 for n in mapped_names], dtype=np.int32)[m
+[31m-            [m
+[31m-            # HARDCODED combination of all car/truck/bus/Vehicle to class_id=1[m
+[31m-            # TODO: Adapt this for multi-class with above code (need to address other parts of code too)[m
+[31m-            if np.unique(np.abs(pred_labels)).shape[0] > 1:[m
+[31m-                pred_labels = np.ones(pred_labels.shape)[m
+[32m+[m[32m            if 'pred_cls_scores' in pred_dicts[b_idx]:[m
+[32m+[m[32m                pred_cls_scores = pred_dicts[b_idx]['pred_cls_scores'].detach().cpu().numpy()[m
+[32m+[m[32m            if 'pred_iou_scores' in pred_dicts[b_idx]:[m
+[32m+[m[32m                pred_iou_scores = pred_dicts[b_idx]['pred_iou_scores'].detach().cpu().numpy()[m
+ [m
+             # remove boxes under negative threshold[m
+[31m-            if cfg.SELF_TRAIN.get('NEG_THRESH', None):                [m
+[31m-                remain_mask = pred_scores >= cfg.SELF_TRAIN.NEG_THRESH[m
+[32m+[m[32m            if cfg.SELF_TRAIN.get('NEG_THRESH', None):[m
+[32m+[m[32m                labels_remove_scores = np.array(cfg.SELF_TRAIN.NEG_THRESH)[pred_labels - 1][m
+[32m+[m[32m                remain_mask = pred_scores >= labels_remove_scores[m
+                 pred_labels = pred_labels[remain_mask][m
+                 pred_scores = pred_scores[remain_mask][m
+                 pred_boxes = pred_boxes[remain_mask][m
+[32m+[m[32m                if 'pred_cls_scores' in pred_dicts[b_idx]:[m
+[32m+[m[32m                    pred_cls_scores = pred_cls_scores[remain_mask][m
+[32m+[m[32m                if 'pred_iou_scores' in pred_dicts[b_idx]:[m
+[32m+[m[32m                    pred_iou_scores = pred_iou_scores[remain_mask][m
+ [m
+[31m-            ignore_mask = pred_scores < cfg.SELF_TRAIN.SCORE_THRESH[m
+[32m+[m[32m            labels_ignore_scores = np.array(cfg.SELF_TRAIN.SCORE_THRESH)[pred_labels - 1][m
+[32m+[m[32m            ignore_mask = pred_scores < labels_ignore_scores[m
+             pred_labels[ignore_mask] = -pred_labels[ignore_mask][m
+ [m
+             gt_box = np.concatenate((pred_boxes,[m
+[36m@@ -214,6 +219,8 @@[m [mdef save_pseudo_label_batch(input_dict,[m
+ [m
+         gt_infos = {[m
+             'gt_boxes': gt_box,[m
+[32m+[m[32m            'cls_scores': pred_cls_scores,[m
+[32m+[m[32m            'iou_scores': pred_iou_scores,[m
+             'memory_counter': np.zeros(gt_box.shape[0])[m
+         }[m
+ [m
+[36m@@ -222,8 +229,8 @@[m [mdef save_pseudo_label_batch(input_dict,[m
+             ensemble_func = getattr(memory_ensemble_utils, cfg.SELF_TRAIN.MEMORY_ENSEMBLE.NAME)[m
+             gt_infos = memory_ensemble_utils.memory_ensemble([m
+                 PSEUDO_LABELS[input_dict['frame_id'][b_idx]], gt_infos,[m
+[31m-                cfg.SELF_TRAIN, ensemble_func[m
+[31m-            )            [m
+[32m+[m[32m                cfg.SELF_TRAIN.MEMORY_ENSEMBLE, ensemble_func[m
+[32m+[m[32m            )[m
+ [m
+         # counter the number of ignore boxes for each class[m
+         for i in range(ign_ps_nmeter.n):[m
+[36m@@ -232,10 +239,11 @@[m [mdef save_pseudo_label_batch(input_dict,[m
+             pos_ps_nmeter.update(num_total_boxes - ign_ps_nmeter.meters[i].val, index=i)[m
+ [m
+         NEW_PSEUDO_LABELS[input_dict['frame_id'][b_idx]] = gt_infos[m
+[31m-    [m
+[32m+[m
+     return pos_ps_nmeter, ign_ps_nmeter[m
+ [m
+ [m
+[32m+[m
+ def load_ps_label(frame_id):[m
+     """[m
+     :param frame_id: file name of pseudo label[m
+[36m@@ -260,107 +268,107 @@[m [mdef get_num_pts(frame_id):[m
+ [m
+     return num_pts[m
+ [m
+[31m-def init_multi_source_ps_label(dataset, ps_label_dir):[m
+[31m-    # Set data to use 5Hz data (Waymo/Lyft)    [m
+[31m-    if dataset.dataset_cfg.get('SAMPLED_INTERVAL', False):[m
+[31m-        orig_interval = dataset.dataset_cfg.SAMPLED_INTERVAL.train[m
+[31m-        if dataset.dataset_cfg.DATASET == 'WaymoDataset':[m
+[31m-            dataset.dataset_cfg.SAMPLED_INTERVAL.train = 2[m
+[31m-            dataset.reload_infos()[m
+[31m-        if dataset.dataset_cfg.DATASET == 'LyftDataset':        [m
+[31m-            dataset.dataset_cfg.SAMPLED_INTERVAL.train = 1[m
+[31m-            dataset.reload_infos()[m
+[31m-[m
+[31m-    ms_cfg = cfg.SELF_TRAIN.MS_DETECTOR_PS[m
+[31m-[m
+[31m-    # Get preliminary pseudo labels for 1 and 16-frame point clouds[m
+[31m-    ps_dict_1f = generate_ps_utils.load_if_exists(ps_label_dir, name="ps_dict_1f.pkl")[m
+[31m-    if ps_dict_1f is None:[m
+[31m-        ps_dict_1f = generate_ps_utils.get_multi_source_prelim_label(ms_cfg, ms_cfg.ACCUM1, desc='gen_ps_label_1f')    [m
+[31m-        generate_ps_utils.save_data(ps_dict_1f, ps_label_dir, name="ps_dict_1f.pkl")[m
+[31m-[m
+[31m-    ps_dict_16f = generate_ps_utils.load_if_exists(ps_label_dir, name="ps_dict_16f.pkl")[m
+[31m-    if ps_dict_16f is None:[m
+[31m-        ps_dict_16f = generate_ps_utils.get_multi_source_prelim_label(ms_cfg, ms_cfg.ACCUM16, desc='gen_ps_label_16f')    [m
+[31m-        generate_ps_utils.save_data(ps_dict_16f, ps_label_dir, name="ps_dict_16f.pkl")[m
+[31m-[m
+[31m-    # Get tracklets for refinement[m
+[31m-    tracks_1f_world = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_1f_world.pkl")[m
+[31m-    if tracks_1f_world is None:[m
+[31m-        tracks_1f_world = tracker_utils.get_tracklets(dataset, ps_dict_1f, cfg_path=ms_cfg.TRACKING.ACCUM1_CFG, anno_frames_only=False)[m
+[31m-        generate_ps_utils.save_data(tracks_1f_world, ps_label_dir, name="tracks_1f_world.pkl")[m
+[31m-[m
+[31m-    tracks_16f_world = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_16f_world.pkl")[m
+[31m-    if tracks_16f_world is None:[m
+[31m-        tracks_16f_world = tracker_utils.get_tracklets(dataset, ps_dict_16f, cfg_path=ms_cfg.TRACKING.ACCUM16_CFG, anno_frames_only=True)[m
+[31m-        generate_ps_utils.save_data(tracks_16f_world, ps_label_dir, name="tracks_16f_world.pkl")[m
+[31m-[m
+[31m-    # Delete tracks if less than MIN_DETS_FOR_TRACK detections in the tracklet[m
+[31m-    tracks_1f_world_refined = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_1f_world_refined.pkl")[m
+[31m-    tracks_16f_world_refined = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_16f_world_refined.pkl")[m
+[31m-    configs = yaml.load(open(ms_cfg.TRACKING.ACCUM16_CFG, 'r'), Loader=yaml.Loader)[m
+[31m-    trk_score_th_16f = configs['running']['score_threshold'][m
+[31m-    if (tracks_1f_world_refined is None) and (tracks_16f_world_refined is None):[m
+[31m-        tracks_1f_world_refined = tracks_1f_world[m
+[31m-        tracks_16f_world_refined = tracks_16f_world[m
+[31m-        tracker_utils.delete_tracks(tracks_1f_world_refined, min_score=cfg.SELF_TRAIN.SCORE_THRESH, num_boxes_abv_score=ms_cfg.MIN_DETS_FOR_TRACK_1F)                   [m
+[31m-        tracker_utils.delete_tracks(tracks_16f_world_refined, min_score=trk_score_th_16f, num_boxes_abv_score=ms_cfg.MIN_DETS_FOR_TRACK_16F)   [m
+[32m+[m[32m# def init_multi_source_ps_label(dataset, ps_label_dir):[m
+[32m+[m[32m#     # Set data to use 5Hz data (Waymo/Lyft)[m[41m    [m
+[32m+[m[32m#     if dataset.dataset_cfg.get('SAMPLED_INTERVAL', False):[m
+[32m+[m[32m#         orig_interval = dataset.dataset_cfg.SAMPLED_INTERVAL.train[m
+[32m+[m[32m#         if dataset.dataset_cfg.DATASET == 'WaymoDataset':[m
+[32m+[m[32m#             dataset.dataset_cfg.SAMPLED_INTERVAL.train = 2[m
+[32m+[m[32m#             dataset.reload_infos()[m
+[32m+[m[32m#         if dataset.dataset_cfg.DATASET == 'LyftDataset':[m[41m        [m
+[32m+[m[32m#             dataset.dataset_cfg.SAMPLED_INTERVAL.train = 1[m
+[32m+[m[32m#             dataset.reload_infos()[m
+[32m+[m
+[32m+[m[32m#     ms_cfg = cfg.SELF_TRAIN.MS_DETECTOR_PS[m
+[32m+[m
+[32m+[m[32m#     # Get preliminary pseudo labels for 1 and 16-frame point clouds[m
+[32m+[m[32m#     ps_dict_1f = generate_ps_utils.load_if_exists(ps_label_dir, name="ps_dict_1f.pkl")[m
+[32m+[m[32m#     if ps_dict_1f is None:[m
+[32m+[m[32m#         ps_dict_1f = generate_ps_utils.get_multi_source_prelim_label(ms_cfg, ms_cfg.ACCUM1, desc='gen_ps_label_1f')[m[41m    [m
+[32m+[m[32m#         generate_ps_utils.save_data(ps_dict_1f, ps_label_dir, name="ps_dict_1f.pkl")[m
+[32m+[m
+[32m+[m[32m#     ps_dict_16f = generate_ps_utils.load_if_exists(ps_label_dir, name="ps_dict_16f.pkl")[m
+[32m+[m[32m#     if ps_dict_16f is None:[m
+[32m+[m[32m#         ps_dict_16f = generate_ps_utils.get_multi_source_prelim_label(ms_cfg, ms_cfg.ACCUM16, desc='gen_ps_label_16f')[m[41m    [m
+[32m+[m[32m#         generate_ps_utils.save_data(ps_dict_16f, ps_label_dir, name="ps_dict_16f.pkl")[m
+[32m+[m
+[32m+[m[32m#     # Get tracklets for refinement[m
+[32m+[m[32m#     tracks_1f_world = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_1f_world.pkl")[m
+[32m+[m[32m#     if tracks_1f_world is None:[m
+[32m+[m[32m#         tracks_1f_world = tracker_utils.get_tracklets(dataset, ps_dict_1f, cfg_path=ms_cfg.TRACKING.ACCUM1_CFG, anno_frames_only=False)[m
+[32m+[m[32m#         generate_ps_utils.save_data(tracks_1f_world, ps_label_dir, name="tracks_1f_world.pkl")[m
+[32m+[m
+[32m+[m[32m#     tracks_16f_world = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_16f_world.pkl")[m
+[32m+[m[32m#     if tracks_16f_world is None:[m
+[32m+[m[32m#         tracks_16f_world = tracker_utils.get_tracklets(dataset, ps_dict_16f, cfg_path=ms_cfg.TRACKING.ACCUM16_CFG, anno_frames_only=True)[m
+[32m+[m[32m#         generate_ps_utils.save_data(tracks_16f_world, ps_label_dir, name="tracks_16f_world.pkl")[m
+[32m+[m
+[32m+[m[32m#     # Delete tracks if less than MIN_DETS_FOR_TRACK detections in the tracklet[m
+[32m+[m[32m#     tracks_1f_world_refined = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_1f_world_refined.pkl")[m
+[32m+[m[32m#     tracks_16f_world_refined = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_16f_world_refined.pkl")[m
+[32m+[m[32m#     configs = yaml.load(open(ms_cfg.TRACKING.ACCUM16_CFG, 'r'), Loader=yaml.Loader)[m
+[32m+[m[32m#     trk_score_th_16f = configs['running']['score_threshold'][m
+[32m+[m[32m#     if (tracks_1f_world_refined is None) and (tracks_16f_world_refined is None):[m
+[32m+[m[32m#         tracks_1f_world_refined = tracks_1f_world[m
+[32m+[m[32m#         tracks_16f_world_refined = tracks_16f_world[m
+[32m+[m[32m#         tracker_utils.delete_tracks(tracks_1f_world_refined, min_score=cfg.SELF_TRAIN.SCORE_THRESH, num_boxes_abv_score=ms_cfg.MIN_DETS_FOR_TRACK_1F)[m[41m                   [m
+[32m+[m[32m#         tracker_utils.delete_tracks(tracks_16f_world_refined, min_score=trk_score_th_16f, num_boxes_abv_score=ms_cfg.MIN_DETS_FOR_TRACK_16F)[m[41m   [m
+         [m
+[31m-        # Get static boxes using tracking information[m
+[31m-        for trk_id in tracks_1f_world_refined.keys():[m
+[31m-            score_mask = tracks_1f_world_refined[trk_id]['boxes'][:,7] > cfg.SELF_TRAIN.SCORE_THRESH[m
+[31m-            tracks_1f_world_refined[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_1f_world_refined[trk_id]['boxes'][score_mask])    [m
+[31m-        for trk_id in tracks_16f_world_refined.keys():[m
+[31m-            score_mask = tracks_16f_world_refined[trk_id]['boxes'][:,7] > trk_score_th_16f[m
+[31m-            tracks_16f_world_refined[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_16f_world_refined[trk_id]['boxes'][score_mask])        [m
+[31m-[m
+[31m-        # Updates motion-state of track dicts in-place[m
+[31m-        matched_trk_ids = generate_ps_utils.motion_state_refinement(tracks_1f_world_refined, tracks_16f_world_refined, list(ps_dict_16f.keys()))                [m
+[31m-[m
+[31m-        # Merge disjointed tracks and assign one box per frame in the ego-vehicle frame[m
+[31m-        generate_ps_utils.merge_disjointed_tracks(tracks_1f_world_refined, tracks_16f_world_refined, matched_trk_ids)    [m
+[31m-        generate_ps_utils.save_data(tracks_1f_world_refined, ps_label_dir, name="tracks_1f_world_refined.pkl")[m
+[31m-        generate_ps_utils.save_data(tracks_16f_world_refined, ps_label_dir, name="tracks_16f_world_refined.pkl")[m
+[32m+[m[32m#         # Get static boxes using tracking information[m
+[32m+[m[32m#         for trk_id in tracks_1f_world_refined.keys():[m
+[32m+[m[32m#             score_mask = tracks_1f_world_refined[trk_id]['boxes'][:,7] > cfg.SELF_TRAIN.SCORE_THRESH[m
+[32m+[m[32m#             tracks_1f_world_refined[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_1f_world_refined[trk_id]['boxes'][score_mask])[m[41m    [m
+[32m+[m[32m#         for trk_id in tracks_16f_world_refined.keys():[m
+[32m+[m[32m#             score_mask = tracks_16f_world_refined[trk_id]['boxes'][:,7] > trk_score_th_16f[m
+[32m+[m[32m#             tracks_16f_world_refined[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_16f_world_refined[trk_id]['boxes'][score_mask])[m[41m        [m
+[32m+[m
+[32m+[m[32m#         # Updates motion-state of track dicts in-place[m
+[32m+[m[32m#         matched_trk_ids = generate_ps_utils.motion_state_refinement(tracks_1f_world_refined, tracks_16f_world_refined, list(ps_dict_16f.keys()))[m[41m                [m
+[32m+[m
+[32m+[m[32m#         # Merge disjointed tracks and assign one box per frame in the ego-vehicle frame[m
+[32m+[m[32m#         generate_ps_utils.merge_disjointed_tracks(tracks_1f_world_refined, tracks_16f_world_refined, matched_trk_ids)[m[41m    [m
+[32m+[m[32m#         generate_ps_utils.save_data(tracks_1f_world_refined, ps_label_dir, name="tracks_1f_world_refined.pkl")[m
+[32m+[m[32m#         generate_ps_utils.save_data(tracks_16f_world_refined, ps_label_dir, name="tracks_16f_world_refined.pkl")[m
+         [m
+[31m-    tracks_16f_world_rke = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_16f_world_rkde.pkl")[m
+[31m-    if tracks_16f_world_rke is None:[m
+[31m-        tracks_16f_world_rke = tracks_16f_world_refined[m
+[31m-        generate_ps_utils.get_track_rolling_kde_interpolation(dataset, tracks_16f_world_rke, window=ms_cfg.ROLLING_KDE_WINDOW, [m
+[31m-                                                              static_score_th=cfg.SELF_TRAIN.SCORE_THRESH, kdebox_min_score=ms_cfg.MIN_STATIC_SCORE)[m
+[31m-        generate_ps_utils.save_data(tracks_16f_world_rke, ps_label_dir, name="tracks_16f_world_rkde.pkl")[m
+[31m-[m
+[31m-    if ms_cfg.PROPAGATE_STATIC_BOXES.ENABLED:[m
+[31m-        tracks_16f_world_proprkde = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_16f_world_proprkde.pkl")[m
+[31m-        if tracks_16f_world_proprkde is None:[m
+[31m-            tracks_16f_world_proprkde = tracks_16f_world_rke[m
+[31m-            generate_ps_utils.propagate_static_boxes(dataset, tracks_16f_world_proprkde, [m
+[31m-                                                     score_thresh=trk_score_th_16f,[m
+[31m-                                                     min_static_tracks=ms_cfg.PROPAGATE_STATIC_BOXES.MIN_DETS,[m
+[31m-                                                     n_extra_frames=ms_cfg.PROPAGATE_STATIC_BOXES.N_EXTRA_FRAMES, [m
+[31m-                                                     degrade_factor=ms_cfg.PROPAGATE_STATIC_BOXES.DEGRADE_FACTOR, [m
+[31m-                                                     min_score_clip=ms_cfg.PROPAGATE_STATIC_BOXES.MIN_SCORE_CLIP)[m
+[31m-            generate_ps_utils.save_data(tracks_16f_world_proprkde, ps_label_dir, name="tracks_16f_world_proprkde.pkl")[m
+[32m+[m[32m#     tracks_16f_world_rke = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_16f_world_rkde.pkl")[m
+[32m+[m[32m#     if tracks_16f_world_rke is None:[m
+[32m+[m[32m#         tracks_16f_world_rke = tracks_16f_world_refined[m
+[32m+[m[32m#         generate_ps_utils.get_track_rolling_kde_interpolation(dataset, tracks_16f_world_rke, window=ms_cfg.ROLLING_KDE_WINDOW,[m[41m [m
+[32m+[m[32m#                                                               static_score_th=cfg.SELF_TRAIN.SCORE_THRESH, kdebox_min_score=ms_cfg.MIN_STATIC_SCORE)[m
+[32m+[m[32m#         generate_ps_utils.save_data(tracks_16f_world_rke, ps_label_dir, name="tracks_16f_world_rkde.pkl")[m
+[32m+[m
+[32m+[m[32m#     if ms_cfg.PROPAGATE_STATIC_BOXES.ENABLED:[m
+[32m+[m[32m#         tracks_16f_world_proprkde = generate_ps_utils.load_if_exists(ps_label_dir, name="tracks_16f_world_proprkde.pkl")[m
+[32m+[m[32m#         if tracks_16f_world_proprkde is None:[m
+[32m+[m[32m#             tracks_16f_world_proprkde = tracks_16f_world_rke[m
+[32m+[m[32m#             generate_ps_utils.propagate_static_boxes(dataset, tracks_16f_world_proprkde,[m[41m [m
+[32m+[m[32m#                                                      score_thresh=trk_score_th_16f,[m
+[32m+[m[32m#                                                      min_static_tracks=ms_cfg.PROPAGATE_STATIC_BOXES.MIN_DETS,[m
+[32m+[m[32m#                                                      n_extra_frames=ms_cfg.PROPAGATE_STATIC_BOXES.N_EXTRA_FRAMES,[m[41m [m
+[32m+[m[32m#                                                      degrade_factor=ms_cfg.PROPAGATE_STATIC_BOXES.DEGRADE_FACTOR,[m[41m [m
+[32m+[m[32m#                                                      min_score_clip=ms_cfg.PROPAGATE_STATIC_BOXES.MIN_SCORE_CLIP)[m
+[32m+[m[32m#             generate_ps_utils.save_data(tracks_16f_world_proprkde, ps_label_dir, name="tracks_16f_world_proprkde.pkl")[m
+         [m
+[31m-        frame2box_key = 'frameid_to_propboxes'[m
+[31m-        tracks_16f_world_final = tracks_16f_world_proprkde[m
+[31m-    else:[m
+[31m-        frame2box_key = 'frameid_to_rollingkde'[m
+[31m-        tracks_16f_world_final = tracks_16f_world_rke[m
+[31m-[m
+[31m-    final_ps_dict = generate_ps_utils.update_ps(dataset, ps_dict_1f, tracks_1f_world_refined, tracks_16f_world_final, [m
+[31m-                                                frame2box_key_16f=frame2box_key, frame2box_key_1f='frameid_to_box', frame_ids=list(ps_dict_16f.keys()))[m
+[31m-    NEW_PSEUDO_LABELS.update(final_ps_dict)[m
+[31m-    gather_and_dump_pseudo_label_result(rank=0, ps_label_dir=ps_label_dir, cur_epoch=0)[m
+[31m-[m
+[31m-    # Reset dataset infos to the cfg setting[m
+[31m-    if dataset.dataset_cfg.get('SAMPLED_INTERVAL', False) and \[m
+[31m-    dataset.dataset_cfg.DATASET in ['WaymoDataset', 'LyftDataset']:[m
+[31m-        dataset.dataset_cfg.SAMPLED_INTERVAL.train = orig_interval[m
+[31m-        dataset.reload_infos()    [m
+[31m-[m
+[31m-[m
+[31m-def filter_ps_by_neg_score(mydict):[m
+[31m-    for frame_id in mydict.keys():[m
+[31m-        score_mask = mydict[frame_id]['gt_boxes'][:,8] > cfg.SELF_TRAIN.NEG_THRESH[m
+[31m-        for key in mydict[frame_id].keys():[m
+[31m-            mydict[frame_id][key] = mydict[frame_id][key][score_mask]        [m
+\ No newline at end of file[m
+[32m+[m[32m#         frame2box_key = 'frameid_to_propboxes'[m
+[32m+[m[32m#         tracks_16f_world_final = tracks_16f_world_proprkde[m
+[32m+[m[32m#     else:[m
+[32m+[m[32m#         frame2box_key = 'frameid_to_rollingkde'[m
+[32m+[m[32m#         tracks_16f_world_final = tracks_16f_world_rke[m
+[32m+[m
+[32m+[m[32m#     final_ps_dict = generate_ps_utils.update_ps(dataset, ps_dict_1f, tracks_1f_world_refined, tracks_16f_world_final,[m[41m [m
+[32m+[m[32m#                                                 frame2box_key_16f=frame2box_key, frame2box_key_1f='frameid_to_box', frame_ids=list(ps_dict_16f.keys()))[m
+[32m+[m[32m#     NEW_PSEUDO_LABELS.update(final_ps_dict)[m
+[32m+[m[32m#     gather_and_dump_pseudo_label_result(rank=0, ps_label_dir=ps_label_dir, cur_epoch=0)[m
+[32m+[m
+[32m+[m[32m#     # Reset dataset infos to the cfg setting[m
+[32m+[m[32m#     if dataset.dataset_cfg.get('SAMPLED_INTERVAL', False) and \[m
+[32m+[m[32m#     dataset.dataset_cfg.DATASET in ['WaymoDataset', 'LyftDataset']:[m
+[32m+[m[32m#         dataset.dataset_cfg.SAMPLED_INTERVAL.train = orig_interval[m
+[32m+[m[32m#         dataset.reload_infos()[m[41m    [m
+[32m+[m
+[32m+[m
+[32m+[m[32m# def filter_ps_by_neg_score(mydict):[m
+[32m+[m[32m#     for frame_id in mydict.keys():[m
+[32m+[m[32m#         score_mask = mydict[frame_id]['gt_boxes'][:,8] > cfg.SELF_TRAIN.NEG_THRESH[m
+[32m+[m[32m#         for key in mydict[frame_id].keys():[m
+[32m+[m[32m#             mydict[frame_id][key] = mydict[frame_id][key][score_mask][m[41m        [m
+\ No newline at end of file[m
+[1mdiff --git a/tools/cfgs/target_waymo/ms3d_ps_config_rnd1.yaml b/tools/cfgs/target_waymo/ms3d_ps_config_rnd1.yaml[m
+[1mindex bc39ad1..10b9711 100644[m
+[1m--- a/tools/cfgs/target_waymo/ms3d_ps_config_rnd1.yaml[m
+[1m+++ b/tools/cfgs/target_waymo/ms3d_ps_config_rnd1.yaml[m
+[36m@@ -1,5 +1,6 @@[m
+ exp_name: 'N_L_VMFI_TTA_PA_PC_VA_VC_64_WEIGHTED' # all files will be named/searched with this as prefix[m
+ save_dir: '/MS3D/tools/cfgs/target_waymo/ps_labels_rnd1' [m
+[32m+[m[32mdataset_cfg: /MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml[m
+ ps_score_th: # veh,ped,cyc[m
+   pos_th: [0.7,0.6,0.5][m
+   neg_th: [0.3,0.2,0.2][m
+[36m@@ -8,9 +9,9 @@[m [mpretrained_kbf:[m
+   radius: [1.5, 0.3, 0.2][m
+   nms: [0.1, 0.3, 0.1][m
+ tracking:[m
+[31m-  veh_all_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd1/veh_kf_giou.yaml'[m
+[31m-  veh_static_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd1/veh_static_kf_iou2d.yaml'[m
+[31m-  ped_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd1/ped_kf_giou.yaml'[m
+[32m+[m[32m  veh_all_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/veh_kf_giou.yaml'[m
+[32m+[m[32m  veh_static_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/veh_static_kf_iou2d.yaml'[m
+[32m+[m[32m  ped_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/ped_kf_giou.yaml'[m
+ label_refinement:[m
+   track_filtering:[m
+     min_dets_above_pos_th_for_tracks_veh_all: 4[m
+[36m@@ -24,4 +25,4 @@[m [mlabel_refinement:[m
+     min_static_tracks: 24[m
+     n_extra_frames: 100[m
+     degrade_factor: 0.98[m
+[31m-    min_score_clip: 0.3[m
+[32m+[m[32m    min_score_clip: 0.5[m
+[1mdiff --git a/tools/cfgs/target_waymo/ms3d_ps_config_rnd2.yaml b/tools/cfgs/target_waymo/ms3d_ps_config_rnd2.yaml[m
+[1mindex 08a173a..9634b2a 100644[m
+[1m--- a/tools/cfgs/target_waymo/ms3d_ps_config_rnd2.yaml[m
+[1m+++ b/tools/cfgs/target_waymo/ms3d_ps_config_rnd2.yaml[m
+[36m@@ -1,5 +1,6 @@[m
+ exp_name: 'RND2_VOXA_VOXC' # all files will be named/searched with this as prefix[m
+ save_dir: '/MS3D/tools/cfgs/target_waymo/ps_labels_rnd2' [m
+[32m+[m[32mdataset_cfg: /MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml[m
+ ps_score_th: # veh,ped,cyc[m
+   pos_th: [0.8,0.6,0.5][m
+   neg_th: [0.3,0.3,0.2][m
+[36m@@ -8,9 +9,9 @@[m [mpretrained_kbf:[m
+   radius: [1.5, 0.3, 0.2][m
+   nms: [0.1, 0.3, 0.1][m
+ tracking:[m
+[31m-  veh_all_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd2/veh_kf_giou.yaml'[m
+[31m-  veh_static_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd2/veh_static_kf_iou2d.yaml'[m
+[31m-  ped_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd2/ped_kf_giou.yaml'[m
+[32m+[m[32m  veh_all_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/veh_kf_giou.yaml'[m
+[32m+[m[32m  veh_static_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/veh_static_kf_iou2d.yaml'[m
+[32m+[m[32m  ped_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/ped_kf_giou.yaml'[m
+ label_refinement:[m
+   track_filtering:[m
+     min_dets_above_pos_th_for_tracks_veh_all: 5[m
+[1mdiff --git a/tools/cfgs/target_waymo/ms3d_ps_config_rnd3.yaml b/tools/cfgs/target_waymo/ms3d_ps_config_rnd3.yaml[m
+[1mindex 010d1d2..f1c619d 100644[m
+[1m--- a/tools/cfgs/target_waymo/ms3d_ps_config_rnd3.yaml[m
+[1m+++ b/tools/cfgs/target_waymo/ms3d_ps_config_rnd3.yaml[m
+[36m@@ -1,16 +1,17 @@[m
+[31m-exp_name: 'RND2_VOXA_VOXC' # all files will be named/searched with this as prefix[m
+[31m-save_dir: '/MS3D/tools/cfgs/target_waymo/ps_labels_rnd2' [m
+[32m+[m[32mexp_name: 'RND3_VOXA_VOXC' # all files will be named/searched with this as prefix[m
+[32m+[m[32msave_dir: '/MS3D/tools/cfgs/target_waymo/ps_labels_rnd3'[m[41m [m
+[32m+[m[32mdataset_cfg: /MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml[m
+ ps_score_th: # veh,ped,cyc[m
+   pos_th: [0.7,0.6,0.5][m
+[31m-  neg_th: [0.3,0.3,0.2][m
+[32m+[m[32m  neg_th: [0.15,0.1,0.1] # preds get less noisy at lower confidences than earlier stages[m
+ pretrained_kbf:[m
+   discard: [1,1,1][m
+   radius: [1.5, 0.3, 0.2][m
+   nms: [0.1, 0.3, 0.1][m
+ tracking:[m
+[31m-  veh_all_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd2/veh_kf_giou.yaml'[m
+[31m-  veh_static_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd2/veh_static_kf_iou2d.yaml'[m
+[31m-  ped_cfg: '/MS3D/tracker/configs/ms3d_configs_rnd2/ped_kf_giou.yaml'[m
+[32m+[m[32m  veh_all_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/veh_kf_giou.yaml'[m
+[32m+[m[32m  veh_static_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/veh_static_kf_iou2d.yaml'[m
+[32m+[m[32m  ped_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/ped_kf_giou.yaml'[m
+ label_refinement:[m
+   track_filtering:[m
+     min_dets_above_pos_th_for_tracks_veh_all: 5[m
+[1mdiff --git a/tools/cfgs/target_waymo/ms3d_scratch_voxel_rcnn_centerhead.yaml b/tools/cfgs/target_waymo/ms3d_scratch_voxel_rcnn_centerhead.yaml[m
+[1mindex 4fe976f..9778a06 100644[m
+[1m--- a/tools/cfgs/target_waymo/ms3d_scratch_voxel_rcnn_centerhead.yaml[m
+[1m+++ b/tools/cfgs/target_waymo/ms3d_scratch_voxel_rcnn_centerhead.yaml[m
+[36m@@ -236,7 +236,7 @@[m [mSELF_TRAIN:[m
+     # UPDATE_PSEUDO_LABEL: [-1][m
+     # UPDATE_PSEUDO_LABEL_INTERVAL: 100[m
+ [m
+[31m-    INIT_PS: /MS3D/tools/cfgs/target_waymo/ps_labels_rnd1/final_ps_dict.pkl[m
+[32m+[m[32m    INIT_PS: /MS3D/tools/cfgs/target_waymo/ps_labels_rnd3/final_ps_dict.pkl[m
+     SRC:[m
+         USE_DATA: False[m
+         USE_GRAD: False[m
+[1mdiff --git a/tools/cfgs/target_waymo/pretrained/lyft_pv_rcnn_plusplus_resnet_centerhead_1f_xyz_allcls.yaml b/tools/cfgs/target_waymo/pretrained/lyft_pv_rcnn_plusplus_resnet_centerhead_1f_xyz_allcls.yaml[m
+[1mindex 121aece..4a4c455 100644[m
+[1m--- a/tools/cfgs/target_waymo/pretrained/lyft_pv_rcnn_plusplus_resnet_centerhead_1f_xyz_allcls.yaml[m
+[1m+++ b/tools/cfgs/target_waymo/pretrained/lyft_pv_rcnn_plusplus_resnet_centerhead_1f_xyz_allcls.yaml[m
+[36m@@ -271,7 +271,7 @@[m [mMODEL:[m
+         NMS_CONFIG:[m
+             MULTI_CLASSES_NMS: False[m
+             NMS_TYPE: nms_gpu[m
+[31m-            NMS_THRESH: 0.7[m
+[32m+[m[32m            NMS_THRESH: 0.1[m
+             NMS_PRE_MAXSIZE: 4096[m
+             NMS_POST_MAXSIZE: 500[m
+ [m
+[1mdiff --git a/tools/exp_gen_ps_as_gt.py b/tools/exp_gen_ps_as_gt.py[m
+[1mindex 2feda94..0ed3d8c 100644[m
+[1m--- a/tools/exp_gen_ps_as_gt.py[m
+[1m+++ b/tools/exp_gen_ps_as_gt.py[m
+[36m@@ -1,3 +1,5 @@[m
+[32m+[m[32m"""Export gt boxes in the format of our ps labels for training"""[m
+[32m+[m
+ import sys[m
+ sys.path.append('/MS3D')[m
+ from pcdet.config import cfg, cfg_from_yaml_file[m
+[36m@@ -8,11 +10,24 @@[m [mimport numpy as np[m
+ from pathlib import Path[m
+ from pcdet.utils import compatibility_utils as compat[m
+ [m
+[32m+[m[32m# Mapping of classes to super categories[m
+[32m+[m[32mSUPERCATEGORIES = ['Vehicle','Pedestrian','Cyclist'][m
+[32m+[m[32mSUPER_MAPPING = {'car': 'Vehicle',[m
+[32m+[m[32m                'truck': 'Vehicle',[m
+[32m+[m[32m                'bus': 'Vehicle',[m
+[32m+[m[32m                'Vehicle': 'Vehicle',[m
+[32m+[m[32m                'pedestrian': 'Pedestrian',[m
+[32m+[m[32m                'Pedestrian': 'Pedestrian',[m
+[32m+[m[32m                'motorcycle': 'Cyclist',[m[41m [m
+[32m+[m[32m                'bicycle': 'Cyclist',[m
+[32m+[m[32m                'Cyclist': 'Cyclist'}[m
+[32m+[m
+ def load_dataset(split, sampled_interval):[m
+ [m
+     # Get target dataset    [m
+     cfg.DATA_SPLIT.test = split[m
+[31m-    cfg.SAMPLED_INTERVAL.test = sampled_interval[m
+[32m+[m[32m    if cfg.get('SAMPLED_INTERVAL', False):[m
+[32m+[m[32m        cfg.SAMPLED_INTERVAL.test = sampled_interval[m
+     logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)[m
+     target_set, _, _ = build_dataloader([m
+                 dataset_cfg=cfg,[m
+[36m@@ -21,16 +36,17 @@[m [mdef load_dataset(split, sampled_interval):[m
+             )      [m
+     return target_set[m
+ [m
+[31m-save_ps_path = '/MS3D/tools/cfgs/target_waymo/gt_as_ps_31617.pkl'[m
+[31m-cfg_file = '/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml'[m
+[32m+[m[32msave_ps_path = '/MS3D/tools/cfgs/target_lyft/gt_as_ps.pkl'[m
+[32m+[m[32mcfg_file = '/MS3D/tools/cfgs/dataset_configs/lyft_dataset_da.yaml'[m
+ cfg_from_yaml_file(cfg_file, cfg)[m
+[31m-cfg.USE_CUSTOM_TRAIN_SCENES = False[m
+[31m-dataset = load_dataset(split='train', sampled_interval=5)[m
+[32m+[m[32mif cfg.get('USE_CUSTOM_TRAIN_SCENES', False):[m
+[32m+[m[32m    cfg.USE_CUSTOM_TRAIN_SCENES = True[m
+[32m+[m[32mdataset = load_dataset(split='train', sampled_interval=1)[m
+ print('Dataset loaded')[m
+ [m
+ fake_ps = {}[m
+ for info in dataset.infos:[m
+[31m-    # Only use for ground-truth boxes[m
+[32m+[m[32m    # Pseudo-label classes are always 1: Vehicle, 2: Pedestrian, 3: Cyclist[m
+     class_names = cfg.CLASS_NAMES[m
+     frame_id = compat.get_frame_id(dataset, info)[m
+     gt_names = compat.get_gt_names(dataset, frame_id)[m
+[36m@@ -38,7 +54,7 @@[m [mfor info in dataset.infos:[m
+     boxes_3d = compat.get_gt_boxes(dataset, frame_id)[class_mask][m
+     boxes_3d[:,:3] += dataset.dataset_cfg.SHIFT_COOR[m
+     boxes_3d = boxes_3d[:,:7][m
+[31m-    cls_ids = np.array([class_names.index(name)+1 for name in gt_names[class_mask]])[m
+[32m+[m[32m    cls_ids = np.array([SUPERCATEGORIES.index(SUPER_MAPPING[name])+1 for name in gt_names[class_mask]])[m
+     boxes_3d = np.hstack([boxes_3d, cls_ids[...,np.newaxis]])[m
+     boxes_3d = np.insert(boxes_3d, 8, 1,axis=1) # set conf score as 1[m
+ [m
+[1mdiff --git a/tools/ps1_pretrained_kbf.py b/tools/ps1_pretrained_kbf.py[m
+[1mindex 825d4a3..29afbdf 100644[m
+[1m--- a/tools/ps1_pretrained_kbf.py[m
+[1m+++ b/tools/ps1_pretrained_kbf.py[m
+[36m@@ -16,13 +16,12 @@[m [mSUPER_MAPPING = {'car': 'Vehicle',[m
+                 'Vehicle': 'Vehicle',[m
+                 'pedestrian': 'Pedestrian',[m
+                 'Pedestrian': 'Pedestrian',[m
+[31m-                'motorcycle': 'Cyclist', # Mapping motorcycle to vehicle may confuse the fine-tuning of the detectors[m
+[32m+[m[32m                'motorcycle': 'Cyclist',[m[41m [m
+                 'bicycle': 'Cyclist',[m
+                 'Cyclist': 'Cyclist'}[m
+ [m
+ # Note: Label discrepancy for "motorcycle" class - Waymo maps motorcycle to Vehicle but nuScenes/Lyft/KITTI has separate category[m
+[31m-# Makes more sense for anchor boxes to map motorcycle to cyclist class[m
+[31m-# For now, we map motorcycle to Cyclist and leave cyclist evaluation for future work[m
+[32m+[m[32m# Makes more sense for anchor boxes to map motorcycle to cyclist class?[m
+ [m
+ def get_multi_source_prelim_label(detection_sets, cls_kbf_config): [m
+     """[m
+[36m@@ -104,7 +103,7 @@[m [mdef get_detection_sets(det_annos, score_th=0.1):[m
+             pred_names = det_annos[key][idx]['name'][score_mask][m
+             superclass_ids = np.array([SUPERCATEGORIES.index(SUPER_MAPPING[name])+1 for name in pred_names])[m
+             frame_dets['class_ids'].extend(superclass_ids)[m
+[31m-            frame_dets['names'].extend(pred_names)[m
+[32m+[m[32m            frame_dets['names'].extend([SUPER_MAPPING[name] for name in pred_names])[m
+             det_cls_weights = det_annos['det_cls_weights'][key][m
+             frame_dets['box_weights'].extend(np.array([det_cls_weights[cid-1] for cid in superclass_ids]))[m
+ [m
+[36m@@ -125,6 +124,8 @@[m [mif __name__ == '__main__':[m
+     parser.add_argument('--ps_cfg', type=str, help='cfg file with MS3D parameters')[m
+     parser.add_argument('--dets_txt', type=str, default=None, help='specify txt file for detector pkls')[m
+     parser.add_argument('--interval', type=int, default=1, help='set interval')[m
+[32m+[m[32m    parser.add_argument('--save_dir', type=str, default=None, help='Overwrite save dir in the cfg file')[m
+[32m+[m[32m    parser.add_argument('--exp_name', type=str, default=None, help='Overwrite exp_name in the cfg file')[m
+     args = parser.parse_args()[m
+     [m
+     ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)[m
+[36m@@ -139,8 +140,6 @@[m [mif __name__ == '__main__':[m
+     if args.interval > 1:[m
+         detection_sets = detection_sets[::args.interval] # ::3 is 6280, ::2 is 9420. 9420 has closer results to the full 18840[m
+ [m
+[31m-    # discard=[4,4,4] if num_det_sets >= 8 else [0,0,0] # 4 is good default[m
+[31m-[m
+     # Get class specific config[m
+     cls_kbf_config = {}[m
+     for enum, cls in enumerate(SUPERCATEGORIES):[m
+[36m@@ -155,5 +154,7 @@[m [mif __name__ == '__main__':[m
+         cls_kbf_config[cls]['neg_th'] = ms3d_configs['ps_score_th']['neg_th'][enum][m
+ [m
+     ps_dict = get_multi_source_prelim_label(detection_sets, cls_kbf_config)[m
+[31m-    generate_ps_utils.save_data(ps_dict, ms3d_configs['save_dir'], name=f"{ms3d_configs['exp_name']}.pkl")[m
+[31m-    print(f"saved: {ms3d_configs['exp_name']}.pkl\n")[m
+\ No newline at end of file[m
+[32m+[m[32m    save_dir = ms3d_configs['save_dir'] if args.save_dir is None else args.save_dir[m
+[32m+[m[32m    exp_name = ms3d_configs['exp_name'] if args.exp_name is None else args.exp_name[m
+[32m+[m[32m    generate_ps_utils.save_data(ps_dict, save_dir, name=f"{exp_name}.pkl")[m
+[32m+[m[32m    print(f"saved: {exp_name}.pkl\n")[m
+\ No newline at end of file[m
+[1mdiff --git a/tools/ps2_tracker.py b/tools/ps2_tracker.py[m
+[1mindex 23e1763..c66c7de 100644[m
+[1m--- a/tools/ps2_tracker.py[m
+[1m+++ b/tools/ps2_tracker.py[m
+[36m@@ -29,7 +29,8 @@[m [mdef load_dataset(split):[m
+ [m
+     # Get target dataset    [m
+     cfg.DATA_SPLIT.test = split[m
+[31m-    cfg.SAMPLED_INTERVAL.test = 1[m
+[32m+[m[32m    if cfg.get('SAMPLED_INTERVAL', False):[m
+[32m+[m[32m        cfg.SAMPLED_INTERVAL.test = 1[m
+     logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)[m
+     target_set, _, _ = build_dataloader([m
+                 dataset_cfg=cfg,[m
+[36m@@ -51,7 +52,7 @@[m [mif __name__ == '__main__':[m
+     args = parser.parse_args()[m
+ [m
+     ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)[m
+[31m-    cfg_from_yaml_file(args.cfg_file, cfg)[m
+[32m+[m[32m    cfg_from_yaml_file(ms3d_configs["dataset_cfg"], cfg)[m
+     dataset = load_dataset(split='train')[m
+ [m
+     ps_dict_pth = Path(ms3d_configs["save_dir"]) / f'{ms3d_configs["exp_name"]}.pkl'[m
+[1mdiff --git a/tools/ps3_label_refinement.py b/tools/ps3_label_refinement.py[m
+[1mindex ad522bf..ed686b0 100644[m
+[1m--- a/tools/ps3_label_refinement.py[m
+[1m+++ b/tools/ps3_label_refinement.py[m
+[36m@@ -60,7 +60,7 @@[m [mdef update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped=No[m
+         veh_mask = abs(cur_gt_boxes[:,7]) == 1[m
+         cur_veh_boxes = cur_gt_boxes[veh_mask][m
+         [m
+[31m-        # Add dynamic 1f interpolated/extrapolated tracks to replace lower scoring dets[m
+[32m+[m[32m        # Add dynamic interpolated/extrapolated tracks to replace lower scoring dets[m
+         trackall_boxes = get_frame_track_boxes(tracks_veh_all, frame_id, frame2box_key=frame2box_key)[m
+         pose = get_pose(dataset, frame_id)[m
+         _, ego_trackall_boxes = world_to_ego(pose, boxes=trackall_boxes)[m
+[36m@@ -175,7 +175,7 @@[m [mdef refine_ped_labels(tracks_ped, ms3d_configs):[m
+     pos_th_ped = ms3d_configs['ps_score_th']['pos_th'][1][m
+     tracker_utils.delete_tracks(tracks_ped, min_score=pos_th_ped, num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_dets_above_pos_th_for_tracks_ped'])                   [m
+     for trk_id in tracks_ped.keys():[m
+[31m-        tracks_ped[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_ped[trk_id]['boxes'], s2e_th=1)  [m
+[32m+[m[32m        tracks_ped[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_ped[trk_id]['boxes'], s2e_th=2)[m[41m [m
+ [m
+     # Delete tracks if less than N tracks[m
+     tracker_utils.delete_tracks(tracks_ped, min_score=0.0, num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_num_ped_tracks'])    [m
+[36m@@ -239,7 +239,7 @@[m [mif __name__ == '__main__':[m
+     args = parser.parse_args()[m
+ [m
+     ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)[m
+[31m-    cfg_from_yaml_file(args.cfg_file, cfg)[m
+[32m+[m[32m    cfg_from_yaml_file(ms3d_configs["dataset_cfg"], cfg)[m
+     dataset = load_dataset(split='train')[m
+     [m
+     # Load pkls[m
+[1mdiff --git a/tools/visual_utils/open3d_vis_utils.py b/tools/visual_utils/open3d_vis_utils.py[m
+[1mindex 60740c5..3c3ab9d 100644[m
+[1m--- a/tools/visual_utils/open3d_vis_utils.py[m
+[1m+++ b/tools/visual_utils/open3d_vis_utils.py[m
+[36m@@ -44,7 +44,7 @@[m [mdef get_coor_colors(obj_labels):[m
+ [m
+     return label_rgba[m
+ [m
+[31m-def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_score=0.2, use_linemesh=True):[m
+[32m+[m[32mdef draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_score=0.2, use_linemesh=False):[m
+ [m
+     vis = open3d.visualization.Visualizer()[m
+     vis.create_window()[m
+[36m@@ -53,7 +53,9 @@[m [mdef draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc[m
+ [m
+     # cmap = np.array(plt.get_cmap('Set1').colors)[m
+     cmap = np.array([[49,131,106],[176,73,73],[25,97,120],[182,176,47]])/255[m
+[31m-    for sid, key in enumerate(det_annos.keys()):[m
+[32m+[m[32m    src_keys = list(det_annos.keys())[m
+[32m+[m[32m    src_keys.remove('det_cls_weights')[m
+[32m+[m[32m    for sid, key in enumerate(src_keys):[m
+         points = points if sid == 0 else None[m
+         mask = det_annos[key][idx]['score'] > min_score[m
+         geom = get_geometries(points=points, [m
+[36m@@ -73,6 +75,10 @@[m [mdef draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc[m
+     ctr.set_lookat([ -18.284592676097365, 3.7960852036759234, -16.806735299460072 ])[m
+     ctr.set_up([ -0.55585420737713021, 0.34547108891144618, 0.75609247243143607 ])[m
+     ctr.set_zoom(0.21900000000000003)[m
+[32m+[m[32m    # ctr.set_front([ 0.61593639198621719, -0.56290287750836965, 0.55114672413051569 ])[m
+[32m+[m[32m    # ctr.set_lookat([ -4.4215845668514442, 1.0814560967869249, -1.5989356465656117 ])[m
+[32m+[m[32m    # ctr.set_up([ -0.41660855299558103, 0.36103639159469603, 0.8343201049448643 ])[m
+[32m+[m[32m    # ctr.set_zoom(0.09999999999999995)[m
+ [m
+     vis.get_render_option().point_size = 2.0[m
+     vis.run()[m
+[36m@@ -95,10 +101,14 @@[m [mdef draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref[m
+     [m
+     ctr = vis.get_view_control()  [m
+     [m
+[31m-    ctr.set_front([ -0.31094269624370807, -0.52800088868119233, 0.79027191599130253 ])[m
+[31m-    ctr.set_lookat([ -3.9253878764499586, -4.1870200341400947, -16.570707875396788 ])[m
+[31m-    ctr.set_up([ 0.41025289806528631, 0.67547432104665128, 0.61272098155326737 ])[m
+[31m-    ctr.set_zoom(0.40)[m
+[32m+[m[32m    # ctr.set_front([ -0.31094269624370807, -0.52800088868119233, 0.79027191599130253 ])[m
+[32m+[m[32m    # ctr.set_lookat([ -3.9253878764499586, -4.1870200341400947, -16.570707875396788 ])[m
+[32m+[m[32m    # ctr.set_up([ 0.41025289806528631, 0.67547432104665128, 0.61272098155326737 ])[m
+[32m+[m[32m    # ctr.set_zoom(0.40)[m
+[32m+[m[32m    ctr.set_front([ 0.6019965989497168, 0.5880792021051805, 0.54015085569154486 ])[m
+[32m+[m[32m    ctr.set_lookat([ -12.588535809723359, -17.432757914352894, -7.5187967034430665 ])[m
+[32m+[m[32m    ctr.set_up([ -0.34679748085815876, -0.41677192924666834, 0.84025749997393373 ])[m
+[32m+[m[32m    ctr.set_zoom(0.11999900000000001)[m
+     # ctr.set_front([ -0.85415171319858785, 0.0084795734346973951, 0.51995475541077896 ])[m
+     # ctr.set_lookat([ 22.078260806001634, 1.0249602339143569, -2.8088354431826907 ])[m
+     # ctr.set_up([ 0.51984622231746436, -0.012211597572028807, 0.85417257157263038 ])[m
+[1mdiff --git a/tools/visualize_3d.py b/tools/visualize_3d.py[m
+[1mindex 243f2a6..82ad5f1 100644[m
+[1m--- a/tools/visualize_3d.py[m
+[1m+++ b/tools/visualize_3d.py[m
+[36m@@ -78,7 +78,6 @@[m [mdef main():[m
+             else:[m
+                 data_config.SEQUENCE_CONFIG.SAMPLE_OFFSET = [0,0][m
+ [m
+[31m-            data_config.SEQUENCE_CONFIG.ZERO_TIMESTAMP = True[m
+             # data_config.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp'][m
+             data_config.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp'][m
+             data_config.POINT_FEATURE_ENCODING.used_feature_list=['x','y','z','timestamp']        [m
+[36m@@ -148,7 +147,8 @@[m [mdef main():[m
+                 geom = V.draw_scenes_msda(points=data_dict['points'][:, 1:], [m
+                                           idx=idx,[m
+                                           det_annos=det_annos,                                        [m
+[31m-                                          gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None)[m
+[32m+[m[32m                                          gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None,[m
+[32m+[m[32m                                          use_linemesh=args.use_linemesh)[m
+             [m
+     else:[m
+         # Load trained model for inference[m
+[1mdiff --git a/tools/visualize_bev.py b/tools/visualize_bev.py[m
+[1mindex 543b6d5..dade8bd 100644[m
+[1m--- a/tools/visualize_bev.py[m
+[1m+++ b/tools/visualize_bev.py[m
+[36m@@ -88,6 +88,8 @@[m [mdef main():[m
+                         help='Load in tracks, these are a dict with IDs as keys')[m
+     parser.add_argument('--idx', type=int, default=0,[m
+                         help='If you wish to only display a certain frame index')[m
+[32m+[m[32m    parser.add_argument('--sweeps', type=int, default=None,[m
+[32m+[m[32m                        help='Num accum pc')[m
+     parser.add_argument('--conf_th', type=float, default=0.0,[m
+                         help='If you wish to only display a certain frame index')[m
+     parser.add_argument('--split', type=str, default='train',[m
+[36m@@ -100,13 +102,17 @@[m [mdef main():[m
+     # Get target dataset[m
+     cfg_from_yaml_file(args.cfg_file, cfg)[m
+     cfg.DATA_SPLIT.test = args.split[m
+[31m-    cfg.SAMPLED_INTERVAL.test = 1[m
+[31m-    # cfg.USE_CUSTOM_TRAIN_SCENES = args.custom_train_split[m
+[32m+[m[32m    if cfg.get('SAMPLED_INTERVAL', False):[m
+[32m+[m[32m        cfg.SAMPLED_INTERVAL.test = 1[m
+ [m
+[31m-    # dataset_cfg.SEQUENCE_CONFIG.ENABLED = True[m
+[31m-    # if dataset_cfg.SEQUENCE_CONFIG.ENABLED:[m
+[31m-    #     dataset_cfg.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-15,0][m
+[31m-    #     # dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp'][m
+[32m+[m[32m    if args.sweeps is not None:[m
+[32m+[m[32m        # If dataset name in lyft,nusc[m
+[32m+[m[32m        cfg.MAX_SWEEPS = args.sweeps[m
+[32m+[m
+[32m+[m[32m        # else[m
+[32m+[m[32m        # dataset_cfg.SEQUENCE_CONFIG.ENABLED = True[m
+[32m+[m[32m    #     dataset_cfg.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-(args.sweeps-1),0][m
+[32m+[m[32m    #     dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp'][m
+     #     dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp'][m
+     #     dataset_cfg.POINT_FEATURE_ENCODING.used_feature_list=['x','y','z']        [m
+     [m
+[36m@@ -286,9 +292,8 @@[m [mdef main():[m
+         # Plot det boxes[m
+         if detection_sets is not None:[m
+             det_frame_idx = get_frame_id_from_dets(frame_id, detection_sets) if get_frame_id_from_ps else frame_idx    [m
+[31m-            mask = detection_sets[det_frame_idx]['score'] > 0.2       [m
+[31m-            plot_boxes(ax, detection_sets[det_frame_idx]['boxes_lidar'][mask], [m
+[31m-                    scores=detection_sets[det_frame_idx]['score'][mask],[m
+[32m+[m[32m            plot_boxes(ax, detection_sets[det_frame_idx]['boxes_lidar'],[m[41m [m
+[32m+[m[32m                    scores=detection_sets[det_frame_idx]['score'],[m
+                     source_id=detection_sets[det_frame_idx]['source_id'] if 'source_id' in detection_sets[det_frame_idx].keys() else None,[m
+                     source_labels=detection_sets[det_frame_idx]['source'] if 'source' in detection_sets[det_frame_idx].keys() else None,[m
+                     color=[1,0,0] if 'source_id' not in detection_sets[det_frame_idx].keys() else [0,0,1],[m
+[36m@@ -296,9 +301,8 @@[m [mdef main():[m
+                     label='det pkl' if 'source_id' not in detection_sets[det_frame_idx].keys() else None)[m
+ [m
+             if args.det_pkl2 is not None:[m
+[31m-                mask = det2[det_frame_idx]['score'] > 0.2[m
+[31m-                plot_boxes(ax, det2[det_frame_idx]['boxes_lidar'][mask], [m
+[31m-                    scores=det2[det_frame_idx]['score'][mask],[m
+[32m+[m[32m                plot_boxes(ax, det2[det_frame_idx]['boxes_lidar'],[m[41m [m
+[32m+[m[32m                    scores=det2[det_frame_idx]['score'],[m
+                     label='det pkl 2', color=[0.6,0.4,0],[m
+                     limit_range=limit_range, alpha=1)[m
+              [m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd1/cyc_kf_giou.yaml b/tracker/configs/ms3d_configs_rnd1/cyc_kf_giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex db1f205..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd1/cyc_kf_giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,20 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.4[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 2[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    giou: 1.0 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) i.e. giou=0.0 is counted a match[m
+[31m-# giou=1.0 is good for 5Hz, giou=1.5 for 2Hz datasets (warning: giou=1.5 causes a lot of ID-switch for parked cars!!)[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 3[m
+[31m-  det_score_threshold: [m
+[31m-    giou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    giou: 0.0 # Here it is threshold (not 1-threshold!!)[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd1/ped_kf_giou.yaml b/tracker/configs/ms3d_configs_rnd1/ped_kf_giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 7d3f5bf..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd1/ped_kf_giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,21 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.2[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 2[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    giou: 0.8 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) i.e. giou=0.0 is counted a match[m
+[31m-# giou=1.0 is good for 5Hz, giou=1.5 for 2Hz datasets (warning: giou=1.5 causes a lot of ID-switch for parked cars!!)[m
+[31m-[m
+[31m-# Compare ped giou 0.8 vs giou 0.6[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 3[m
+[31m-  det_score_threshold: [m
+[31m-    giou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    giou: 0.2 # Here it is threshold (not 1-threshold!!)[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd1/veh_kf_giou.yaml b/tracker/configs/ms3d_configs_rnd1/veh_kf_giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex a14f223..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd1/veh_kf_giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,20 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.6[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 1[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    giou: 1.0 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) i.e. giou=0.0 is counted a match[m
+[31m-# giou=1.0 is good for 5Hz, giou=1.5 for 2Hz datasets (warning: giou=1.5 causes a lot of ID-switch for parked cars!!)[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 3[m
+[31m-  det_score_threshold: [m
+[31m-    giou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    giou: 0.1 # Here it is threshold (not 1-threshold!!)[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd1/veh_static_kf_iou.yaml b/tracker/configs/ms3d_configs_rnd1/veh_static_kf_iou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 1eed522..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd1/veh_static_kf_iou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,19 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.5[m
+[31m-  max_age_since_update: 4[m
+[31m-  min_hits_to_birth: 2[m
+[31m-  match_type: bipartite[m
+[31m-  asso: iou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    iou: 0.5 # (1-threshold)[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 3[m
+[31m-  det_score_threshold: [m
+[31m-    iou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    iou: 0.2 # threshold[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd1/veh_static_kf_iou2d.yaml b/tracker/configs/ms3d_configs_rnd1/veh_static_kf_iou2d.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 651c207..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd1/veh_static_kf_iou2d.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,19 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.5[m
+[31m-  max_age_since_update: 4[m
+[31m-  min_hits_to_birth: 2[m
+[31m-  match_type: bipartite[m
+[31m-  asso: iou_2d[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    iou_2d: 0.7 # (1-threshold) Strict threshold because if it matches with a box really far away, it'll shift the KF prediction and the car will be "moving"[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 3[m
+[31m-  det_score_threshold: [m
+[31m-    iou_2d: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    iou_2d: 0.5 # threshold[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd2/ped_kf_giou.yaml b/tracker/configs/ms3d_configs_rnd2/ped_kf_giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex a55f897..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd2/ped_kf_giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,21 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.3[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 2[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    giou: 0.8 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) i.e. giou=0.0 is counted a match[m
+[31m-# giou=1.0 is good for 5Hz, giou=1.5 for 2Hz datasets (warning: giou=1.5 causes a lot of ID-switch for parked cars!!)[m
+[31m-[m
+[31m-# Compare ped giou 0.8 vs giou 0.6[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 3[m
+[31m-  det_score_threshold: [m
+[31m-    giou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    giou: 0.2 # Here it is threshold (not 1-threshold!!)[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd2/veh_kf_giou.yaml b/tracker/configs/ms3d_configs_rnd2/veh_kf_giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 865ecfd..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd2/veh_kf_giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,20 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.7[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 1[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    giou: 1.0 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) i.e. giou=0.0 is counted a match[m
+[31m-# giou=1.0 is good for 5Hz, giou=1.5 for 2Hz datasets (warning: giou=1.5 causes a lot of ID-switch for parked cars!!)[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 3[m
+[31m-  det_score_threshold: [m
+[31m-    giou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    giou: 0.1 # Here it is threshold (not 1-threshold!!)[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd2/veh_static_kf_iou2d.yaml b/tracker/configs/ms3d_configs_rnd2/veh_static_kf_iou2d.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 766f23d..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd2/veh_static_kf_iou2d.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,19 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.5[m
+[31m-  max_age_since_update: 4[m
+[31m-  min_hits_to_birth: 2[m
+[31m-  match_type: bipartite[m
+[31m-  asso: iou_2d[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    iou_2d: 0.7 # (1-threshold) Strict threshold because if it matches with a box really far away, it'll shift the KF prediction and the car will be "moving"[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 4[m
+[31m-  det_score_threshold: [m
+[31m-    iou_2d: 0.3[m
+[31m-  det_dist_threshold: [m
+[31m-    iou_2d: 0.5 # threshold[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd3/ped_kf_giou.yaml b/tracker/configs/ms3d_configs_rnd3/ped_kf_giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 92a199c..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd3/ped_kf_giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,21 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.3[m
+[31m-  max_age_since_update: 4[m
+[31m-  min_hits_to_birth: 2[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    giou: 0.8 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) i.e. giou=0.0 is counted a match[m
+[31m-# giou=1.0 is good for 5Hz, giou=1.5 for 2Hz datasets (warning: giou=1.5 causes a lot of ID-switch for parked cars!!)[m
+[31m-[m
+[31m-# Compare ped giou 0.8 vs giou 0.6[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 3[m
+[31m-  det_score_threshold: [m
+[31m-    giou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    giou: 0.2 # Here it is threshold (not 1-threshold!!)[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd3/veh_kf_giou.yaml b/tracker/configs/ms3d_configs_rnd3/veh_kf_giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 865ecfd..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd3/veh_kf_giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,20 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.7[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 1[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    giou: 1.0 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) i.e. giou=0.0 is counted a match[m
+[31m-# giou=1.0 is good for 5Hz, giou=1.5 for 2Hz datasets (warning: giou=1.5 causes a lot of ID-switch for parked cars!!)[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 3[m
+[31m-  det_score_threshold: [m
+[31m-    giou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    giou: 0.1 # Here it is threshold (not 1-threshold!!)[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/ms3d_configs_rnd3/veh_static_kf_iou2d.yaml b/tracker/configs/ms3d_configs_rnd3/veh_static_kf_iou2d.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex a8ce9f2..0000000[m
+[1m--- a/tracker/configs/ms3d_configs_rnd3/veh_static_kf_iou2d.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,19 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.3[m
+[31m-  max_age_since_update: 4[m
+[31m-  min_hits_to_birth: 2[m
+[31m-  match_type: bipartite[m
+[31m-  asso: iou_2d[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    iou_2d: 0.7 # (1-threshold) Strict threshold because if it matches with a box really far away, it'll shift the KF prediction and the car will be "moving"[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  max_redundancy_age: 4[m
+[31m-  det_score_threshold: [m
+[31m-    iou_2d: 0.3[m
+[31m-  det_dist_threshold: [m
+[31m-    iou_2d: 0.5 # threshold[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/nu_configs/giou.yaml b/tracker/configs/nu_configs/giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 12ef5f1..0000000[m
+[1m--- a/tracker/configs/nu_configs/giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,27 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.01[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 0[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: true[m
+[31m-  nms_thres: 0.1[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    giou: 1.5[m
+[31m-    iou: 0.9[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: default[m
+[31m-  det_score_threshold: [m
+[31m-    iou: 0.01[m
+[31m-    giou: 0.01[m
+[31m-  det_dist_threshold: [m
+[31m-    iou: 0.1[m
+[31m-    giou: -0.5[m
+[31m-[m
+[31m-data_loader:[m
+[31m-  pc: true[m
+[31m-  nms: true[m
+[31m-  nms_thres: 0.1[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/nu_configs/iou.yaml b/tracker/configs/nu_configs/iou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex aa59394..0000000[m
+[1m--- a/tracker/configs/nu_configs/iou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,25 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.01[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 1[m
+[31m-  match_type: bipartite[m
+[31m-  asso: iou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    giou: 1.5[m
+[31m-    iou: 0.9[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: default[m
+[31m-  det_score_threshold: [m
+[31m-    iou: 0.01[m
+[31m-    giou: 0.01[m
+[31m-    m_dis: 0.01[m
+[31m-  det_dist_threshold: [m
+[31m-    iou: 0.1[m
+[31m-    giou: -0.5[m
+[31m-[m
+[31m-data_loader:[m
+[31m-  pc: false[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/waymo_configs/pd_kf_giou.yaml b/tracker/configs/waymo_configs/pd_kf_giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 7c6b158..0000000[m
+[1m--- a/tracker/configs/waymo_configs/pd_kf_giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,26 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.5[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 3[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    iou: 0.9[m
+[31m-    giou: 1.5[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  det_score_threshold: [m
+[31m-    iou: 0.1[m
+[31m-    giou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    iou: 0.1[m
+[31m-    giou: -0.5[m
+[31m-[m
+[31m-data_loader:[m
+[31m-  pc: true[m
+[31m-  nms: true[m
+[31m-  nms_thres: 0.25[m
+\ No newline at end of file[m
+[1mdiff --git a/tracker/configs/waymo_configs/vc_kf_giou.yaml b/tracker/configs/waymo_configs/vc_kf_giou.yaml[m
+[1mdeleted file mode 100644[m
+[1mindex 8bacd99..0000000[m
+[1m--- a/tracker/configs/waymo_configs/vc_kf_giou.yaml[m
+[1m+++ /dev/null[m
+[36m@@ -1,26 +0,0 @@[m
+[31m-running:[m
+[31m-  covariance: default[m
+[31m-  score_threshold: 0.7[m
+[31m-  max_age_since_update: 2[m
+[31m-  min_hits_to_birth: 3[m
+[31m-  match_type: bipartite[m
+[31m-  asso: giou[m
+[31m-  has_velo: false[m
+[31m-  motion_model: kf[m
+[31m-  asso_thres:[m
+[31m-    iou: 0.9[m
+[31m-    giou: 1.5[m
+[31m-[m
+[31m-redundancy:[m
+[31m-  mode: mm[m
+[31m-  det_score_threshold: [m
+[31m-    iou: 0.1[m
+[31m-    giou: 0.1[m
+[31m-  det_dist_threshold: [m
+[31m-    iou: 0.1[m
+[31m-    giou: -0.5[m
+[31m-[m
+[31m-data_loader:[m
+[31m-  pc: true[m
+[31m-  nms: true[m
+[31m-  nms_thres: 0.25[m
+\ No newline at end of file[m

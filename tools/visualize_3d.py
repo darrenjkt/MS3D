@@ -78,7 +78,6 @@ def main():
             else:
                 data_config.SEQUENCE_CONFIG.SAMPLE_OFFSET = [0,0]
 
-            data_config.SEQUENCE_CONFIG.ZERO_TIMESTAMP = True
             # data_config.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp']
             data_config.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp']
             data_config.POINT_FEATURE_ENCODING.used_feature_list=['x','y','z','timestamp']        
@@ -148,7 +147,8 @@ def main():
                 geom = V.draw_scenes_msda(points=data_dict['points'][:, 1:], 
                                           idx=idx,
                                           det_annos=det_annos,                                        
-                                          gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None)
+                                          gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None,
+                                          use_linemesh=args.use_linemesh)
             
     else:
         # Load trained model for inference

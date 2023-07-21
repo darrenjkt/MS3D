@@ -1,17 +1,17 @@
 exp_name: 'RND3_VOXA_VOXC' # all files will be named/searched with this as prefix
 save_dir: '/MS3D/tools/cfgs/target_waymo/ps_labels_rnd3' 
-dataset_cfg: /MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml
+dataset_cfg: /MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml
 ps_score_th: # veh,ped,cyc
-  pos_th: [0.7,0.6,0.5]
+  pos_th: [0.7,0.6,0.5] # loosen the criteria for final self-training round
   neg_th: [0.15,0.1,0.1] # preds get less noisy at lower confidences than earlier stages
 pretrained_kbf:
   discard: [1,1,1]
   radius: [1.5, 0.3, 0.2]
   nms: [0.1, 0.3, 0.1]
 tracking:
-  veh_all_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/veh_kf_giou.yaml'
-  veh_static_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/veh_static_kf_iou2d.yaml'
-  ped_cfg: '/MS3D/tracker/configs/waymo/ms3d_configs_rnd3/ped_kf_giou.yaml'
+  veh_all_cfg: '/MS3D/tracker/configs/nuscenes/ms3d_configs_rnd3/veh_kf_giou.yaml'
+  veh_static_cfg: '/MS3D/tracker/configs/nuscenes/ms3d_configs_rnd3/veh_static_kf_iou2d.yaml'
+  ped_cfg: '/MS3D/tracker/configs/nuscenes/ms3d_configs_rnd3/ped_kf_giou.yaml'
 label_refinement:
   track_filtering:
     min_dets_above_pos_th_for_tracks_veh_all: 5

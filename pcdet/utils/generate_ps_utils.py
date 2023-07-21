@@ -155,7 +155,7 @@ def motion_state_refinement(tracks_all, tracks_static, frame_ids):
 
 
 def assign_box_to_frameid(tracks):
-    # assign one box per frame_id; if duplicate, then keep higher scoring box
+    # assign one tracker box per frame_id; if duplicate, then keep higher scoring box
     for trk_id in tracks.keys():
         tracks[trk_id]['frameid_to_box'] = {}
         fid_list = tracks[trk_id]['frame_id']
@@ -232,7 +232,7 @@ def get_track_rolling_kde_interpolation(dataset, tracks_static, window, static_s
             
         if len(trk_frame_inds_set) < window:
             boxes = np.array(list(f2b.values()))
-            boxes = np.insert(boxes, 7,1,1) # Static refinement only done for vehicle class so we hardcode class ID
+            boxes = np.insert(boxes, 7,1,1) # Static refinement only done for vehicle class so we hardcode class ID: 1
             kdebox = kbf(boxes, box_weights=boxes[:,-1], bw_score=1.0)
             if kdebox[8] > static_score_th:
                 kdebox[8] = max(kdebox_min_score, kdebox[8])
@@ -243,7 +243,9 @@ def get_track_rolling_kde_interpolation(dataset, tracks_static, window, static_s
         else:
             # Get rolling KDE for each key frame
             for frame_idx, f_id in enumerate(trk_frame_inds_set):
-                accum_inds = int(frame_idx) + np.arange(-window, 0)
+                # TODO: It might actually work better to use [-window/2, window/2] rather than historical only [-window, 0] in this implementation
+                # cause seeing boxes from future frames may provide better context for refinement; but it may be an incremental improvement
+                accum_inds = int(frame_idx) + np.arange(-window, 0) 
                 accum_inds[accum_inds < 0] = abs(accum_inds[accum_inds < 0]) + max(accum_inds)
                 accum_inds = np.clip(accum_inds, 0, len(trk_frame_inds_set)-1)
                 boxes = np.stack([f2b[key] for key in trk_frame_inds_set[np.unique(accum_inds)]])

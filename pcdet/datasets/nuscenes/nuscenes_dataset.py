@@ -77,7 +77,7 @@ class NuScenesDataset(DatasetTemplate):
                 seq_name_to_infos[seq_id] += 1
 
             if self.logger is not None:
-                self.logger.info('Total sampled samples for Waymo dataset: %d' % len(self.infos))        
+                self.logger.info('Total sampled samples for NuScenes dataset: %d' % len(self.infos))        
 
         self.seq_name_to_len = seq_name_to_len
         return seq_name_to_infos
@@ -196,7 +196,15 @@ class NuScenesDataset(DatasetTemplate):
                 input_dict['gt_boxes'] = None
 
         if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:
-            self.fill_pseudo_labels(input_dict)
+            # Remap indices from pseudo-label 1-3 to order of det head classes; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist
+            # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)
+            
+            psid2clsid = {}
+            if 'car' in self.class_names:
+                psid2clsid[1] = self.class_names.index('car') + 1
+            if 'pedestrian' in self.class_names:
+                psid2clsid[2] = self.class_names.index('pedestrian') + 1                
+            self.fill_pseudo_labels(input_dict, psid2clsid)
 
         if self.dataset_cfg.get('SET_NAN_VELOCITY_TO_ZEROS', False) and not self.dataset_cfg.get('USE_PSEUDO_LABEL', None):
             gt_boxes = input_dict['gt_boxes']

@@ -12,8 +12,8 @@ running:
 
 redundancy:
   mode: mm
-  max_redundancy_age: 4
+  max_redundancy_age: 3
   det_score_threshold: 
-    iou_2d: 0.3
+    iou_2d: 0.1
   det_dist_threshold: 
     iou_2d: 0.5 # threshold

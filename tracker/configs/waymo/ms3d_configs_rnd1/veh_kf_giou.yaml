@@ -1,8 +1,8 @@
 running:
   covariance: default
-  score_threshold: 0.7
+  score_threshold: 0.6
   max_age_since_update: 2
-  min_hits_to_birth: 1
+  min_hits_to_birth: 2
   match_type: bipartite
   asso: giou
   has_velo: false

@@ -105,8 +105,6 @@ class LyftDataset(DatasetTemplate):
         sweep_points_list = [points]
         sweep_times_list = [np.zeros((points.shape[0], 1))]
 
-        # Don't do random selection from infos cause my re-generated infos are for 16 frames
-        # for k in np.random.choice(len(info['sweeps']), max_sweeps - 1, replace=False):
         for k in np.random.choice(max_sweeps, max_sweeps - 1, replace=False): # not sure why they don't do it sequentially? maybe data aug effect?
             points_sweep, times_sweep = self.get_sweep(info['sweeps'][k])
             sweep_points_list.append(points_sweep)
@@ -151,7 +149,16 @@ class LyftDataset(DatasetTemplate):
                 input_dict['gt_boxes'] = None
             
         if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:
-            self.fill_pseudo_labels(input_dict)
+            # Remap indices from pseudo-label 1-3 to order of det head classes; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist
+            # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)
+            
+            psid2clsid = {}
+            if 'car' in self.class_names:
+                psid2clsid[1] = self.class_names.index('car') + 1
+            if 'pedestrian' in self.class_names:
+                psid2clsid[2] = self.class_names.index('pedestrian') + 1                
+            self.fill_pseudo_labels(input_dict, psid2clsid)
+            
         data_dict = self.prepare_data(data_dict=input_dict)
 
         return data_dict

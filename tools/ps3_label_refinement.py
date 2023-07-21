@@ -60,7 +60,7 @@ def update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped=No
         veh_mask = abs(cur_gt_boxes[:,7]) == 1
         cur_veh_boxes = cur_gt_boxes[veh_mask]
         
-        # Add dynamic 1f interpolated/extrapolated tracks to replace lower scoring dets
+        # Add dynamic interpolated/extrapolated tracks to replace lower scoring dets
         trackall_boxes = get_frame_track_boxes(tracks_veh_all, frame_id, frame2box_key=frame2box_key)
         pose = get_pose(dataset, frame_id)
         _, ego_trackall_boxes = world_to_ego(pose, boxes=trackall_boxes)
@@ -175,7 +175,7 @@ def refine_ped_labels(tracks_ped, ms3d_configs):
     pos_th_ped = ms3d_configs['ps_score_th']['pos_th'][1]
     tracker_utils.delete_tracks(tracks_ped, min_score=pos_th_ped, num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_dets_above_pos_th_for_tracks_ped'])                   
     for trk_id in tracks_ped.keys():
-        tracks_ped[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_ped[trk_id]['boxes'], s2e_th=1)  
+        tracks_ped[trk_id]['motion_state'] = tracker_utils.get_motion_state(tracks_ped[trk_id]['boxes'], s2e_th=2) 
 
     # Delete tracks if less than N tracks
     tracker_utils.delete_tracks(tracks_ped, min_score=0.0, num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_num_ped_tracks'])    
@@ -239,7 +239,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)
-    cfg_from_yaml_file(args.cfg_file, cfg)
+    cfg_from_yaml_file(ms3d_configs["dataset_cfg"], cfg)
     dataset = load_dataset(split='train')
     
     # Load pkls

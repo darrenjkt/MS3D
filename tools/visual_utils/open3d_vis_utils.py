@@ -44,7 +44,7 @@ def get_coor_colors(obj_labels):
 
     return label_rgba
 
-def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_score=0.2, use_linemesh=True):
+def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_score=0.2, use_linemesh=False):
 
     vis = open3d.visualization.Visualizer()
     vis.create_window()
@@ -53,7 +53,9 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc
 
     # cmap = np.array(plt.get_cmap('Set1').colors)
     cmap = np.array([[49,131,106],[176,73,73],[25,97,120],[182,176,47]])/255
-    for sid, key in enumerate(det_annos.keys()):
+    src_keys = list(det_annos.keys())
+    src_keys.remove('det_cls_weights')
+    for sid, key in enumerate(src_keys):
         points = points if sid == 0 else None
         mask = det_annos[key][idx]['score'] > min_score
         geom = get_geometries(points=points, 
@@ -73,6 +75,10 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc
     ctr.set_lookat([ -18.284592676097365, 3.7960852036759234, -16.806735299460072 ])
     ctr.set_up([ -0.55585420737713021, 0.34547108891144618, 0.75609247243143607 ])
     ctr.set_zoom(0.21900000000000003)
+    # ctr.set_front([ 0.61593639198621719, -0.56290287750836965, 0.55114672413051569 ])
+    # ctr.set_lookat([ -4.4215845668514442, 1.0814560967869249, -1.5989356465656117 ])
+    # ctr.set_up([ -0.41660855299558103, 0.36103639159469603, 0.8343201049448643 ])
+    # ctr.set_zoom(0.09999999999999995)
 
     vis.get_render_option().point_size = 2.0
     vis.run()
@@ -99,6 +105,10 @@ def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref
     ctr.set_lookat([ -3.9253878764499586, -4.1870200341400947, -16.570707875396788 ])
     ctr.set_up([ 0.41025289806528631, 0.67547432104665128, 0.61272098155326737 ])
     ctr.set_zoom(0.40)
+    # ctr.set_front([ 0.6019965989497168, 0.5880792021051805, 0.54015085569154486 ])
+    # ctr.set_lookat([ -12.588535809723359, -17.432757914352894, -7.5187967034430665 ])
+    # ctr.set_up([ -0.34679748085815876, -0.41677192924666834, 0.84025749997393373 ])
+    # ctr.set_zoom(0.11999900000000001)
     # ctr.set_front([ -0.85415171319858785, 0.0084795734346973951, 0.51995475541077896 ])
     # ctr.set_lookat([ 22.078260806001634, 1.0249602339143569, -2.8088354431826907 ])
     # ctr.set_up([ 0.51984622231746436, -0.012211597572028807, 0.85417257157263038 ])
