@@ -1,11 +1,11 @@
-exp_name: 'N_L_VMFI_TTA_PA_PC_VA_VC_64' # all files will be named/searched with this as prefix
-save_dir: '/MS3D/tools/cfgs/target_waymo/exp_ps_dict/ps_labels' 
+exp_name: 'ENSEMBLE_VIS' # all files will be named/searched with this as prefix
+save_dir: '/MS3D/tools/cfgs/target_waymo/exp_ps_dict' 
 ps_score_th: # veh,ped,cyc
   pos_th: [0.6,0.4,0.4]
   neg_th: [0.3,0.15,0.15]
 pretrained_kbf:
-  discard: [0,0,0]
-  radius: [1, 0.3, 0.2]
+  discard: [1,1,1]
+  radius: [1.5, 0.3, 0.2]
   nms: [0.1, 0.5, 0.5]
 tracking:
   veh_all_cfg: '/MS3D/tracker/configs/ms3d_configs/veh_kf_giou.yaml'

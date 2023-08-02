@@ -36,8 +36,8 @@ def load_dataset(split, sampled_interval):
             )      
     return target_set
 
-save_ps_path = '/MS3D/tools/cfgs/target_lyft/gt_as_ps.pkl'
-cfg_file = '/MS3D/tools/cfgs/dataset_configs/lyft_dataset_da.yaml'
+save_ps_path = '/MS3D/tools/cfgs/target_nuscenes/gt_as_ps_193.pkl'
+cfg_file = '/MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml'
 cfg_from_yaml_file(cfg_file, cfg)
 if cfg.get('USE_CUSTOM_TRAIN_SCENES', False):
     cfg.USE_CUSTOM_TRAIN_SCENES = True

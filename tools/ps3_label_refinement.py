@@ -9,6 +9,7 @@ from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.utils import common_utils
 from pcdet.datasets import build_dataloader
 import yaml
+import shutil
 from pathlib import Path
 from tqdm import tqdm
 from pcdet.utils.tracker_utils import get_frame_track_boxes
@@ -21,7 +22,8 @@ def load_dataset(split):
 
     # Get target dataset    
     cfg.DATA_SPLIT.test = split
-    cfg.SAMPLED_INTERVAL.test = 1
+    if cfg.get('SAMPLED_INTERVAL', False):
+        cfg.SAMPLED_INTERVAL.test = 1
     logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
     target_set, _, _ = build_dataloader(
                 dataset_cfg=cfg,
@@ -138,6 +140,7 @@ def refine_veh_labels(tracks_veh_all, tracks_veh_static,
     # Use pos_th for static min_score so that we ensure to have some confident detections in the static track
     tracker_utils.delete_tracks(tracks_veh_all, min_score=ms3d_configs['ps_score_th']['pos_th'][0], num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_dets_above_pos_th_for_tracks_veh_all'])                   
     tracker_utils.delete_tracks(tracks_veh_static, min_score=ms3d_configs['ps_score_th']['pos_th'][0], num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_dets_above_pos_th_for_tracks_veh_static'])   
+    tracker_utils.delete_tracks(tracks_veh_static, min_score=0.0, num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_num_static_veh_tracks'])   
     
      # Get static boxes using tracking information
     for trk_id in tracks_veh_all.keys():
@@ -180,14 +183,14 @@ def refine_ped_labels(tracks_ped, ms3d_configs):
     # Delete tracks if less than N tracks
     tracker_utils.delete_tracks(tracks_ped, min_score=0.0, num_boxes_abv_score=ms3d_configs['label_refinement']['track_filtering']['min_num_ped_tracks'])    
 
-    # Delete stationary pedestrian tracks, retain only dynamic tracks and set score to pos_th_ped
+    # Set score to pos_th_ped and delete static tracks (unless specified with use_static_ped_tracks)
     all_ids = list(tracks_ped.keys())
     for trk_id in all_ids:
-        if tracks_ped[trk_id]['motion_state'] != 1:
-            del tracks_ped[trk_id]
-        else:
-            mask = tracks_ped[trk_id]['boxes'][:,7] < pos_th_ped
-            tracks_ped[trk_id]['boxes'][:,7][mask] = pos_th_ped
+        mask = tracks_ped[trk_id]['boxes'][:,7] < pos_th_ped
+        tracks_ped[trk_id]['boxes'][:,7][mask] = pos_th_ped
+        if not ms3d_configs['label_refinement']['track_filtering']['use_static_ped_tracks']:
+            if tracks_ped[trk_id]['motion_state'] != 1:            
+                del tracks_ped[trk_id]
     return tracks_ped
 
 def select_ps_by_th(ps_dict, pos_th):
@@ -219,23 +222,6 @@ if __name__ == '__main__':
     parser.add_argument('--cfg_file', type=str, default='/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml',
                         help='just use the target dataset cfg file')
     parser.add_argument('--ps_cfg', type=str, help='cfg file with MS3D parameters')
-    
-    # # Initial pseudo-label and track thresholds
-    # parser.add_argument('--pos_th_veh', type=float, default=0.6, help='Vehicle detections above this threshold is used as pseudo-label')
-    # parser.add_argument('--pos_th_ped', type=float, default=0.5, help='Pedestrian detections above this threshold is used as pseudo-label')    
-    # parser.add_argument('--min_dets_for_tracks_all', type=int, default=4, help='Every track should have a minimum of N detections above the trk_cfg_veh_th')
-    # parser.add_argument('--min_dets_for_tracks_static', type=int, default=6, help='Every track (static) should have a minimum of N detections above the trk_cfg_veh_th')
-    # parser.add_argument('--min_dets_for_ped_tracks', type=int, default=6, help='Every ped track should have a minimum of N detections above the trk_cfg_veh_th')
-    
-    # # Configs for refining boxes of static vehicles
-    # parser.add_argument('--min_static_score', type=float, default=0.7, help='Minimum score for static boxes after refinement')
-    # parser.add_argument('--rolling_kde_window', type=int, default=16, help='Number of boxes to use for KBF of a single static object')
-
-    # # Configs for propogating boxes
-    # parser.add_argument('--propagate_boxes_min_dets', type=int, default=12, help='Minimum number of dets for static object to decide if we want to propagate boxes')
-    # parser.add_argument('--n_extra_frames', type=int, default=100, help='Number of frames to propagate') # prev 40 for 1.67Hz
-    # parser.add_argument('--degrade_factor', type=float, default=0.98, help='For every propagated frame, the box score will be multiplied by degrade factor') # prev 0.95 for 1.67Hz
-    # parser.add_argument('--min_score_clip', type=float, default=0.5, help='Set minimum score that the box can be degraded to. This is not so necessary (more for experiments)')
     args = parser.parse_args()
 
     ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)
@@ -276,4 +262,7 @@ if __name__ == '__main__':
     final_ps_dict = select_ps_by_th(final_ps_dict, ms3d_configs['ps_score_th']['pos_th'])
 
     generate_ps_utils.save_data(final_ps_dict, str(Path(ms3d_configs["save_dir"])), name="final_ps_dict.pkl")
+
     print('Finished generating pseudo-labels')
+    # Final pseudo-labels are given in the format: (x,y,z,dx,dy,dz,heading,class_id,score). Only positive class_ids are used for training.
+    shutil.copyfile(args.ps_cfg, str(Path(ms3d_configs["save_dir"]) / f'{Path(args.ps_cfg).stem}.yaml'))

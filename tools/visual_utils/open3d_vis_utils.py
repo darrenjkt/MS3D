@@ -52,7 +52,8 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc
     
 
     # cmap = np.array(plt.get_cmap('Set1').colors)
-    cmap = np.array([[49,131,106],[176,73,73],[25,97,120],[182,176,47]])/255
+    # cmap = np.array([[49,131,106],[176,73,73],[25,97,120],[182,176,47]])/255
+    cmap = np.array([[49,131,106],[193, 107, 107],[110, 163, 167],[214, 206, 114],[49,131,106],[110, 163, 167],[214, 206, 114]])/255
     src_keys = list(det_annos.keys())
     src_keys.remove('det_cls_weights')
     for sid, key in enumerate(src_keys):
@@ -71,28 +72,36 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc
             vis.add_geometry(g)
 
     ctr = vis.get_view_control()
-    ctr.set_front([ 0.66741310889048566, -0.35675856751501511, 0.65366892735219662 ])
-    ctr.set_lookat([ -18.284592676097365, 3.7960852036759234, -16.806735299460072 ])
-    ctr.set_up([ -0.55585420737713021, 0.34547108891144618, 0.75609247243143607 ])
-    ctr.set_zoom(0.21900000000000003)
+    # ctr.set_front([ 0.66741310889048566, -0.35675856751501511, 0.65366892735219662 ])
+    # ctr.set_lookat([ -18.284592676097365, 3.7960852036759234, -16.806735299460072 ])
+    # ctr.set_up([ -0.55585420737713021, 0.34547108891144618, 0.75609247243143607 ])
+    # ctr.set_zoom(0.21900000000000003)
     # ctr.set_front([ 0.61593639198621719, -0.56290287750836965, 0.55114672413051569 ])
     # ctr.set_lookat([ -4.4215845668514442, 1.0814560967869249, -1.5989356465656117 ])
     # ctr.set_up([ -0.41660855299558103, 0.36103639159469603, 0.8343201049448643 ])
     # ctr.set_zoom(0.09999999999999995)
+    # ctr.set_front([ 0.57278828687874994, 0.68011804025434375, 0.45755112253725044 ])
+    # ctr.set_lookat([ -8.4641806710924641, -7.3623522222041924, 2.5407995273764414 ])
+    # ctr.set_up([ -0.28684857878504583, -0.35658771484889035, 0.88913615069225804 ])
+    # ctr.set_zoom(0.059999999999999942)
+    ctr.set_front([ 0.72737973442893356, -0.51797808311597837, 0.45013045592760198 ])
+    ctr.set_lookat([ -13.773417658854088, 0.062465858514556709, -0.53706070047660459 ])
+    ctr.set_up([ -0.37595030931731882, 0.2479623453125949, 0.89284715390221758 ])
+    ctr.set_zoom(0.079999999999999946)
 
     vis.get_render_option().point_size = 2.0
     vis.run()
     vis.destroy_window()
 
-def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scores=None, ref_box_colors=None, 
-                point_colors=None, draw_origin=False, use_linemesh=False):
+def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_boxes2=None, ref_labels=None, ref_scores=None, ref_box_colors=None, 
+                point_colors=None, draw_origin=False, use_linemesh=False,use_class_colors=True):
 
     vis = open3d.visualization.Visualizer()
     vis.create_window()
 
     geom = get_geometries(points, gt_boxes=gt_boxes, 
-                          ref_boxes=ref_boxes, ref_labels=ref_labels, 
-                          ref_scores=ref_scores, ref_box_colors=ref_box_colors, 
+                          ref_boxes=ref_boxes, ref_boxes2=ref_boxes2, ref_labels=ref_labels, 
+                          ref_scores=ref_scores, ref_box_colors=ref_box_colors, use_class_colors=use_class_colors,
                           point_colors=point_colors, draw_origin=draw_origin,
                           line_thickness=0.06, use_linemesh=use_linemesh)
     vis.clear_geometries()
@@ -101,14 +110,31 @@ def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref
     
     ctr = vis.get_view_control()  
     
-    ctr.set_front([ -0.31094269624370807, -0.52800088868119233, 0.79027191599130253 ])
-    ctr.set_lookat([ -3.9253878764499586, -4.1870200341400947, -16.570707875396788 ])
-    ctr.set_up([ 0.41025289806528631, 0.67547432104665128, 0.61272098155326737 ])
-    ctr.set_zoom(0.40)
-    # ctr.set_front([ 0.6019965989497168, 0.5880792021051805, 0.54015085569154486 ])
-    # ctr.set_lookat([ -12.588535809723359, -17.432757914352894, -7.5187967034430665 ])
-    # ctr.set_up([ -0.34679748085815876, -0.41677192924666834, 0.84025749997393373 ])
-    # ctr.set_zoom(0.11999900000000001)
+    # ctr.set_front([ -0.31094269624370807, -0.52800088868119233, 0.79027191599130253 ])
+    # ctr.set_lookat([ -3.9253878764499586, -4.1870200341400947, -16.570707875396788 ])
+    # ctr.set_up([ 0.41025289806528631, 0.67547432104665128, 0.61272098155326737 ])
+    # ctr.set_zoom(0.40)
+
+    # ctr.set_front([ 0.57278828687874994, 0.68011804025434375, 0.45755112253725044 ])
+    # ctr.set_lookat([ -8.4641806710924641, -7.3623522222041924, 2.5407995273764414 ])
+    # ctr.set_up([ -0.28684857878504583, -0.35658771484889035, 0.88913615069225804 ])
+    # ctr.set_zoom(0.059999999999999942)
+
+    # Figure for single vs multi ensemble
+    # ctr.set_front([ 0.72737973442893356, -0.51797808311597837, 0.45013045592760198 ])
+    # ctr.set_lookat([ -13.773417658854088, 0.062465858514556709, -0.53706070047660459 ])
+    # ctr.set_up([ -0.37595030931731882, 0.2479623453125949, 0.89284715390221758 ])
+    # ctr.set_zoom(0.079999999999999946)
+
+    ctr.set_front([ 0.34690703349778723, -0.78068754622583492, 0.51979078991229755 ])
+    ctr.set_lookat([ -13.023111735034501, 8.8836948184772826, 2.1482897767700124 ])
+    ctr.set_up([-0.25519816515521454, 0.45472750782126409, 0.85328587831516045 ])
+    ctr.set_zoom(0.079999999999999946)
+
+    # ctr.set_front([ -0.4739288455844885, -0.63044130286971811, 0.61476435563465015 ])
+    # ctr.set_lookat([ 9.7917129646160088, 16.132097762406449, 0.73179817336463282 ])
+    # ctr.set_up([ 0.37063064712978533, 0.49047894698568628, 0.78870991243420352 ])
+    # ctr.set_zoom(0.059999999999999942)
     # ctr.set_front([ -0.85415171319858785, 0.0084795734346973951, 0.51995475541077896 ])
     # ctr.set_lookat([ 22.078260806001634, 1.0249602339143569, -2.8088354431826907 ])
     # ctr.set_up([ 0.51984622231746436, -0.012211597572028807, 0.85417257157263038 ])
@@ -130,8 +156,8 @@ def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_labels=None, ref
     vis.run()
     vis.destroy_window()
 
-def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None, 
-                   ref_scores=None, ref_box_colors=None, point_colors=None, 
+def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_boxes2=None, 
+                   ref_scores=None, ref_box_colors=None, point_colors=None, use_class_colors=True,
                    draw_origin=False, line_thickness=0.06, use_linemesh=False):
     if isinstance(points, torch.Tensor):
         points = points.cpu().numpy()
@@ -154,19 +180,28 @@ def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None,
         geometries.append(pts)
 
     if gt_boxes is not None:
-        box = get_box(gt_boxes, (0, 0, 1.0), list(gt_boxes[:,7].astype(int)), use_linemesh=use_linemesh)
+        box = get_box(gt_boxes, (0, 0, 1.0), list(gt_boxes[:,7].astype(int)), use_linemesh=use_linemesh, use_class_colors=use_class_colors)
         geometries.extend(box)
 
     if ref_boxes is not None:
         # color = ref_box_colors if ref_box_colors is not None else (0,0.6,0)
         # color = ref_box_colors if ref_box_colors is not None else (0.255,0.518,0.89)
-        color = ref_box_colors if ref_box_colors is not None else (0.19215686, 0.59215686, 0.41568627)
+        color = ref_box_colors if ref_box_colors is not None else (0.19215686, 0.59215686, 0.41568627) # original pred green
+        # color = ref_box_colors if ref_box_colors is not None else (0.43137255, 0.63921569, 0.65490196)
+        
         box = get_box(ref_boxes, color, line_thickness=line_thickness, use_linemesh=use_linemesh)
+        geometries.extend(box)
+
+    if ref_boxes2 is not None:
+        # color = ref_box_colors if ref_box_colors is not None else (0,0.6,0)
+        # color = ref_box_colors if ref_box_colors is not None else (0.255,0.518,0.89)
+        color = ref_box_colors if ref_box_colors is not None else (0.79215686, 0.19215686, 0.21568627)
+        box = get_box(ref_boxes2, color, line_thickness=line_thickness, use_linemesh=use_linemesh)
         geometries.extend(box)
 
     return geometries
 
-def get_box(boxes, color=(0, 1, 0), ref_labels=None, score=None, line_thickness=0.06, use_linemesh=True): #0.02
+def get_box(boxes, color=(0, 1, 0), ref_labels=None, score=None, line_thickness=0.06, use_linemesh=True, use_class_colors=True): #0.02
     """
     Linemesh gives much thicker box lines but is extremely slow. Use only if you don't need to change viewpoint
     """
@@ -188,12 +223,16 @@ def get_box(boxes, color=(0, 1, 0), ref_labels=None, score=None, line_thickness=
         else:  # GT boxes
             if use_linemesh:
                 for lines in line_set:
-                    lines.paint_uniform_color(box_colormap[ref_labels[i]])
-                    # lines.paint_uniform_color(color)
+                    if use_class_colors:
+                        lines.paint_uniform_color(box_colormap[ref_labels[i]])
+                    else:
+                        lines.paint_uniform_color(color)
                     ret_boxes.append(lines)      
             else:
-                line_set.paint_uniform_color(box_colormap[ref_labels[i]])
-                # line_set.paint_uniform_color(color)
+                if use_class_colors:
+                    line_set.paint_uniform_color(box_colormap[ref_labels[i]])
+                else:
+                    line_set.paint_uniform_color(color)
                 ret_boxes.append(line_set)
     return ret_boxes
 

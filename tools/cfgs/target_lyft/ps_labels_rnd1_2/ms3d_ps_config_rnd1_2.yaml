@@ -1,0 +1,43 @@
+dataset_cfg: /MS3D/tools/cfgs/dataset_configs/lyft_dataset_da.yaml
+exp_name: RND1_W_N_VMFI_TTA_PA_PC_VA_VC_48_WEIGHTED
+label_refinement:
+  propagate_boxes:
+    degrade_factor: 0.98
+    min_score_clip: 0.3
+    min_static_tracks: 25
+    n_extra_frames: 100
+  rolling_kbf:
+    min_static_score: 0.85
+    rolling_kde_window: 20
+  track_filtering:
+    min_dets_above_pos_th_for_tracks_ped: 2
+    min_dets_above_pos_th_for_tracks_veh_all: 3
+    min_dets_above_pos_th_for_tracks_veh_static: 1
+    min_num_ped_tracks: 10
+pretrained_kbf:
+  discard:
+  - 4
+  - 4
+  - 4
+  nms:
+  - 0.1
+  - 0.3
+  - 0.1
+  radius:
+  - 1.5
+  - 0.3
+  - 0.2
+ps_score_th:
+  neg_th:
+  - 0.2
+  - 0.1
+  - 0.3
+  pos_th:
+  - 0.8
+  - 0.7
+  - 0.5
+save_dir: /MS3D/tools/cfgs/target_lyft/ps_labels_rnd1_2
+tracking:
+  ped_cfg: /MS3D/tracker/configs/lyft/ms3d_configs_rnd1_2/ped_kf_giou.yaml
+  veh_all_cfg: /MS3D/tracker/configs/lyft/ms3d_configs_rnd1_2/veh_kf_giou.yaml
+  veh_static_cfg: /MS3D/tracker/configs/lyft/ms3d_configs_rnd1_2/veh_static_kf_iou2d.yaml

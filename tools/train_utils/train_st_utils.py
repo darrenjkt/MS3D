@@ -179,7 +179,7 @@ def train_model_st(model, optimizer, source_loader, target_loader, model_func, l
 
     # for continue training.
     # if already exist generated pseudo label result
-    ps_pkl = self_training_utils.check_already_exist_pseudo_label(ps_label_dir, start_epoch)
+    ps_pkl = self_training_utils.check_already_exist_pseudo_label(ps_label_dir)
     logger.info('==> Loading pseudo labels from {}'.format(ps_pkl))
     # if ps_pkl is not None:
     #     logger.info('==> Loading pseudo labels from {}'.format(ps_pkl))

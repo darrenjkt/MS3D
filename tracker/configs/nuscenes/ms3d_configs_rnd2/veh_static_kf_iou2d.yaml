@@ -1,7 +1,7 @@
 running:
   covariance: default
-  score_threshold: 0.5
-  max_age_since_update: 4
+  score_threshold: 0.3
+  max_age_since_update: 3
   min_hits_to_birth: 2
   match_type: bipartite
   asso: iou_2d
@@ -12,8 +12,8 @@ running:
 
 redundancy:
   mode: mm
-  max_redundancy_age: 4
+  max_redundancy_age: 3
   det_score_threshold: 
-    iou_2d: 0.3
+    iou_2d: 0.1
   det_dist_threshold: 
     iou_2d: 0.5 # threshold

@@ -17,6 +17,8 @@ label_refinement:
     min_dets_above_pos_th_for_tracks_veh_all: 5
     min_dets_above_pos_th_for_tracks_veh_static: 5
     min_dets_above_pos_th_for_tracks_ped: 0
+    use_static_ped_tracks: false
+    min_num_static_veh_tracks: 10  # not tested on waymo
     min_num_ped_tracks: 10
   rolling_kbf:
     min_static_score: 0.95

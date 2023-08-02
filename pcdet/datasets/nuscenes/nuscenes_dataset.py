@@ -21,7 +21,7 @@ class NuScenesDataset(DatasetTemplate):
         self.frameid_to_idx = {}
         self.custom_train_scenes = None
         if self.dataset_cfg.get('USE_CUSTOM_TRAIN_SCENES', False) and (self.split == 'train'):
-            custom_train_scenes = self.root_path / 'ImageSets' / 'custom_train_scenes.txt'
+            custom_train_scenes = self.root_path / 'ImageSets' / 'custom_train_scenes_193.txt'
             self.custom_train_scenes = [x.strip() for x in open(custom_train_scenes).readlines()]
 
         self.seq_name_to_infos = self.include_nuscenes_data()

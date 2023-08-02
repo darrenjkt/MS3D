@@ -26,7 +26,7 @@ PSEUDO_LABELS = {}
 NEW_PSEUDO_LABELS = {}  
 
 
-def check_already_exist_pseudo_label(ps_label_dir, start_epoch):
+def check_already_exist_pseudo_label(ps_label_dir):
     """
     if we continue training, use this to directly
     load pseudo labels from exsiting result pkl
@@ -41,7 +41,7 @@ def check_already_exist_pseudo_label(ps_label_dir, start_epoch):
 
     """
     # support init ps_label given by cfg
-    if start_epoch == 0 and cfg.SELF_TRAIN.get('INIT_PS', None):
+    if cfg.SELF_TRAIN.get('INIT_PS', None):
         if cfg.SELF_TRAIN.INIT_PS is not None:
             if os.path.exists(cfg.SELF_TRAIN.INIT_PS):
                 init_ps_label = pkl.load(open(cfg.SELF_TRAIN.INIT_PS, 'rb'))

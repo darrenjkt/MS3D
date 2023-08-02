@@ -12,6 +12,8 @@ import argparse
 import pickle
 from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.utils import box_fusion_utils
+from pcdet.utils import compatibility_utils as compat
+import numpy as np
 """
 # Examples
 python visualize_3d.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml  \
@@ -33,6 +35,8 @@ def main():
                         help='These are the result.pkl files from test.py')
     parser.add_argument('--ps_pkl', type=str, required=False,
                         help='These are the ps_dict_*, ps_label_e*.pkl files generated from MS3D')
+    parser.add_argument('--ps_pkl2', type=str, required=False, default=None,
+                        help='These are the ps_dict_*, ps_label_e*.pkl files generated from MS3D')
     parser.add_argument('--dets_txt', type=str, default=None, required=False,
                         help='det_*f_paths.txt file containing detector pkl paths')                        
     parser.add_argument('--idx', type=int, default=0,
@@ -44,9 +48,10 @@ def main():
     parser.add_argument('--custom_train_split', action='store_true', default=False)
     parser.add_argument('--save_video', action='store_true', default=False)
     parser.add_argument('--show_gt', action='store_true', default=False)
-    parser.add_argument('--sweeps', action='store_true', default=False)
+    parser.add_argument('--sweeps', type=int, default=None)
     parser.add_argument('--bev_vis', action='store_true', default=False)
     parser.add_argument('--use_linemesh', action='store_true', default=False)
+    parser.add_argument('--use_class_colors', action='store_true', default=False)    
     args = parser.parse_args()
     
     if args.bev_vis:
@@ -71,12 +76,14 @@ def main():
     data_config.USE_CUSTOM_TRAIN_SCENES = args.custom_train_split
     logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
 
+    if data_config.get('MAX_SWEEPS',False):
+        if args.sweeps is not None:
+            data_config.MAX_SWEEPS = args.sweeps
+
     if data_config.get('SEQUENCE_CONFIG',False):
         if data_config.SEQUENCE_CONFIG.ENABLED:
-            if args.sweeps:
-                data_config.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-15,0]
-            else:
-                data_config.SEQUENCE_CONFIG.SAMPLE_OFFSET = [0,0]
+            if args.sweeps is not None:
+                data_config.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-(args.sweeps-1),0]
 
             # data_config.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp']
             data_config.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp']
@@ -88,9 +95,9 @@ def main():
             batch_size=1, logger=logger, training=False, dist=False, workers=1
         )          
 
-    frameid_to_idx = target_set.frameid_to_idx    
-    idx_to_frameid = {v: k for k, v in frameid_to_idx.items()}
+    idx_to_frameid = {v: k for k, v in target_set.frameid_to_idx.items()}
 
+    # If no pkl file, just show point cloud and gt boxes (optional)
     if (args.det_pkl is None) and (args.ps_pkl is None) and (args.dets_txt is None) and (args.ckpt is None):    
         for idx, data_dict in enumerate(target_loader):
             if idx < args.idx:
@@ -108,20 +115,37 @@ def main():
             with open(args.det_pkl,'rb') as f:
                 det_annos = pickle.load(f)
 
-            eval_det_annos = copy.deepcopy(det_annos)   
-            for idx, data_dict in enumerate(target_loader):
+            # eval_det_annos = copy.deepcopy(det_annos)   
+            for idx, det_anno in enumerate(det_annos):
                 if idx < args.idx:
-                    print(f'Skipping {idx}/{args.idx}')
+                    print(f'Skipping {idx}/{args.idx} out of {len(det_annos)} total samples')
                     continue
-                V.draw_scenes(points=data_dict['points'][:, 1:], 
-                                        ref_boxes=eval_det_annos[idx]['boxes_lidar'][eval_det_annos[idx]['score'] > 0.6],                         
-                                        ref_scores=eval_det_annos[idx]['score'][eval_det_annos[idx]['score'] > 0.6], 
-                                        ref_labels=[1 for i in range(len(eval_det_annos[idx]['boxes_lidar'][eval_det_annos[idx]['score'] > 0.6]))],
-                                        gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
-                                        draw_origin=False, use_linemesh=args.use_linemesh)
+                frame_id = det_anno['frame_id']
+                if frame_id not in target_set.frameid_to_idx.keys():
+                    print(f"{frame_id} not found in frameid_to_idx, skipping frame")
+                    continue
+                print(f'Visualizing frame idx: {idx}, frame_id: {frame_id}')
+                pts = target_set[target_set.frameid_to_idx[frame_id]]['points']
+                gt_boxes = target_set[target_set.frameid_to_idx[frame_id]]['gt_boxes']
+                # class_mask = np.isin(compat.get_gt_names(target_set, frame_id), ['Vehicle','car','truck','bus'])
+
+            # for idx, data_dict in enumerate(target_loader):
+            #     if idx < args.idx:
+            #         print(f'Skipping {idx}/{args.idx}')
+            #         continue
+                V.draw_scenes(points=pts, 
+                                ref_boxes=det_anno['boxes_lidar'][det_anno['score'] > 0.2],                         
+                                ref_scores=det_anno['score'][det_anno['score'] > 0.2], 
+                                ref_labels=[1 for i in range(len(det_anno['boxes_lidar'][det_anno['score'] > 0.2]))],
+                                gt_boxes=gt_boxes if args.show_gt else None, use_class_colors=args.use_class_colors,
+                                draw_origin=False, use_linemesh=args.use_linemesh)
         if args.ps_pkl is not None:
             with open(args.ps_pkl,'rb') as f:
                 ps_dict = pickle.load(f)
+
+            if args.ps_pkl2 is not None:
+                with open(args.ps_pkl2,'rb') as f:
+                    ps_dict2 = pickle.load(f)
 
             for idx, data_dict in enumerate(target_loader):
                 if idx < args.idx:
@@ -129,25 +153,40 @@ def main():
                     continue
 
                 frame_id = idx_to_frameid[idx]
+                if frame_id not in ps_dict.keys():
+                    print(f"{frame_id} not in ps_dict, skipping frame")
+                    continue
                 # mask = ps_dict[frame_id]['gt_boxes'][:,8] > 0.4 #0.6 for ps_label, 0.4 for ps_dict_1f
+                print(f'Visualizing frame idx: {idx}, frame_id: {frame_id}')
                 V.draw_scenes(points=data_dict['points'][:, 1:], 
-                                ref_boxes=ps_dict[frame_id]['gt_boxes'][:,:7],                         
-                                ref_scores=ps_dict[frame_id]['gt_boxes'][:,8], 
-                                ref_labels=list(abs(ps_dict[frame_id]['gt_boxes'][:,7].astype(int))),
+                                ref_boxes=ps_dict[frame_id]['gt_boxes'][:,:7][ps_dict[frame_id]['gt_boxes'][:,8] > 0.4],
+                                ref_boxes2=ps_dict2[frame_id]['gt_boxes'][:,:7] if args.ps_pkl2 is not None else None,                         
+                                ref_scores=ps_dict[frame_id]['gt_boxes'][:,8][ps_dict[frame_id]['gt_boxes'][:,8] > 0.4], 
+                                ref_labels=list(abs(ps_dict[frame_id]['gt_boxes'][:,7][ps_dict[frame_id]['gt_boxes'][:,8] > 0.4].astype(int))),
                                 gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
-                                draw_origin=False, use_linemesh=args.use_linemesh)
+                                draw_origin=False, use_linemesh=args.use_linemesh, use_class_colors=args.use_class_colors,)
         else:                        
             det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
-            
-            for idx, data_dict in enumerate(target_loader):
+            src_keys = list(det_annos.keys())
+            src_keys.remove('det_cls_weights')
+            len_data = len(det_annos[src_keys[0]])
+
+            for idx in range(len_data):
                 if idx < args.idx:
                     print(f'Skipping {idx}/{args.idx}')
-                    continue                
+                    continue
+                frame_id = det_annos[src_keys[0]][idx]['frame_id']
+                if frame_id not in target_set.frameid_to_idx.keys():
+                    print(f"{frame_id} not found in frameid_to_idx, skipping frame")
+                    continue
+                print(f'Visualizing frame idx: {idx}, frame_id: {frame_id}')
+                pts = target_set[target_set.frameid_to_idx[frame_id]]['points']
+                gt_boxes = target_set[target_set.frameid_to_idx[frame_id]]['gt_boxes']        
                 
-                geom = V.draw_scenes_msda(points=data_dict['points'][:, 1:], 
+                geom = V.draw_scenes_msda(points=pts, 
                                           idx=idx,
                                           det_annos=det_annos,                                        
-                                          gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None,
+                                          gt_boxes=gt_boxes if args.show_gt else None,
                                           use_linemesh=args.use_linemesh)
             
     else:
@@ -219,7 +258,7 @@ def main():
                         fig = plt.figure(figsize=(20,20))
                         ax = plt.subplot(111)
                         fig.subplots_adjust(right=0.7)
-                        if args.sweeps:
+                        if (args.sweeps is not None) and (args.sweeps > 1):
                             ax.scatter(pts[:,0],pts[:,1],s=0.1, c='black', marker='o')
                         else:
                             ax.scatter(pts[:,0],pts[:,1],s=0.5, c='black', marker='o')
@@ -240,7 +279,7 @@ def main():
                     else:
                         V.draw_scenes(
                             points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=ref_boxes, 
-                            ref_scores=ref_scores, ref_labels=ref_labels, use_linemesh=args.use_linemesh
+                            ref_scores=ref_scores, ref_labels=ref_labels, use_linemesh=args.use_linemesh, use_class_colors=args.use_class_colors
                         )
 
 

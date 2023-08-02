@@ -1,5 +1,5 @@
 exp_name: 'RND3_VOXA_VOXC' # all files will be named/searched with this as prefix
-save_dir: '/MS3D/tools/cfgs/target_waymo/ps_labels_rnd3' 
+save_dir: '/MS3D/tools/cfgs/target_lyft/ps_labels_rnd3' 
 dataset_cfg: /MS3D/tools/cfgs/dataset_configs/lyft_dataset_da.yaml
 ps_score_th: # veh,ped,cyc
   pos_th: [0.7,0.6,0.5] # loosen the criteria for final self-training round
@@ -19,10 +19,10 @@ label_refinement:
     min_dets_above_pos_th_for_tracks_ped: 0
     min_num_ped_tracks: 10
   rolling_kbf:
-    min_static_score: 0.85
-    rolling_kde_window: 16
+    min_static_score: 0.8
+    rolling_kde_window: 20
   propagate_boxes:
-    min_static_tracks: 24
+    min_static_tracks: 10 # Lyft scenes have large ego-motion; you don't often see parked cars for long so this number is lower than waymo
     n_extra_frames: 100
     degrade_factor: 0.99
     min_score_clip: 0.5

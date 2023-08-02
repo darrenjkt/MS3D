@@ -1,0 +1,30 @@
+exp_name: 'W_PC_VMFI' # all files will be named/searched with this as prefix
+save_dir: '/MS3D/tools/cfgs/target_nuscenes/ps_labels_exp' 
+dataset_cfg: /MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml
+ps_score_th: # veh,ped,cyc
+  pos_th: [0.7,0.6,0.5]
+  neg_th: [0.2,0.1,0.3]
+pretrained_kbf:
+  discard: [1,1,1]
+  radius: [1.5, 0.3, 0.2]
+  nms: [0.1, 0.3, 0.1]
+tracking:
+  veh_all_cfg: '/MS3D/tracker/configs/nuscenes/ms3d_configs_rnd1/veh_kf_giou.yaml'
+  veh_static_cfg: '/MS3D/tracker/configs/nuscenes/ms3d_configs_rnd1/veh_static_kf_iou2d.yaml'
+  ped_cfg: '/MS3D/tracker/configs/nuscenes/ms3d_configs_rnd1/ped_kf_giou.yaml'
+label_refinement:
+  track_filtering:
+    min_dets_above_pos_th_for_tracks_veh_all: 3
+    min_dets_above_pos_th_for_tracks_veh_static: 3
+    min_dets_above_pos_th_for_tracks_ped: 1
+    use_static_ped_tracks: false
+    min_num_static_veh_tracks: 7
+    min_num_ped_tracks: 7
+  rolling_kbf:
+    min_static_score: 0.8
+    rolling_kde_window: 10
+  propagate_boxes:
+    min_static_tracks: 10
+    n_extra_frames: 40
+    degrade_factor: 0.98
+    min_score_clip: 0.3
