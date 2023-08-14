@@ -1,45 +1,35 @@
 # MS3D
-This is the official code release for **MS3D: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection** 
+This is the official code release for 
+- **MS3D**: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection **[[Paper](https://arxiv.org/abs/2304.02431)]** **[[Video](https://youtu.be/4g-NVmz3gj4)]**
+- **MS3D++**: Ensemble of Experts for Multi-Source Unsupervised Domain Adaption in 3D Object Detection **[[Paper](https://arxiv.org/abs/2308.05988)]** (code and models will be updated in this repo soon)
 
-MS3D is a simple self-training pipeline to improve the performance of 3D detectors on an unlabelled dataset without requiring manual labelling. MS3D can also be used as an offline auto-labelling pipeline.
+MS3D is an **auto-labeling** framework for vehicles and pedestrians that generates high quality labels for re-training of 3D detectors on a variety of lidars, regardless of their density. Simply using our generated labels for training a VoxelRCNN on the Waymo dataset achieves a vehicle detection of 70.3 BEV AP on the official validation dataset, only 3.5 BEV AP less than training with human-annotated labels.
 
-Our pipeline has the following benefits:
-- can fuse detections from **multiple** pre-trained 3D detectors to obtain higher performance than the best single detector. MS3D just requires 3D bounding boxes as input so it is compatible with any 3D detector. 
-- robust adaptation to a **wide range of lidars** such as high to low beam lidar and vice versa.
-- preserves **real-time inference** capability of detectors as we don't modify detector architecture. 
+<p align="center">
+  <img src="docs/media/ms3d++_framework.png">
+</p>
 
-Our box fusion method, KBF, can be used for **detector ensembling** in a supervised setting as well. See our [KBF demo](tools/kbf_demo.ipynb)
+MS3D has the following benefits:
+- Robust labeling of a **wide range of lidars** such as high and low beam lidars.
+- Can **tailor the ensemble** of pre-trained detectors to obtain high auto-labeling quality on any given lidar dataset (e.g. different architectures, source domains, voxel sizes, or class-specific detectors).
+- **Compatible with any 3D detector**. MS3D just requires 3D bounding boxes as input so it is compatible with any 3D detector. Generated labels can be used to replace human-annotated labels in supervised training of any 3D detector.
+- Preserves **real-time inference** capability of detectors as we don't modify detector architecture. 
 
-**[[Paper](https://arxiv.org/abs/2304.02431)]** **[[Video](https://youtu.be/4g-NVmz3gj4)]**
+Our box fusion method, KBF, can be used for **detector ensembling** in a supervised setting as well and can outperform [Weighted Box Fusion (WBF)](https://github.com/ZFTurbo/Weighted-Boxes-Fusion), a popular box fusion method for 3D detector ensembling. See our [KBF demo](tools/kbf_demo.ipynb)
+
 
 ## Overview
-1. [Introduction](#introduction)
-2. [Installation](#installation)
-3. [Getting Started](#getting-started)
-4. [Model Zoo](#model-zoo)
-5. [Qualitative Results](#qualitative-results)
-6. [Citation](#citation)
-
-## Introduction
-
-Existing methods typically focus on adapting a single detector to the target domain, overlooking the fact that different detectors possess distinct expertise on different unseen domains. MS3D leverages this by combining pre-trained detectors from multiple source domains and incorporating temporal information to produce high-quality pseudo-labels for fine-tuning. 
-
-In practice, it is challenging to robustly evaluate and identify the optimal pre-trained detector due to lack of labelled data on new target datasets. With MS3D, our fusion of multiple detectors eliminates the need to robustly evaluate the optimal pre-trained detector for self-training. Furthermore, the choice of source dataset for the pre-trained detector (e.g. nuScenes SECOND-IoU or Lyft SECOND-IoU) has a minimal impact on the fine-tuning performance. 
-
-<p align="center">
-  <img src="docs/media/ms3d_pipeline.png">
-</p>
-
-By combining multiple detectors from different sources (Source 1-4), MS3D can always achieve high quality pseudo-labels for fine-tuning any detector. We show that KBF can outperform [Weighted Box Fusion (WBF)](https://github.com/ZFTurbo/Weighted-Boxes-Fusion), a popular box fusion method for 3D detector ensembling.
-<p align="center">
-  <img src="docs/media/github_collage.png" width="%96">
-</p>
+1. [Installation](#installation)
+2. [Getting Started](#getting-started)
+3. [Model Zoo](#model-zoo)
+4. [Qualitative Results](#qualitative-results)
+5. [Citation](#citation)
 
 ## Installation
 
 Please refer to [INSTALL.md](docs/INSTALL.md) for the installation of MS3D.
 
-## Getting Started
+## Usage - Auto-labeling
 
 - Please refer to [DATASET_PREPARATION.md](docs/DATASET_PREPARATION.md) to prepare the datasets. 
 - Please refer to [GETTING_STARTED.md](docs/GETTING_STARTED.md) to learn more about how to use MS3D. We are also planning on releasing a guide for custom datasets, stay tuned!
