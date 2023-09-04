@@ -14,6 +14,7 @@ from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.utils import box_fusion_utils
 from pcdet.utils import compatibility_utils as compat
 import numpy as np
+import time
 """
 # Examples
 python visualize_3d.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml  \
@@ -45,12 +46,13 @@ def main():
                         help='Specify train or test split')    
     parser.add_argument('--sampled_interval', type=int, default=None,
                         help='same as SAMPLED_INTERVAL config parameter')        
+    parser.add_argument('--save_video_dir', type=str, required=False, default='save_frames')
     parser.add_argument('--custom_train_split', action='store_true', default=False)
     parser.add_argument('--save_video', action='store_true', default=False)
     parser.add_argument('--show_gt', action='store_true', default=False)
     parser.add_argument('--sweeps', type=int, default=None)
     parser.add_argument('--bev_vis', action='store_true', default=False)
-    parser.add_argument('--use_linemesh', action='store_true', default=False)
+    parser.add_argument('--use_linemesh', action='store_true', default=False, help='Visualize with larger boxes but very slow render time')
     parser.add_argument('--use_class_colors', action='store_true', default=False)    
     args = parser.parse_args()
     
@@ -221,27 +223,59 @@ def main():
                     gt_boxes = None
    
                 if args.save_video:
+                    
                     geom = V.get_geometries(
                                 points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=pred_dicts[0]['pred_boxes'], 
                                 ref_scores=pred_dicts[0]['pred_scores'], ref_labels=pred_dicts[0]['pred_labels'], use_linemesh=args.use_linemesh
                             )
+                    # geom = V.get_geometries(
+                    #             points=data_dict['points'][:, 1:])
                     vis.clear_geometries()
                     for g in geom:                
                         vis.add_geometry(g)
                         
                     ctr = vis.get_view_control()    
-                    vis.get_render_option().point_size = 2.0
+                    # vis.get_render_option().point_size = 1.0
 
-                    ctr.set_front([ -0.63703010546300987, 0.031621802576535914, 0.77019004559627835 ])
-                    ctr.set_lookat([ 24.513087638782164, 2.8039754478129324, -1.0959739482593087 ])
-                    ctr.set_up([ 0.77082292993229895, 0.019695916704257327, 0.63674491089899199 ])
-                    ctr.set_zoom(0.16)
-                    
-                    vis.update_renderer()         
-                    vis.poll_events()
-                    
-                    Path('demo_data/save_frames').mkdir(parents=True, exist_ok=True)
-                    vis.capture_screen_image(f'demo_data/save_frames/frame-{idx}.jpg')
+                    # ctr.set_front([ -0.63703010546300987, 0.031621802576535914, 0.77019004559627835 ])
+                    # ctr.set_lookat([ 24.513087638782164, 2.8039754478129324, -1.0959739482593087 ])
+                    # ctr.set_up([ 0.77082292993229895, 0.019695916704257327, 0.63674491089899199 ])
+                    # ctr.set_zoom(0.16)
+
+                    # MS3D++ tgt_waymo qualitative
+                    ctr.set_front([ -0.79490788243448329, 0.01495959113947927, 0.60654568589387037 ])
+                    ctr.set_lookat([ 15.417785290867977, -1.6179187751048014, -8.5173845851153143 ])
+                    ctr.set_up([0.60625059182523544, -0.020154889264250107, 0.79501823900480273])
+                    ctr.set_zoom(0.17999999999999994)
+                    vis.get_render_option().point_size = 1.0       
+
+                    # MS3D++ tgt_lyft qualitative
+                    # ctr.set_front([  0.79570141514638959, -0.092133463771410615, 0.59864069589989899 ])
+                    # ctr.set_lookat([ -12.990834711399467, 2.6371120128719636, -9.8107556449013416 ])
+                    # ctr.set_up([-0.59940629219165342, 0.022207236266390835, 0.80013682301120415])
+                    # ctr.set_zoom(0.17999999999999994)
+                    # vis.get_render_option().point_size = 2.0          
+
+                    # MS3D++ tgt_nusc qualitative
+                    # ctr.set_front([ 0.0087264629048255243, -0.75327240405054774, 0.65765076913288811 ])
+                    # ctr.set_lookat([ -1.8461993414538382, 24.009932413395173, -19.054164307594132 ])
+                    # ctr.set_up([0.012925990806422497, 0.65770583609822197, 0.75316396085049842])
+                    # ctr.set_zoom(0.2599999999999999)
+                    # vis.get_render_option().point_size = 2.0       
+                    # vis.update_renderer()         
+                    # vis.poll_events()
+
+                    # MS3D++ tgt_nusc qualitative (retroactivelabel)
+                    # ctr.set_front([ -0.83664444730658971, -0.1199288729786602, 0.53445592354947258 ])
+                    # ctr.set_lookat([ 29.967540865562142, 4.7417471161548566, -16.906388849566994 ])
+                    # ctr.set_up([0.53322341149418129, 0.044870204273302128, 0.84478367538854582 ])
+                    # ctr.set_zoom(0.15999999999999994)
+                    # vis.get_render_option().point_size = 4.0    
+                    # vis.update_renderer()         
+                    # vis.poll_events()
+
+                    Path(f'demo_data/{args.save_video_dir}').mkdir(parents=True, exist_ok=True)
+                    vis.capture_screen_image(f'demo_data/{args.save_video_dir}/frame-{idx}.jpg', do_render=True)
 
                 else:
 

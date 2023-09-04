@@ -283,6 +283,12 @@ def main():
     # idx_to_frameid[start_idx]
             
     ax.set_title(f'Frame #{start_idx}, FID:{start_frame_id}')
+    if 'scene_name' in target_set.infos[target_set.frameid_to_idx[start_frame_id]]:
+        scene_name = target_set.infos[target_set.frameid_to_idx[start_frame_id]]['scene_name']
+        ax.set_title(f'Frame #{start_idx}, SCENE: {scene_name}, FID:{start_frame_id}')
+    else:
+        ax.set_title(f'Frame #{start_idx}, FID:{start_frame_id}')    
+        
     legend = ax.legend(loc='upper right', bbox_to_anchor=(1.3, 0, 0.07, 1))    
     d = {"down" : 30, "up" : -30}
     def scroll_legend(evt):
@@ -387,8 +393,13 @@ def main():
                         label='tracked boxes2', color=[1,0.7,0], linestyle='dotted',
                         limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True) 
             
-        ax.set_aspect('equal')
-        ax.set_title(f'Frame #{frame_idx}, FID:{frame_id}')
+        if 'scene_name' in target_set.infos[target_set.frameid_to_idx[frame_id]]:
+            scene_name = target_set.infos[target_set.frameid_to_idx[frame_id]]['scene_name']
+            ax.set_title(f'Frame #{frame_idx}, SCENE: {scene_name}, FID:{frame_id}')
+        else:
+            ax.set_title(f'Frame #{frame_idx}, FID:{frame_id}')
+
+        ax.set_aspect('equal')        
         plt.draw()
 
     class Index:

@@ -10,11 +10,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 open3d.utility.set_verbosity_level(open3d.utility.VerbosityLevel(0)) # Suppress paint_uniform_color warning
 
+# these colors may be inconsistent for different datasets
 box_colormap = [
     [1, 1, 1], # ignore
     [0, 0, 1], # car
-    [1, 0.55, 0], # ped
-    [0, 0.8, 0.8], # cyc
+    [0.59607843, 0.30588235, 0.63921569], # ped
+    [0, 0.8, 0.8],
     [0.21568627, 0.49411765, 0.72156863],
     [0.89411765, 0.10196078, 0.10980392],
     [0.59607843, 0.30588235, 0.63921569],
@@ -89,7 +90,7 @@ def draw_scenes_msda(points, idx, gt_boxes, det_annos, draw_origin=False, min_sc
     ctr.set_up([ -0.37595030931731882, 0.2479623453125949, 0.89284715390221758 ])
     ctr.set_zoom(0.079999999999999946)
 
-    vis.get_render_option().point_size = 2.0
+    vis.get_render_option().point_size = 1.0
     vis.run()
     vis.destroy_window()
 
@@ -109,36 +110,14 @@ def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_boxes2=None, ref
         vis.add_geometry(g)
     
     ctr = vis.get_view_control()  
-    
-    # ctr.set_front([ -0.31094269624370807, -0.52800088868119233, 0.79027191599130253 ])
-    # ctr.set_lookat([ -3.9253878764499586, -4.1870200341400947, -16.570707875396788 ])
-    # ctr.set_up([ 0.41025289806528631, 0.67547432104665128, 0.61272098155326737 ])
-    # ctr.set_zoom(0.40)
 
-    # ctr.set_front([ 0.57278828687874994, 0.68011804025434375, 0.45755112253725044 ])
-    # ctr.set_lookat([ -8.4641806710924641, -7.3623522222041924, 2.5407995273764414 ])
-    # ctr.set_up([ -0.28684857878504583, -0.35658771484889035, 0.88913615069225804 ])
-    # ctr.set_zoom(0.059999999999999942)
-
-    # Figure for single vs multi ensemble
-    # ctr.set_front([ 0.72737973442893356, -0.51797808311597837, 0.45013045592760198 ])
-    # ctr.set_lookat([ -13.773417658854088, 0.062465858514556709, -0.53706070047660459 ])
-    # ctr.set_up([ -0.37595030931731882, 0.2479623453125949, 0.89284715390221758 ])
-    # ctr.set_zoom(0.079999999999999946)
-
-    ctr.set_front([ 0.34690703349778723, -0.78068754622583492, 0.51979078991229755 ])
-    ctr.set_lookat([ -13.023111735034501, 8.8836948184772826, 2.1482897767700124 ])
-    ctr.set_up([-0.25519816515521454, 0.45472750782126409, 0.85328587831516045 ])
-    ctr.set_zoom(0.079999999999999946)
-
-    # ctr.set_front([ -0.4739288455844885, -0.63044130286971811, 0.61476435563465015 ])
-    # ctr.set_lookat([ 9.7917129646160088, 16.132097762406449, 0.73179817336463282 ])
-    # ctr.set_up([ 0.37063064712978533, 0.49047894698568628, 0.78870991243420352 ])
-    # ctr.set_zoom(0.059999999999999942)
-    # ctr.set_front([ -0.85415171319858785, 0.0084795734346973951, 0.51995475541077896 ])
-    # ctr.set_lookat([ 22.078260806001634, 1.0249602339143569, -2.8088354431826907 ])
-    # ctr.set_up([ 0.51984622231746436, -0.012211597572028807, 0.85417257157263038 ])
-    # ctr.set_zoom(0.219)
+    # Default open3d view. If you wish to change, press Ctrl+C while the open3D window is 
+    # open to copy the viewing angle, then replace these numbers below
+    ctr.set_front([ -0.009079385782427972, -0.79382993606647601, 0.60807203303433444 ])
+    ctr.set_lookat([ 0.13592805125144847, 25.565951040207825, -13.855443454771956  ])
+    ctr.set_up([-0.008889802784222859, 0.60813714531420293, 0.79378220180068892 ])
+    ctr.set_zoom(0.21999999999999992)
+    vis.get_render_option().point_size = 2.0    
 
     # Original, zoom in, ego vehicle moving towards
     # ctr.set_front([ 0.59083558928204927, 0.44198102848405585, 0.6749563518464804 ])
@@ -152,7 +131,7 @@ def draw_scenes(points=None, gt_boxes=None, ref_boxes=None, ref_boxes2=None, ref
     # ctr.set_up([ -0.55585420737713021, 0.34547108891144618, 0.75609247243143607 ])
     # ctr.set_zoom(0.21900000000000003)
 
-    vis.get_render_option().point_size = 2.0
+    
     vis.run()
     vis.destroy_window()
 
@@ -180,7 +159,9 @@ def get_geometries(points, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_b
         geometries.append(pts)
 
     if gt_boxes is not None:
-        box = get_box(gt_boxes, (0, 0, 1.0), list(gt_boxes[:,7].astype(int)), use_linemesh=use_linemesh, use_class_colors=use_class_colors)
+        # if nuscenes, gt_boxes class is gt_boxes[:,9] or [:,-1] for setting colors
+        # for waymo, gt_boxes class is gt_boxes[:,7]. Not sure if it's also -1 so this might throw an error
+        box = get_box(gt_boxes, (0, 0, 1.0), ref_labels=list(gt_boxes[:,-1].astype(int)), use_linemesh=use_linemesh, use_class_colors=use_class_colors)
         geometries.extend(box)
 
     if ref_boxes is not None:
