@@ -20,58 +20,33 @@ PSEUDO_LABELS = {}
 NEW_PSEUDO_LABELS = {}  
 
 
-def check_already_exist_pseudo_label(ps_label_dir):
+def load_pseudo_label(ps_label_dir):
     """
-    if we continue training, use this to directly
-    load pseudo labels from exsiting result pkl
-
-    if exsit, load latest result pkl to PSEUDO LABEL
-    otherwise, return false and
+    Load MS3D pseudo-labels and save a copy in the output training folder
 
     Args:
-        ps_label_dir: dir to save pseudo label results pkls.
-        start_epoch: start epoc
-    Returns:
-
+        ps_label_dir: dir to save pseudo label results pkls
     """
-    # support init ps_label given by cfg
-    if cfg.SELF_TRAIN.get('INIT_PS', None):
-        if cfg.SELF_TRAIN.INIT_PS is not None:
-            if os.path.exists(cfg.SELF_TRAIN.INIT_PS):
-                init_ps_label = pkl.load(open(cfg.SELF_TRAIN.INIT_PS, 'rb'))
-                # filter_ps_by_neg_score(init_ps_label)
-                PSEUDO_LABELS.update(init_ps_label)
-                if cfg.LOCAL_RANK == 0:
-                    ps_path = os.path.join(ps_label_dir, "ps_label_e0.pkl")
-                    with open(ps_path, 'wb') as f:
-                        pkl.dump(init_ps_label, f)
+    # Load initial pseudo-label
+    if os.path.exists(cfg.SELF_TRAIN.INIT_PS):
+        init_ps_label = pkl.load(open(cfg.SELF_TRAIN.INIT_PS, 'rb'))                
+        PSEUDO_LABELS.update(init_ps_label)
 
-                return cfg.SELF_TRAIN.INIT_PS
-            else:
-                print("No file found at: ", cfg.SELF_TRAIN.INIT_PS)
-                raise FileNotFoundError
+        # Save a copy
+        if cfg.LOCAL_RANK == 0:
+            ps_path = os.path.join(ps_label_dir, "ps_label_e0.pkl")
+            with open(ps_path, 'wb') as f:
+                pkl.dump(init_ps_label, f)
 
-    ps_label_list = glob.glob(os.path.join(ps_label_dir, 'ps_label_e*.pkl'))
-    if len(ps_label_list) == 0:
-        return
-
-    ps_label_list.sort(key=os.path.getmtime, reverse=True)
-    for cur_pkl in ps_label_list:
-        num_epoch = re.findall('ps_label_e(.*).pkl', cur_pkl)
-        assert len(num_epoch) == 1
-
-        # load pseudo label and return
-        if int(num_epoch[0]) <= start_epoch:
-            latest_ps_label = pkl.load(open(cur_pkl, 'rb'))
-            PSEUDO_LABELS.update(latest_ps_label)
-            return cur_pkl
-
-    return None
+        return cfg.SELF_TRAIN.INIT_PS
+    else:
+        print("No file found at: ", cfg.SELF_TRAIN.INIT_PS)
+        raise FileNotFoundError
 
 
 def save_pseudo_label_epoch(model, val_loader, rank, leave_pbar, ps_label_dir, cur_epoch):
     """
-    Generate pseudo label with given model.
+    Generate pseudo label with given model (ST3D function, not used in MS3D).
     Args:
         model: model to predict result for pseudo label
         val_loader: data_loader to predict pseudo label
@@ -160,7 +135,7 @@ def save_pseudo_label_batch(input_dict,
                             pred_dicts=None,
                             need_update=True):
     """
-    Save pseudo label for give batch.
+    Save pseudo label for give batch (ST3D function, not used in MS3D)
     If model is given, use model to inference pred_dicts,
     otherwise, directly use given pred_dicts.
 
@@ -249,15 +224,3 @@ def load_ps_label(frame_id):
         raise ValueError('Cannot find pseudo label for frame: %s' % frame_id)
 
     return gt_box
-
-def get_num_pts(frame_id):
-    """
-    :param frame_id: file name of pseudo label
-    :return gt_box: loaded gt boxes (N, 9) [x, y, z, w, l, h, ry, label, scores]
-    """
-    if frame_id in PSEUDO_LABELS:
-        num_pts = PSEUDO_LABELS[frame_id]['num_pts']
-    else:
-        raise ValueError('Cannot find num_pts for frame: %s' % frame_id)
-
-    return num_pts

@@ -48,60 +48,57 @@ def train_one_epoch_st(model, optimizer, source_reader, target_loader, model_fun
         model.train()
         optimizer.zero_grad()
         
-        if cfg.SELF_TRAIN.SRC.USE_DATA:
-            # forward source data with labels
-            source_batch = source_reader.read_data()
+        if cfg.SELF_TRAIN.get('SRC', None):
+            if cfg.SELF_TRAIN.SRC.USE_DATA:
+                # forward source data with labels
+                source_batch = source_reader.read_data()
 
-            if cfg.SELF_TRAIN.get('DSNORM', None):
-                model.apply(set_ds_source)
+                if cfg.SELF_TRAIN.get('DSNORM', None):
+                    model.apply(set_ds_source)
 
-            if cfg.SELF_TRAIN.SRC.get('SEP_LOSS_WEIGHTS', None):
-                source_batch['SEP_LOSS_WEIGHTS'] = cfg.SELF_TRAIN.SRC.SEP_LOSS_WEIGHTS
-            
-            loss, tb_dict, disp_dict = model_func(model, source_batch)
-            loss = cfg.SELF_TRAIN.SRC.get('LOSS_WEIGHT', 1.0) * loss
-            loss.backward()
-            loss_meter.update(loss.item())
-            disp_dict.update({'loss': "{:.3f}({:.3f})".format(loss_meter.val, loss_meter.avg)})
+                if cfg.SELF_TRAIN.SRC.get('SEP_LOSS_WEIGHTS', None):
+                    source_batch['SEP_LOSS_WEIGHTS'] = cfg.SELF_TRAIN.SRC.SEP_LOSS_WEIGHTS
+                
+                loss, tb_dict, disp_dict = model_func(model, source_batch)
+                loss = cfg.SELF_TRAIN.SRC.get('LOSS_WEIGHT', 1.0) * loss
+                loss.backward()
+                loss_meter.update(loss.item())
+                disp_dict.update({'loss': "{:.3f}({:.3f})".format(loss_meter.val, loss_meter.avg)})
 
-            if not cfg.SELF_TRAIN.SRC.get('USE_GRAD', None):
-                optimizer.zero_grad()
+                if not cfg.SELF_TRAIN.SRC.get('USE_GRAD', None):
+                    optimizer.zero_grad()
 
-        if cfg.SELF_TRAIN.TAR.USE_DATA:
-            try:
-                target_batch = next(dataloader_iter)
-            except StopIteration:
-                dataloader_iter = iter(target_loader)
-                target_batch = next(dataloader_iter)
-                print('new iters')
-            data_timer = time.time()
-            cur_data_time = data_timer - end
+        # Target dataset forward pass
+        try:
+            target_batch = next(dataloader_iter)
+        except StopIteration:
+            dataloader_iter = iter(target_loader)
+            target_batch = next(dataloader_iter)
+            print('new iters')
+        data_timer = time.time()
+        cur_data_time = data_timer - end
 
-            if cfg.SELF_TRAIN.get('DSNORM', None):
-                model.apply(set_ds_target)
+        if cfg.SELF_TRAIN.get('DSNORM', None):
+            model.apply(set_ds_target)
 
-            if cfg.SELF_TRAIN.TAR.get('SEP_LOSS_WEIGHTS', None):
-                target_batch['SEP_LOSS_WEIGHTS'] = cfg.SELF_TRAIN.TAR.SEP_LOSS_WEIGHTS
+        # parameters for save pseudo label on the fly
+        st_loss, st_tb_dict, st_disp_dict = model_func(model, target_batch)
+        st_loss.backward()
+        st_loss_meter.update(st_loss.item())
 
-            # parameters for save pseudo label on the fly
-            st_loss, st_tb_dict, st_disp_dict = model_func(model, target_batch)
-            st_loss = cfg.SELF_TRAIN.TAR.get('LOSS_WEIGHT', 1.0) * st_loss
-            st_loss.backward()
-            st_loss_meter.update(st_loss.item())
+        # count number of used ps bboxes in this batch
+        pos_pseudo_bbox = target_batch['pos_ps_bbox'].mean(dim=0).cpu().numpy()
+        ign_pseudo_bbox = target_batch['ign_ps_bbox'].mean(dim=0).cpu().numpy()
+        ps_bbox_nmeter.update(pos_pseudo_bbox.tolist())
+        ign_ps_bbox_nmeter.update(ign_pseudo_bbox.tolist())
+        pos_ps_result = ps_bbox_nmeter.aggregate_result()
+        ign_ps_result = ign_ps_bbox_nmeter.aggregate_result()
 
-            # count number of used ps bboxes in this batch
-            pos_pseudo_bbox = target_batch['pos_ps_bbox'].mean(dim=0).cpu().numpy()
-            ign_pseudo_bbox = target_batch['ign_ps_bbox'].mean(dim=0).cpu().numpy()
-            ps_bbox_nmeter.update(pos_pseudo_bbox.tolist())
-            ign_ps_bbox_nmeter.update(ign_pseudo_bbox.tolist())
-            pos_ps_result = ps_bbox_nmeter.aggregate_result()
-            ign_ps_result = ign_ps_bbox_nmeter.aggregate_result()
-
-            st_tb_dict = common_utils.add_prefix_to_dict(st_tb_dict, 'st_')
-            disp_dict.update(common_utils.add_prefix_to_dict(st_disp_dict, 'st_'))
-            disp_dict.update({'st_loss': "{:.3f}({:.3f})".format(st_loss_meter.val, st_loss_meter.avg),
-                              'pos_ps_box': pos_ps_result,
-                              'ign_ps_box': ign_ps_result})
+        st_tb_dict = common_utils.add_prefix_to_dict(st_tb_dict, 'st_')
+        disp_dict.update(common_utils.add_prefix_to_dict(st_disp_dict, 'st_'))
+        disp_dict.update({'st_loss': "{:.3f}({:.3f})".format(st_loss_meter.val, st_loss_meter.avg),
+                            'pos_ps_box': pos_ps_result,
+                            'ign_ps_box': ign_ps_result})
 
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
@@ -149,14 +146,15 @@ def train_one_epoch_st(model, optimizer, source_reader, target_loader, model_fun
 
             if tb_log is not None:
                 tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
-                if cfg.SELF_TRAIN.SRC.USE_DATA:
-                    tb_log.add_scalar('train/loss', loss, accumulated_iter)
-                    for key, val in tb_dict.items():
-                        tb_log.add_scalar('train/' + key, val, accumulated_iter)
-                if cfg.SELF_TRAIN.TAR.USE_DATA:
-                    tb_log.add_scalar('train/st_loss', st_loss, accumulated_iter)
-                    for key, val in st_tb_dict.items():
-                        tb_log.add_scalar('train/' + key, val, accumulated_iter)
+                if cfg.SELF_TRAIN.get('SRC', None):
+                    if cfg.SELF_TRAIN.SRC.USE_DATA:
+                        tb_log.add_scalar('train/loss', loss, accumulated_iter)
+                        for key, val in tb_dict.items():
+                            tb_log.add_scalar('train/' + key, val, accumulated_iter)
+
+                tb_log.add_scalar('train/st_loss', st_loss, accumulated_iter)
+                for key, val in st_tb_dict.items():
+                    tb_log.add_scalar('train/' + key, val, accumulated_iter)
     if rank == 0:
         pbar.close()
         for i, class_names in enumerate(target_loader.dataset.class_names):
@@ -177,16 +175,9 @@ def train_model_st(model, optimizer, source_loader, target_loader, model_func, l
     source_reader = common_utils.DataReader(source_loader, source_sampler)
     source_reader.construct_iter()
 
-    # for continue training.
-    # if already exist generated pseudo label result
-    ps_pkl = self_training_utils.check_already_exist_pseudo_label(ps_label_dir)
-    logger.info('==> Loading pseudo labels from {}'.format(ps_pkl))
-    # if ps_pkl is not None:
-    #     logger.info('==> Loading pseudo labels from {}'.format(ps_pkl))
-    # else:
-    #     if cfg.SELF_TRAIN.get('MS_DETECTOR_PS', None):
-    #         logger.info('==> Generating pseudo-labels using multiple source detectors')
-    #         self_training_utils.init_multi_source_ps_label(target_loader.dataset, ps_label_dir=ps_label_dir)
+    # load pseudo-label
+    ps_pkl_path = self_training_utils.load_pseudo_label(ps_label_dir)
+    logger.info('==> Loading pseudo labels from {}'.format(ps_pkl_path))
 
     with tqdm.trange(start_epoch, total_epochs, desc='epochs', dynamic_ncols=True,
                      leave=(rank == 0)) as tbar:
@@ -208,7 +199,7 @@ def train_model_st(model, optimizer, source_loader, target_loader, model_func, l
             else:
                 cur_scheduler = lr_scheduler            
             
-            # update pseudo label
+            # update pseudo label - we don't update pseudo-label in ms3d++
             # if (cur_epoch in cfg.SELF_TRAIN.UPDATE_PSEUDO_LABEL) or \
             #     ((cur_epoch % cfg.SELF_TRAIN.UPDATE_PSEUDO_LABEL_INTERVAL == 0)
             #          and cur_epoch != 0):

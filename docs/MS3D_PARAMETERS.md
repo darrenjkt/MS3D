@@ -1,7 +1,9 @@
 
 
 # MS3D Parameter Explanation
-MS3D configuration is located in `tools/cfgs/target_dataset/label_generation/roundN/cfgs/ps_config.yaml`. Here is an explanation the parameters.
+MS3D configuration for each round of self-training on the given target dataset is located in `tools/cfgs/target_dataset/label_generation/roundN/cfgs/ps_config.yaml`. 
+
+Here is an explanation the parameters.
 
 ```yaml
 EXP_NAME: W_L_VMFI_TTA_PA_PC_VA_VC_64  # all files will be saved/searched with this prefix
@@ -15,12 +17,13 @@ PS_SCORE_TH:
   POS_TH: [0.7,0.6,0.5] # labels with score above this are used as pseudo-labels
   NEG_TH: [0.2,0.1,0.3] # labels with score under this are removed
 
+## MS3D Step 1: Ensemble pre-trained detectors from different sources
 ENSEMBLE_KBF:
   DISCARD: [4, 4, 4] # if less than N predictions overlapping, we do not fuse the box
   RADIUS: [1.5, 0.3, 0.2] # find all centroids within a radius as fusion candidates
   NMS: [0.1, 0.3, 0.1]
 
-# Tracking with SimpleTrack
+## MS3D Step 2: Tracking with SimpleTrack
 # giou as proposed by SimpleTrack is similar to iou if in range [0,1]
 # RUNNING: use detection box as tracked box, and update kalman filter state
 # REDUNDANCY: use kalman filter predicted box as tracked box
@@ -60,11 +63,11 @@ TRACKING:
         MAX_REDUNDANCY_AGE: 3
         ASSO_TH: -0.5
 
+## MS3D Step 3: Refine all boxes temporally to get final pseudo-labels
 TEMPORAL_REFINEMENT:
 
   # Retroactive Object Labeling
   TRACK_FILTERING: 
-
     # Number of confident detections required such that we consider the track as a pseudo-label
     MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_ALL: 7
     MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_STATIC: 3
@@ -90,3 +93,5 @@ TEMPORAL_REFINEMENT:
     DEGRADE_FACTOR: 0.98 # score of propagated boxes = DEGRADE_FACTOR*score
     MIN_SCORE_CLIP: 0.3 # unused at the moment
 ```        
+
+Final pseudo-labels are given in the format: (x,y,z,dx,dy,dz,heading,class_id,score). Only positive class_ids are used for training.

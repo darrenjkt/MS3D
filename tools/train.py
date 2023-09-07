@@ -131,12 +131,6 @@ def main():
             cfg.DATA_CONFIG_TAR, cfg.DATA_CONFIG_TAR.CLASS_NAMES, args.batch_size,
             dist_train, workers=args.workers, logger=logger, training=True
         )
-        if cfg.DATA_CONFIG_TAR.get('DATA_LEN', False):
-            import numpy as np
-            datainds = np.array(target_set.datainds,dtype=np.int)
-            with open(str(output_dir / 'datainds.npy'), 'wb') as f:
-                np.save(f, datainds)
-
     else:
         target_set = target_loader = target_sampler = None
 

@@ -64,5 +64,3 @@ if __name__ == '__main__':
     ms3d_utils.save_data(final_ps_dict, str(Path(ms3d_configs["SAVE_DIR"])), name="final_ps_dict.pkl")
 
     print('Finished generating pseudo-labels')
-    # Final pseudo-labels are given in the format: (x,y,z,dx,dy,dz,heading,class_id,score). Only positive class_ids are used for training.
-    # shutil.copyfile(args.ps_cfg, str(Path(ms3d_configs["SAVE_DIR"]) / f'{Path(args.ps_cfg).stem}.yaml'))

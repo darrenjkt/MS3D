@@ -137,8 +137,8 @@ class DatasetTemplate(torch_data.Dataset):
 
     def fill_pseudo_labels(self, input_dict, psid2clsid):
         """
-        All labels are loaded with the index: class as 1:Vehicle, 2:Pedestrian, 3:Cyclist so we need to re-map them
-        to the same class indices that the pre-trained detector has learnt
+        All labels are loaded with the index: class as 1:Vehicle, 2:Pedestrian.
+        Each target dataset.py should have a re-mapping in their __getitem__
         """
         
         gt_boxes = self_training_utils.load_ps_label(input_dict['frame_id'])                
