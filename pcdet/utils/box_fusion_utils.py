@@ -9,8 +9,7 @@ from pcdet.utils import common_utils
 from pcdet.utils.transform_utils import get_rotation_near_weighted_mean
 from tqdm import tqdm 
 
-# For MS3D labels, re-map every class into super categories with index:category of 1:VEH/CAR, 2:PED, 3:CYC
-# When we load in the labels for fine-tuning the specific detector, we can re-index it based on the pretrained class index
+# Super categories for MS3D compatibility across datasets
 SUPERCATEGORIES = ['Vehicle','Pedestrian','Cyclist']
 SUPER_MAPPING = {'car': 'Vehicle',
                 'truck': 'Vehicle',
@@ -18,7 +17,7 @@ SUPER_MAPPING = {'car': 'Vehicle',
                 'Vehicle': 'Vehicle',
                 'pedestrian': 'Pedestrian',
                 'Pedestrian': 'Pedestrian',
-                'motorcycle': 'Cyclist', # TODO: Waymo maps motorcycle to Vehicle
+                'motorcycle': 'Cyclist', # TODO: Waymo maps motorcycle to Vehicle. We ignore cyclist class for now
                 'bicycle': 'Cyclist',
                 'Cyclist': 'Cyclist'}
 
@@ -165,9 +164,8 @@ def get_detection_sets(det_annos, score_th=0.1):
     This function returns a list where each element contains all the detection sets for one frame.
     When we generate the detection sets with test.py, we map the class names to the target domain, but not the class_id.
 
-    No matter the target domain, combine all detection sets as veh,ped,cyc with index 1,2,3 first. Later on, when we load in the labels for 
-    training, we'll adapt it for the source pretrained model's classes with the DATA_CONFIG.CLASS_NAMES. This is because we need to maintain 
-    the original pre-trained detector's class indexing. If motorcycle was idx=4, we should use cyclist as idx=4 at training.
+    No matter the target domain, combine all detection sets as veh,ped,cyc with index 1,2,3 first. We map these indices
+    to dataset-specific class ids in the __getitem__ of each dataset.py
     """
     detection_sets = []
     src_keys = list(det_annos.keys())
@@ -185,11 +183,10 @@ def get_detection_sets(det_annos, score_th=0.1):
             frame_dets['source_id'].extend([src_id for i in range(len(det_annos[key][idx]['score'][score_mask]))])
             
             # Remap every class_id to the supercategory class_id of 1:veh/car, 2:ped, 3:cyc
-            # TODO: Confirm that this works for every target domain
             pred_names = det_annos[key][idx]['name'][score_mask]
             superclass_ids = np.array([SUPERCATEGORIES.index(SUPER_MAPPING[name])+1 for name in pred_names])
             frame_dets['class_ids'].extend(superclass_ids)
-            frame_dets['names'].extend(pred_names)
+            frame_dets['names'].extend([SUPER_MAPPING[name] for name in pred_names])
             det_cls_weights = det_annos['det_cls_weights'][key]
             frame_dets['box_weights'].extend(np.array([det_cls_weights[cid-1] for cid in superclass_ids]))
 
@@ -352,7 +349,60 @@ def label_fusion(boxes_lidar, discard, radius, nms_thresh=0.05, use_box_weights=
     return fused_boxes
 
 
-#### -------------- WBF (just for ablation) --------------
+def get_initial_pseudo_labels(detection_sets, cls_kbf_config): 
+    """
+    Combines multiple detection sets into one to get our initial pseudo-label set. Each 
+    class is fused separately.
+
+    Returns:
+        ps_dict: a nested dict where each key is the frame_id and contains the labels gt_box (N,9) np.array
+    """
+    ps_dict = {}
+
+    for frame_boxes in tqdm(detection_sets, total=len(detection_sets), desc='get initial label set'):
+
+        boxes_lidar = np.hstack([frame_boxes['boxes_lidar'],
+                                 frame_boxes['class_ids'][...,np.newaxis],
+                                 frame_boxes['score'][...,np.newaxis],
+                                 frame_boxes['box_weights'][...,np.newaxis]])
+
+        ps_label_nms = []
+        for class_name in SUPERCATEGORIES:
+            cls_mask = (frame_boxes['names'] == class_name)
+            cls_boxes = boxes_lidar[cls_mask]
+            cls_boxes = cls_boxes[cls_boxes[:,9] > 0] # Discard if box weight == 0
+            if cls_boxes.shape[0] == 0:
+                continue
+            score_mask = cls_boxes[:,8] > cls_kbf_config[class_name]['neg_th']
+            cls_kbf_boxes = label_fusion(cls_boxes[score_mask],
+                                           discard=cls_kbf_config[class_name]['discard'], 
+                                           radius=cls_kbf_config[class_name]['radius'], 
+                                           nms_thresh=cls_kbf_config[class_name]['nms'], 
+                                           use_box_weights=True)            
+
+            ps_label_nms.extend(cls_kbf_boxes)
+
+        if ps_label_nms:
+            ps_label_nms = np.array(ps_label_nms)
+        else:
+            ps_label_nms = np.empty((0,9))
+            
+        pred_boxes = ps_label_nms[:,:7]
+        pred_labels = ps_label_nms[:,7]
+        pred_scores = ps_label_nms[:,8]
+        gt_box = np.concatenate((pred_boxes,
+                                pred_labels.reshape(-1, 1),
+                                pred_scores.reshape(-1, 1)), axis=1)    
+        
+        # Currently we only store pseudo label information for each frame
+        gt_infos = {
+            'gt_boxes': gt_box,
+        } 
+        ps_dict[frame_boxes['frame_id']] = gt_infos
+    return ps_dict
+
+
+#### -------------- WBF (just for ablation of first MS3D paper) --------------
 
 
 def wbf(matched_boxes, src_weights=None):

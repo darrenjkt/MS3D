@@ -1,48 +1,92 @@
 
 
 # MS3D Parameter Explanation
-MS3D is predominantly in the "SELF_TRAIN" section of the `config.yaml`. Here is an explanation the parameters.
+MS3D configuration is located in `tools/cfgs/target_dataset/label_generation/roundN/cfgs/ps_config.yaml`. Here is an explanation the parameters.
 
 ```yaml
-SELF_TRAIN:
-    SCORE_THRESH: 0.6 # only boxes above 0.6 score are used as pseudo-labels
-    NEG_THRESH: 0.4 # any labels under this are removed
-    UPDATE_PSEUDO_LABEL: [-1] # update pseudo-labels at specified epochs
-    UPDATE_PSEUDO_LABEL_INTERVAL: 100 # or set interval to update pseudo-labels
-    MS_DETECTOR_PS:
-        FUSION: kde_fusion
-        # DISCARD: If less than N predictions, we do not fuse the box
-        # RADIUS: Find all centroids within distance "RADIUS" as fusion candidates
-        ACCUM1:
-            PATH: '/MS3D/tools/cfgs/target-lyft/raw_dets/det_1f_paths_5hz.txt' 
-            DISCARD: 4 
-            RADIUS: 2.0
-        ACCUM16:
-            PATH: '/MS3D/tools/cfgs/target-lyft/raw_dets/det_16f_paths.txt'
-            DISCARD: 3
-            RADIUS: 1.0
+EXP_NAME: W_L_VMFI_TTA_PA_PC_VA_VC_64  # all files will be saved/searched with this prefix
 
-        MIN_STATIC_SCORE: 0.7 # alpha (in the paper)
-        MIN_DETS_FOR_TRACK_1F: 3 
-        MIN_DETS_FOR_TRACK_16F: 3
-        ROLLING_KDE_WINDOW: 16 # H (in the paper)
-        PROPAGATE_STATIC_BOXES:         
-            ENABLED: True
-            MIN_DETS: 7 # if track has less than MIN_DETS we do not propagate
-            N_EXTRA_FRAMES: 40
-            DEGRADE_FACTOR: 0.95 # beta (in the paper)
-            MIN_SCORE_CLIP: 0.5
-        TRACKING: # Tracker association ious
-            ACCUM1_CFG: /MS3D/tracker/configs/msda_configs/msda_1frame_giou.yaml 
-            ACCUM16_CFG: /MS3D/tracker/configs/msda_configs/msda_16frame_iou.yaml
+DETS_TXT: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/cfgs/W_L_VMFI_TTA_PA_PC_VA_VC_64.txt  # pre-trained predictions
+SAVE_DIR: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/ps_labels 
+DATA_CONFIG: /MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml   # target dataset uda config
 
-    INIT_PS: None # you can set an existing ps_label_e0.pkl here
+# PS_SCORE_TH and ENSEMBLE_KBF params are given as: [veh_th, ped_th, cyc_th]
+PS_SCORE_TH: 
+  POS_TH: [0.7,0.6,0.5] # labels with score above this are used as pseudo-labels
+  NEG_TH: [0.2,0.1,0.3] # labels with score under this are removed
 
-    # optional: can do a pseudo-label update with UPDATE_PSEUDO_LABEL: [22,26]
-    MEMORY_ENSEMBLE:
-        ENABLED: True
-        NAME: simplified_cons_ensemble
-        IOU_THRESH: 0.1
+ENSEMBLE_KBF:
+  DISCARD: [4, 4, 4] # if less than N predictions overlapping, we do not fuse the box
+  RADIUS: [1.5, 0.3, 0.2] # find all centroids within a radius as fusion candidates
+  NMS: [0.1, 0.3, 0.1]
+
+# Tracking with SimpleTrack
+# giou as proposed by SimpleTrack is similar to iou if in range [0,1]
+# RUNNING: use detection box as tracked box, and update kalman filter state
+# REDUNDANCY: use kalman filter predicted box as tracked box
+# running asso_th is (1-asso_th), redundancy asso_th is (asso_th) [see SimpleTrack github]
+TRACKING:
+  VEH_ALL:
+    RUNNING:
+        SCORE_TH: 0.5
+        MAX_AGE_SINCE_UPDATE: 2
+        MIN_HITS_TO_BIRTH: 2
+        ASSO: giou
+        ASSO_TH: 1.3
+    REDUNDANCY:
+        SCORE_TH: 0.1
+        MAX_REDUNDANCY_AGE: 3
+        ASSO_TH: -0.3
+  VEH_STATIC:
+    RUNNING:
+        SCORE_TH: 0.3
+        MAX_AGE_SINCE_UPDATE: 3
+        MIN_HITS_TO_BIRTH: 2
+        ASSO: iou_2d
+        ASSO_TH: 0.7
+    REDUNDANCY:
+        SCORE_TH: 0.1
+        MAX_REDUNDANCY_AGE: 2
+        ASSO_TH: 0.5
+  PEDESTRIAN:
+    RUNNING:
+        SCORE_TH: 0.2
+        MAX_AGE_SINCE_UPDATE: 2
+        MIN_HITS_TO_BIRTH: 2
+        ASSO: giou
+        ASSO_TH: 1.5
+    REDUNDANCY:
+        SCORE_TH: 0.1
+        MAX_REDUNDANCY_AGE: 3
+        ASSO_TH: -0.5
+
+TEMPORAL_REFINEMENT:
+
+  # Retroactive Object Labeling
+  TRACK_FILTERING: 
+
+    # Number of confident detections required such that we consider the track as a pseudo-label
+    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_ALL: 7
+    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_STATIC: 3
+    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_PED: 1
+    
+    # Use object tracks only if there's enough tracks
+    MIN_NUM_STATIC_VEH_TRACKS: 7
+    MIN_NUM_PED_TRACKS: 7
+
+    # After a few self-training rounds, static peds may be good to use as well
+    USE_STATIC_PED_TRACKS: false
+  
+  # Refine static vehicle position for each frame with ROLLING_KDE_WINDOW historical predictions
+  # The score of the final refined box is max(MIN_STATIC_SCORE, fused_box_score)
+  ROLLING_KBF:
+    MIN_STATIC_SCORE: 0.8
+    ROLLING_KDE_WINDOW: 10
+
+  # Propagate the refined static box to the previous N_EXTRA_FRAMES and future N_EXTRA_FRAMES
+  PROPAGATE_BOXES:
+    MIN_STATIC_TRACKS: 10 # make sure there are at least MIN_STATIC_TRACKS boxes that are above POS_TH for each static vehicle 
+    N_EXTRA_FRAMES: 40 # number of frames to propagate temporally
+    DEGRADE_FACTOR: 0.98 # score of propagated boxes = DEGRADE_FACTOR*score
+    MIN_SCORE_CLIP: 0.3 # unused at the moment
 ```        
-
-MEMORY_ENSEMBLE `simplified_cons_ensemble` updates the pseudo-labels by replacing existing pseudo-labels with the detector's prediction. When we propagate the static boxes across all frames, it can be thought of as an object prior. In some cases refining these object priors help to increase number of labels and improve performance. We found that ST3D's consistency ensemble often generates a lot of false positives.

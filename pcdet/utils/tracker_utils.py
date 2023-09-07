@@ -8,7 +8,8 @@ from mot_3d.data_protos import BBox
 from pcdet.utils.transform_utils import ego_to_world
 from pcdet.utils import compatibility_utils as compat_utils
 
-def get_tracklets(dataset, ps_dict, cfg_path, cls_id):
+
+def get_tracklets(dataset, ps_dict, configs, cls_id):
     """
     Uses SimpleTrack to generate tracklets for the dataset
     
@@ -16,7 +17,6 @@ def get_tracklets(dataset, ps_dict, cfg_path, cls_id):
 
     """
 
-    configs = yaml.load(open(cfg_path, 'r'), Loader=yaml.Loader)
     tracks = {}
     tracker = None
     prev_count = 0
@@ -132,218 +132,29 @@ def get_frame_track_boxes(tracks, frame_id, frame2box_key=None, nhistory=0):
     return frame_boxes
 
 
-
-### ------------------------- No longer used  -------------------------
-# def associate_track_ids_to_dets(PSEUDO_LABELS, tracks, match_radius=3, potential_match_iou_th=0.1):
-#     """
-#     Iterate through all the boxes in each track_id and associate them with each frame's detection box.
-#     This function modifies the PSEUDO_LABELS reference and assigns a track_id for each box
-#     """
-#     for track_id in tracks.keys():
-#         boxes = tracks[track_id]['boxes']
-#         frame_ids = tracks[track_id]['frame_id']
-#         for enum, box in enumerate(boxes):
-#             frame_id = frame_ids[enum] 
-            
-#             if 'track_ids' not in PSEUDO_LABELS[frame_id].keys():
-#                 PSEUDO_LABELS[frame_id]['track_ids'] = {}
-                
-#             ps_boxes_global = PSEUDO_LABELS[frame_id]['gt_boxes_global']
-#             nearby_mask = np.linalg.norm(ps_boxes_global[:,:2]-box[:2], axis=1) < match_radius
-#             potential_det_matches = ps_boxes_global[nearby_mask]
-#             # Compute IOU
-#             iou_matrix = iou3d_nms_utils.boxes_bev_iou_cpu(box.reshape(1,-1)[:,:7], 
-#                                                 potential_det_matches[:,:7])
-#             ious_track2det = np.max(iou_matrix, axis=0)
-#             overlap_mask = ious_track2det > potential_match_iou_th
-            
-#             # Use rounded xy (in global frame) as the det box key 
-#             # (in case of multiple track id for one box)
-#             for pdet in  potential_det_matches[overlap_mask]:
-#                 det_box_key = tuple(np.round(pdet[:2],2))
-#                 if det_box_key not in PSEUDO_LABELS[frame_id]['track_ids'].keys():
-#                     PSEUDO_LABELS[frame_id]['track_ids'][det_box_key] = []
-#                 PSEUDO_LABELS[frame_id]['track_ids'][det_box_key].append(track_id)       
-#                 if 'det_boxes' not in tracks[track_id]:
-#                     tracks[track_id]['det_boxes'] = []
-#                 tracks[track_id]['det_boxes'].append(pdet)    
-        
-#     for frame_id, ps in PSEUDO_LABELS.items():
-#         if 'track_ids' not in ps.keys():
-#             continue
-#         for k,v in ps['track_ids'].items():
-#             if len(v) > 1:
-#                 for trk_id in v:
-#                     if 'overlap' not in tracks[trk_id].keys():
-#                         tracks[trk_id]['overlap'] = {}
-#                     tracks[trk_id]['overlap'][frame_id] = [ind for ind in v if ind != trk_id]           
-
-# def clean_and_reassign_tracks(PSEUDO_LABELS,tracks):
-#     """
-#     Remove IDs from previous association which had overlapping tracks and
-#     re-do association step
-#     """
-#     for key in tracks.keys():
-#         tracks[key]['motion_state'] = get_motion_state(tracks[key]['boxes'])        
-#         if 'overlap' in tracks[key].keys():
-#             tracks[key].pop('overlap')
-#         tracks[key].pop('det_boxes')
-        
-#     for frame_id in PSEUDO_LABELS.keys():
-#         if 'track_ids' in PSEUDO_LABELS[frame_id].keys():
-#             PSEUDO_LABELS[frame_id].pop('track_ids')                                    
+def prepare_track_cfg(ms3d_tracking_cfg):
+    """
+    This function fixes a few default configs for SimpleTrack to simplify the MS3D tracking config    
+    ms3d_tracking_cfg: tracking config for veh_all, veh_static or ped e.g. ms3d_cfg['tracking']['veh_all']        
+    """
+    trk_cfg = {}    
+    trk_cfg['running'] = {}        
+    trk_cfg['running']['covariance'] = 'default'
+    trk_cfg['running']['score_threshold'] = ms3d_tracking_cfg['RUNNING']['SCORE_TH']
+    trk_cfg['running']['max_age_since_update'] = ms3d_tracking_cfg['RUNNING']['MAX_AGE_SINCE_UPDATE']
+    trk_cfg['running']['min_hits_to_birth'] = ms3d_tracking_cfg['RUNNING']['MIN_HITS_TO_BIRTH']
+    trk_cfg['running']['match_type'] = 'bipartite'
+    trk_cfg['running']['has_velo'] = False
+    trk_cfg['running']['motion_model'] = 'kf'
+    trk_cfg['running']['asso'] = ms3d_tracking_cfg['RUNNING']['ASSO']
+    trk_cfg['running']['asso_thres'] = {}
+    trk_cfg['running']['asso_thres'][trk_cfg['running']['asso']] = ms3d_tracking_cfg['RUNNING']['ASSO_TH']
     
-#     associate_track_ids_to_dets(PSEUDO_LABELS, tracks)
-
-# def make_track_heading_consistent(tracks):
-#     for key in tracks.keys():
-#         boxes = np.array(tracks[key]['boxes']).copy()
-#         timestamps = tracks[key]['timestamp']
-#         angle_bin_edges = np.array([get_abs_angle_diff(a1, a2) \
-#                             for (a1,a2) in zip(boxes[1:,6], boxes[:-1,6])])    
-#         angle_bin_edges = np.insert(angle_bin_edges, 0, 0)    
-#         angle_th = np.pi/2
-#         flip_mask  = angle_bin_edges > angle_th
-#         if len(np.nonzero(flip_mask)[0]) > 0:
-            
-#             flipped_inds = sorted(np.nonzero(flip_mask)[0])
-#             heading_bins = np.split(boxes[:,6], flipped_inds) # returns a reference to "boxes"
-#             list_len = np.array([len(i) for i in heading_bins])
-
-#             # Get majority heading in vector space
-#             mean_hbin_vectors = np.array([np.mean(make_vector(hbin), axis=0) for hbin in heading_bins])
-#             bin_lens = np.array([len(hbin) for hbin in heading_bins])
-#             largest_bin_id = np.argmax(bin_lens)
-#             majority_vector = mean_hbin_vectors[largest_bin_id]
-#             for ind, hbin_vec in enumerate(mean_hbin_vectors):
-#                 diff = np.arccos(np.clip(np.dot(hbin_vec, majority_vector), -1,1))
-#                 if diff > angle_th:
-#                     heading_bins[ind] += np.pi
-                    
-#         tracks[key]['boxes'] = boxes
-
-# def get_overlapping_track_ids(overlap_boxes, all_ids):
-#     """
-#     Sometimes we get tracks that overlap a det box, but do not overlap
-#     with each other. Here we return the list of tracks that actually
-#     overlap
-#     """
-#     if len(overlap_boxes) == 0:
-#         return [[]]
-
-#     boxs_gpu = torch.from_numpy(overlap_boxes[:,:7]).cuda().float()
-#     scores_gpu = torch.from_numpy(overlap_boxes[:,7]).cuda().float()
-#     nms_inds = iou3d_nms_utils.nms_gpu(boxs_gpu, scores_gpu, thresh=0.1)[0].cpu().numpy()
-#     nms_mask = np.zeros(boxs_gpu.shape[0], dtype=bool)
-#     nms_mask[nms_inds] = 1
-#     if len(nms_inds) == overlap_boxes.shape[0]:
-#         return [[tid] for tid in all_ids]
-    
-#     elif len(nms_inds) > 1:
-#         in_box_a = torch.from_numpy(overlap_boxes[nms_mask]).cuda().float()
-#         in_box_b = torch.from_numpy(overlap_boxes[~nms_mask]).cuda().float()
-#         iou_matrix = iou3d_nms_utils.boxes_iou_bev(in_box_a[:,:7], in_box_b[:,:7]).cpu().numpy()
-#         matched_boxes = np.argwhere((iou_matrix > 0.1) == True)
-        
-#         matches = {}
-#         for row in matched_boxes:
-#             trk_ids_a = all_ids[nms_mask]
-#             trk_ids_b = all_ids[~nms_mask]
-#             if trk_ids_a[row[0]] not in matches.keys():
-#                 matches[trk_ids_a[row[0]]] = [trk_ids_a[row[0]]]
-#             matches[trk_ids_a[row[0]]].append(trk_ids_b[row[1]])
-
-#         all_overlap_ids = list(matches.values())      
-#         return all_overlap_ids
-#     else:
-#         return [list(all_ids)]
-
-# def get_overlap_track_ids_to_discard(tracks, trk_id, 
-#                                  diff_th=0.001, score_th=0.6,
-#                                  verbose=False):
-#     """
-#     Returns a list of track ids to discard for the tracks that overlap.
-#     Selection of track criterion is
-#     0: continue track with max score
-#     1: keep stationary track, discard dynamic one
-#     2: multiple stationary overlapping, discard all
-#     None: discard all
-#     """
-#     # 0: max score 1: stationary, 2: multiple stationary, None: discard all        
-#     keep_ids = []
-#     discard_ids_all = []
-#     reasons = []
-#     overlaps = []
-#     for frame_id, overlap_ids in tracks[trk_id]['overlap'].items():
-#         all_ids = np.array(overlap_ids + [trk_id])
-#         overlap_boxes = []
-#         for overlap_id in all_ids:
-#             ind = np.argwhere(tracks[overlap_id]['frame_id'] == frame_id)
-#             if len(ind) == 0:
-#                 continue
-#             track_box = tracks[overlap_id]['boxes'][ind.item()]
-#             motion_state = get_motion_state(tracks[overlap_id]['boxes'])
-#             track_box = np.hstack([track_box, overlap_id, motion_state])
-#             overlap_boxes.append(track_box)
-#         if len(overlap_boxes) > 0:
-#             overlap_boxes = np.vstack(overlap_boxes)
-#             overlaps.append(overlap_boxes)
-#         if len(overlap_boxes) == 0:
-#             continue
-
-#         all_overlap_ids = get_overlapping_track_ids(overlap_boxes, all_ids) 
-
-#         reason = None
-#         keep_id = None
-#         discard_ids_frame = []
-#         for overlap_list in all_overlap_ids:
-#             if len(overlap_list) == 1:
-#                 keep_id = overlap_list[0]
-#                 reason = 3
-
-#             # Subtract max. 
-#             # If all scores are similar, then diff will be small so we discard all
-#             # If there is a large diff, then we just select highest score        
-#             scores = overlap_boxes[:,7]
-#             diff = np.abs(scores - np.max(scores))
-#             if reason is None and ((np.max(scores) > score_th) or (len(np.nonzero(diff > diff_th)[0]) > 0)):            
-#                 keep_id = np.array(overlap_list)[np.argmax(scores)]
-#                 reason = 0
-
-#             check_stationary = np.nonzero(overlap_boxes[:,-1] == 0)[0]
-#             if (len(check_stationary) == 1) and (reason is None):
-#                 keep_id = all_ids[check_stationary].item()
-#                 reason = 1
-
-#             if (len(check_stationary) > 1)  and (reason is None):
-#                 # Multiple stationary overlapping means something is quite wrong
-#                 keep_id = None
-#                 reason = 2
-
-#             keep_ids.append(keep_id)            
-#             reasons.append(reason)
-#             if keep_id is not None:
-#                 overlap_list.pop(overlap_list.index(keep_id))                
-#             discard_ids_frame.append(overlap_list)
-#         discard_ids_all.append(discard_ids_frame)
-        
-#     if verbose:
-#         return keep_ids, reasons, overlaps, discard_ids_all
-#     else:
-#         return discard_ids_all
-
-# def filter_overlapping_tracks(tracks):
-#     for trk_id in tracks.keys():        
-#         if 'overlap' in tracks[trk_id].keys():
-#             discard_ids = get_overlap_track_ids_to_discard(tracks, trk_id)        
-#             for enum, d_id_list_frame in enumerate(discard_ids):
-#                 for d_id_list_inst in d_id_list_frame:
-#                     frame_id = list(tracks[trk_id]['overlap'].keys())[enum]
-#                     for d_id in d_id_list_inst:
-#                         end_ind = np.argwhere(tracks[d_id]['frame_id'] == frame_id)
-#                         if len(end_ind) == 0:
-#                             continue
-
-#                         for k in tracks[d_id].keys():
-#                             if k not in ['overlap', 'motion_state']:    
-#                                 tracks[d_id][k] = tracks[d_id][k][:end_ind.item()]
+    trk_cfg['redundancy'] = {}    
+    trk_cfg['redundancy']['mode'] = 'mm'
+    trk_cfg['redundancy']['max_redundancy_age'] = ms3d_tracking_cfg['REDUNDANCY']['MAX_REDUNDANCY_AGE']
+    trk_cfg['redundancy']['det_score_threshold'] = {}
+    trk_cfg['redundancy']['det_score_threshold'][trk_cfg['running']['asso']] = ms3d_tracking_cfg['REDUNDANCY']['SCORE_TH']
+    trk_cfg['redundancy']['det_dist_threshold'] = {}
+    trk_cfg['redundancy']['det_dist_threshold'][trk_cfg['running']['asso']] = ms3d_tracking_cfg['REDUNDANCY']['ASSO_TH']
+    return trk_cfg
