@@ -2,7 +2,7 @@ EXP_NAME: W_L_VMFI_TTA_PA_PC_VA_VC_64
 
 DETS_TXT: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/cfgs/W_L_VMFI_TTA_PA_PC_VA_VC_64.txt
 SAVE_DIR: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/ps_labels
-DATA_CONFIG: /MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml
+DATA_CONFIG_PATH: /MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml
 
 PS_SCORE_TH: # veh,ped,cyc
   POS_TH: [0.7,0.6,0.5]

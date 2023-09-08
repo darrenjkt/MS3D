@@ -35,7 +35,7 @@ INFO_PATH: {
     'train': [lyft_infos_train_16sweeps.pkl],
     'val': [lyft_infos_val_16sweeps.pkl],
 }
-
+SAVE_PKL_IN_GROUND_FRAME: True
 POINT_CLOUD_RANGE: [-75.2, -75.2, -2, 75.2, 75.2, 4]
 SHIFT_COOR: [0.0, 0.0, 1.7]
 

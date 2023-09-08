@@ -22,20 +22,17 @@ from pcdet.config import cfg, cfg_from_yaml_file
 import yaml 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='arg parser')                   
-    parser.add_argument('--cfg_file', type=str, default='/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml',
-                        help='just use the target dataset cfg file')
+    parser = argparse.ArgumentParser(description='arg parser')                       
     parser.add_argument('--ps_cfg', type=str, help='cfg file with MS3D parameters')
     parser.add_argument('--cls_id', type=int, help='1: vehicle, 2: pedestrian, 3: cyclist')
     parser.add_argument('--static_veh', action='store_true', default=False)
-    parser.add_argument('--trk_cfg', type=str, default=None, help='overwrite default track configs')
     parser.add_argument('--save_name', type=str, default=None, help='overwrite default save name')
 
     args = parser.parse_args()
 
     ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)
-    cfg_from_yaml_file(ms3d_configs["DATA_CONFIG"], cfg)
-    dataset = ms3d_utils.load_dataset(split='train')
+    cfg_from_yaml_file(ms3d_configs["DATA_CONFIG_PATH"], cfg)
+    dataset = ms3d_utils.load_dataset(cfg, split='train')
 
     ps_dict_pth = Path(ms3d_configs["SAVE_DIR"]) / f'{ms3d_configs["EXP_NAME"]}.pkl'
     with open(ps_dict_pth, 'rb') as f:

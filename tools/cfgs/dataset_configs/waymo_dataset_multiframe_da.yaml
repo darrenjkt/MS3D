@@ -35,7 +35,7 @@ SHARED_MEMORY_FILE_LIMIT: 35000  # set it based on the size of your shared memor
     
 TRAIN_WITH_SPEED: False     
 INFO_WITH_FAKELIDAR: False    
-
+SAVE_PKL_IN_GROUND_FRAME: True
 POINT_FEATURE_ENCODING: {
     encoding_type: absolute_coordinates_encoding,
     used_feature_list: ['x', 'y', 'z','timestamp'],

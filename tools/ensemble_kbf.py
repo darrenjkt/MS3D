@@ -16,14 +16,10 @@ import argparse
 import yaml
 from pcdet.utils import box_fusion_utils, ms3d_utils
 
-# Super categories for MS3D compatibility across datasets
-SUPERCATEGORIES = ['Vehicle','Pedestrian','Cyclist']
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='arg parser')                   
     parser.add_argument('--ps_cfg', type=str, help='cfg file with MS3D parameters')
-    parser.add_argument('--interval', type=int, default=1, help='set interval')
-    parser.add_argument('--len', type=int, default=1, help='set interval')
+    parser.add_argument('--len', type=int, default=1, help='set length of data to reduce computation time for debugging')
     parser.add_argument('--save_dir', type=str, default=None, help='Overwrite save dir in the cfg file')
     parser.add_argument('--exp_name', type=str, default=None, help='Overwrite exp_name in the cfg file')
     args = parser.parse_args()
@@ -37,14 +33,12 @@ if __name__ == '__main__':
     print('Number of detection sets: ', num_det_sets)
 
     # Downsample for debugging
-    if args.interval > 1:
-        detection_sets = detection_sets[::args.interval]
     if args.len > 1:
         detection_sets = detection_sets[:args.len]
 
     # Get class specific config
     cls_kbf_config = {}
-    for enum, cls in enumerate(SUPERCATEGORIES):
+    for enum, cls in enumerate(box_fusion_utils.SUPERCATEGORIES): # Super categories for MS3D compatibility across datasets
         if cls in cls_kbf_config.keys():
             continue
         cls_kbf_config[cls] = {}

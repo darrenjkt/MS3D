@@ -17,14 +17,12 @@ from pathlib import Path
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='arg parser')                   
-    parser.add_argument('--cfg_file', type=str, default='/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml',
-                        help='just use the target dataset cfg file')
     parser.add_argument('--ps_cfg', type=str, help='cfg file with MS3D parameters')
     args = parser.parse_args()
 
     ms3d_configs = yaml.load(open(args.ps_cfg,'r'), Loader=yaml.Loader)
-    cfg_from_yaml_file(ms3d_configs["DATA_CONFIG"], cfg)
-    dataset = ms3d_utils.load_dataset(split='train')
+    cfg_from_yaml_file(ms3d_configs["DATA_CONFIG_PATH"], cfg)
+    dataset = ms3d_utils.load_dataset(cfg, split='train')
     
     # Load pkls
     ps_pth = Path(ms3d_configs["SAVE_DIR"]) / f'{ms3d_configs["EXP_NAME"]}.pkl'

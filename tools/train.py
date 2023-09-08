@@ -50,6 +50,8 @@ def parse_config():
     parser.add_argument('--ckpt_save_time_interval', type=int, default=300, help='in terms of seconds')
     parser.add_argument('--wo_gpu_stat', action='store_true', help='')
     parser.add_argument('--use_amp', action='store_true', help='use mix precision training')
+
+    parser.add_argument('--custom_target_scenes', action='store_true', help='use ms3d custom training target domain dataset')
     
 
     args = parser.parse_args()
@@ -127,6 +129,9 @@ def main():
         seed=666 if args.fix_random_seed else None
     )
     if cfg.get('SELF_TRAIN', None):
+        if args.custom_target_scenes:
+            cfg.DATA_CONFIG_TAR.USE_CUSTOM_TRAIN_SCENES = True
+
         target_set, target_loader, target_sampler = build_dataloader(
             cfg.DATA_CONFIG_TAR, cfg.DATA_CONFIG_TAR.CLASS_NAMES, args.batch_size,
             dist_train, workers=args.workers, logger=logger, training=True

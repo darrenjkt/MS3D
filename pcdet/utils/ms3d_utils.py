@@ -485,7 +485,7 @@ def load_if_exists(folder, name):
         return load_pkl(str(ps_path))        
     return None
 
-def load_dataset(split):
+def load_dataset(cfg, split):
     # Get target dataset    
     cfg.DATA_SPLIT.test = split
     if cfg.get('SAMPLED_INTERVAL', False):

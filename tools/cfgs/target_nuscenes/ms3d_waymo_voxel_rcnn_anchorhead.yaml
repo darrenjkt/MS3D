@@ -26,8 +26,6 @@ DATA_CONFIG_TAR:
     TARGET: True
     USE_TTA: False
     USE_PSEUDO_LABEL: True
-    USE_CUSTOM_TRAIN_SCENES: True
-    SAVE_PKL_IN_GROUND_FRAME: True   
     CLASS_NAMES: ['car','pedestrian','bicycle']
     POINT_FEATURE_ENCODING: {
         encoding_type: absolute_coordinates_encoding,
