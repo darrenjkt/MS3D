@@ -231,21 +231,4 @@ OPTIMIZATION:
     GRAD_NORM_CLIP: 10
 
 SELF_TRAIN:
-    # SCORE_THRESH: 0.6
-    # NEG_THRESH: 0.4
-    # UPDATE_PSEUDO_LABEL: [-1]
-    # UPDATE_PSEUDO_LABEL_INTERVAL: 100
-
-    INIT_PS: /MS3D/tools/cfgs/target_waymo/ps_labels_rnd3/final_ps_dict.pkl
-    SRC:
-        USE_DATA: False
-        USE_GRAD: False
-        LOSS_WEIGHT: 1.0
-    TAR:
-        USE_DATA: True
-        LOSS_WEIGHT: 1.0
-
-    MEMORY_ENSEMBLE:
-        ENABLED: True
-        NAME: simplified_cons_ensemble
-        IOU_THRESH: 0.1
+    INIT_PS: /MS3D/tools/cfgs/target_waymo/label_generation/round4/ps_labels/final_ps_dict.pkl

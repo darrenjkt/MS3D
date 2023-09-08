@@ -224,4 +224,4 @@ OPTIMIZATION:
     GRAD_NORM_CLIP: 10
 
 SELF_TRAIN:
-    INIT_PS: /MS3D/tools/cfgs/target_nuscenes/label_generation/round2/ps_labels/final_ps_dict.pkl
+    INIT_PS: /MS3D/tools/cfgs/target_nuscenes/label_generation/round3/ps_labels/final_ps_dict.pkl
