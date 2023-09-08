@@ -25,7 +25,6 @@ model_zoo
 *.gif
 *.png
 *.jpg
-*.sh
 *.tar.xz
 *.txt
 demo_data
