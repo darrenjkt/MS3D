@@ -116,10 +116,12 @@ def update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped=No
 def refine_veh_labels(dataset, frame_ids,
                       tracks_veh_all, tracks_veh_static, 
                       static_trk_score_th, veh_pos_th,
-                      refine_cfg, save_dir):
+                      refine_cfg, save_dir=None):
     """
     Refine vehicle labels. Updates tracks_veh_all and tracks_veh_static in-place.
-    Saving of pkl files makes it easier to analyze the results
+    
+    If save_dir is specified, we save tracks after every few steps for inspection or 
+    easy resuming of interrupted label refinement.
     """
 
     # Use pos_th for static min_score so that we ensure to have some confident detections in the static track
@@ -143,19 +145,20 @@ def refine_veh_labels(dataset, frame_ids,
 
     # Merge disjointed tracks and assign one box per frame in the ego-vehicle frame
     merge_disjointed_tracks(tracks_veh_all, tracks_veh_static, matched_trk_ids)    
-    save_data(tracks_veh_all, save_dir, name="tracks_all_world_refined.pkl")
-    save_data(tracks_veh_static, save_dir, name="tracks_static_world_refined.pkl")
+    if save_dir is not None:
+        save_data(tracks_veh_all, save_dir, name="tracks_world_veh_all_refined.pkl")
+        save_data(tracks_veh_static, save_dir, name="tracks_world_veh_static_refined.pkl")
 
     get_track_rolling_kde_interpolation(dataset, tracks_veh_static, window=refine_cfg['ROLLING_KBF']['ROLLING_KDE_WINDOW'], 
                                                               static_score_th=static_trk_score_th, kdebox_min_score=refine_cfg['ROLLING_KBF']['MIN_STATIC_SCORE'])  # 16MIN for 18840
-    save_data(tracks_veh_static, save_dir, name="tracks_static_world_rkde.pkl")
     propagate_static_boxes(dataset, tracks_veh_static, 
                                                      score_thresh=veh_pos_th,
                                                      min_static_tracks=refine_cfg['PROPAGATE_BOXES']['MIN_STATIC_TRACKS'],
                                                      n_extra_frames=refine_cfg['PROPAGATE_BOXES']['N_EXTRA_FRAMES'], 
                                                      degrade_factor=refine_cfg['PROPAGATE_BOXES']['DEGRADE_FACTOR'], 
                                                      min_score_clip=refine_cfg['PROPAGATE_BOXES']['MIN_SCORE_CLIP']) # < 1 min for 18840
-    save_data(tracks_veh_static, save_dir, name="tracks_static_world_prop_boxes.pkl")
+    if save_dir is not None:
+        save_data(tracks_veh_static, save_dir, name="tracks_world_veh_static_refined_prop_boxes.pkl")
     return tracks_veh_all, tracks_veh_static
 
 def refine_ped_labels(tracks_ped, ped_pos_th, track_filtering_cfg):

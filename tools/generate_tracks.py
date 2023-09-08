@@ -34,20 +34,20 @@ if __name__ == '__main__':
     cfg_from_yaml_file(ms3d_configs["DATA_CONFIG_PATH"], cfg)
     dataset = ms3d_utils.load_dataset(cfg, split='train')
 
-    ps_dict_pth = Path(ms3d_configs["SAVE_DIR"]) / f'{ms3d_configs["EXP_NAME"]}.pkl'
+    ps_dict_pth = Path(ms3d_configs["SAVE_DIR"]) / f'initial_pseudo_labels.pkl'
     with open(ps_dict_pth, 'rb') as f:
         ps_dict = pickle.load(f)
 
     if args.cls_id == 1:        
         if args.static_veh:
             trk_cfg = tracker_utils.prepare_track_cfg(ms3d_configs['TRACKING']['VEH_STATIC'])
-            save_fname = f"{ms3d_configs['EXP_NAME']}_tracks_world_veh_static.pkl"                    
+            save_fname = f"tracks_world_veh_static.pkl"                    
         else:
             trk_cfg = tracker_utils.prepare_track_cfg(ms3d_configs['TRACKING']['VEH_ALL'])
-            save_fname = f"{ms3d_configs['EXP_NAME']}_tracks_world_veh.pkl"
+            save_fname = f"tracks_world_veh_all.pkl"
     elif args.cls_id == 2:
         trk_cfg = tracker_utils.prepare_track_cfg(ms3d_configs['TRACKING']['PEDESTRIAN'])
-        save_fname = f"{ms3d_configs['EXP_NAME']}_tracks_world_ped.pkl"
+        save_fname = f"tracks_world_ped.pkl"
     else:
         print('Only support 2 classes at the moment (1: vehicle, 2: pedestrian)')
         raise NotImplementedError    

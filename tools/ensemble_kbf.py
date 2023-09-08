@@ -6,8 +6,7 @@ DESCRIPTION:
     dicts where each dict contains a single detection set (and optional metadata) for each frame
 
 EXAMPLE:
-    python ensemble_kbf.py --ps_cfg /MS3D/tools/cfgs/target_nuscenes/ms3d_ps_config_rnd1.yaml \
-        --dets_txt /MS3D/tools/cfgs/target_nuscenes/ps_ensembling/W_L_VMFI_TTA_PA_PC_VA_VC_64.txt
+    python ensemble_kbf.py --ps_cfg /MS3D/tools/cfgs/target_nuscenes/ms3d_ps_config_rnd1.yaml 
 """
 
 import sys
@@ -51,6 +50,5 @@ if __name__ == '__main__':
     # Combine detection sets into a single set of initial pseudo-labels
     ps_dict = box_fusion_utils.get_initial_pseudo_labels(detection_sets, cls_kbf_config)
     save_dir = ms3d_configs['SAVE_DIR'] if args.save_dir is None else args.save_dir
-    exp_name = ms3d_configs['EXP_NAME'] if args.exp_name is None else args.exp_name
-    ms3d_utils.save_data(ps_dict, save_dir, name=f"{exp_name}.pkl")
-    print(f"saved: {exp_name}.pkl\n")
+    ms3d_utils.save_data(ps_dict, save_dir, name=f"initial_pseudo_labels.pkl")
+    print(f"saved: initial_pseudo_labels.pkl\n")

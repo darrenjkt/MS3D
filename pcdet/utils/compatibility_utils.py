@@ -173,7 +173,9 @@ def get_target_domain_cfg(cfg, dataset_name, sweeps, custom_target_scenes=False,
     for class_name in cfg.CLASS_NAMES:
         cfg.DATA_CONFIG_TAR.CLASS_NAMES.append(cfg.DATA_CONFIG_TAR.CLASS_MAPPING[class_name])
 
-    if use_tta != 0:
+    if use_tta == 0:
+        cfg.DATA_CONFIG_TAR.USE_TTA = False
+    else:
         cfg.DATA_CONFIG_TAR.USE_TTA = True
         cfg.DATA_CONFIG_TAR.DATA_AUGMENTOR = {}    
         cfg.DATA_CONFIG_TAR.DATA_AUGMENTOR.AUG_CONFIG_LIST = []
@@ -191,7 +193,7 @@ def get_target_domain_cfg(cfg, dataset_name, sweeps, custom_target_scenes=False,
         else:
             print('Choose 0, 1, 2 or 3 for use_tta')
             raise NotImplementedError
-
+        
     if custom_target_scenes:
         cfg.DATA_CONFIG_TAR.USE_CUSTOM_TRAIN_SCENES = True    
 

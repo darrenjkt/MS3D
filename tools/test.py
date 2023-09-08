@@ -46,7 +46,7 @@ def parse_config():
     parser.add_argument('--target_dataset', type=str, default=None, help='select from: nuscenes, waymo_single, waymo_multi, lyft or custom')
     parser.add_argument('--custom_target_scenes', action='store_true', help='use ms3d custom target domain dataset')    
     parser.add_argument('--sweeps', type=int, default=1, help='number of accumulated frames including current frame')
-    parser.add_argument('--use_tta', type=int, default=0, help='select -> 0: no_tta, 1: rwf, 2: rwr, 3: rwr+rwf')
+    parser.add_argument('--use_tta', type=int, default=0, help='select test-time augmentation -> 0: no_tta, 1: rwf, 2: rwr, 3: rwr+rwf')
 
     args = parser.parse_args()
 

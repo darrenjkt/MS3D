@@ -12,7 +12,7 @@ DETS_TXT: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/cfgs/W_L_VMFI
 SAVE_DIR: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/ps_labels 
 DATA_CONFIG: /MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml   # target dataset uda config
 
-# PS_SCORE_TH and ENSEMBLE_KBF params are given as: [veh_th, ped_th, cyc_th]
+# PS_SCORE_TH and ENSEMBLE_KBF params are given as: [veh_th, ped_th, cyc_th]. Cyclist is not currently supported in MS3D.
 PS_SCORE_TH: 
   POS_TH: [0.7,0.6,0.5] # labels with score above this are used as pseudo-labels
   NEG_TH: [0.2,0.1,0.3] # labels with score under this are removed
