@@ -1,40 +1,39 @@
 # MS3D
-This is the official code release for 
-- **MS3D**: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection [[Paper](https://arxiv.org/abs/2304.02431)] [[Video](https://youtu.be/4g-NVmz3gj4)]
-- **MS3D++**: Ensemble of Experts for Multi-Source Unsupervised Domain Adaption in 3D Object Detection [[Paper](https://arxiv.org/abs/2308.05988)] (code and models will be updated in this repo soon)
 
-MS3D is a simple **self-training** (aka. auto-labeling) framework for vehicles and pedestrians that generates high quality labels for training of 3D detectors on a variety of lidars, regardless of their density. Simply using our generated labels for training VoxelRCNN on the Waymo dataset achieves a vehicle detection of 70.3 BEV AP on the official validation dataset, only 3.5 BEV AP less than training with human-annotated labels. Read our papers to find out more.
+This branch contains the code for our initial MS3D framework for vehicle-only auto-labeling as presented in [**MS3D: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection**](https://arxiv.org/abs/2304.02431)
 
 <p align="center">
-  <img src="docs/media/ms3d++_framework.png">
+  <img src="docs/media/ms3d_pipeline.png">
 </p>
-
-MS3D has the following benefits:
-- Robust labeling of a **wide range of lidars** such as high and low beam lidars.
-- Can **tailor the ensemble** of pre-trained detectors to obtain high auto-labeling quality on any given lidar dataset (e.g. different architectures, source domains, voxel sizes, or class-specific detectors).
-- **Compatible with any 3D detector and data augmentation**. MS3D just requires 3D bounding boxes as input. Generated 3D bounding box labels can be used to replace human-annotated labels in supervised training of any 3D detector.
-- Preserves **real-time inference** capability of detectors as we don't modify detector architecture. 
-
-Our box fusion method, KBF, can be used for **detector ensembling** in a supervised setting as well and can outperform [Weighted Box Fusion (WBF)](https://github.com/ZFTurbo/Weighted-Boxes-Fusion). See our first MS3D paper for comparison results and a simple demo [here](tools/kbf_demo.ipynb).
-
 
 ## Overview
 1. [Installation](#installation)
 2. [Getting Started](#getting-started)
-3. [Model Zoo](#model-zoo)
-4. [Qualitative Results](#qualitative-results)
+3. [Visualizations](#visualizations)
+4. [Model Zoo](#model-zoo)
 5. [Citation](#citation)
 
 ## Installation
 
 Please refer to [INSTALL.md](docs/INSTALL.md) for the installation of MS3D.
 
-## Usage - Auto-labeling
+## Getting Started
 
 - Please refer to [DATASET_PREPARATION.md](docs/DATASET_PREPARATION.md) to prepare the datasets. 
-- Please refer to [GETTING_STARTED.md](docs/GETTING_STARTED.md) to learn more about how to use MS3D. We are also planning on releasing a guide for custom datasets, stay tuned!
+- Please refer to [GETTING_STARTED.md](docs/GETTING_STARTED.md) to learn more about how to use MS3D. 
 - Please refer to [PARAMETERS.md](docs/PARAMETERS.md) on a guide of how to tune MS3D parameters.
 - Please refer to [VISUALIZATION.md](docs/VISUALIZATION.md) to learn how to use our visualization tools.
+
+## Visualizations
+<p align="center">
+  <img src="docs/media/lyft2waymo_qualitative.gif">
+</p>
+<p align="center">
+  <img src="docs/media/waymo2lyft_qualitative.gif">
+</p>
+<p align="center">
+  <img src="docs/media/waymo2nusc_qualitative.gif">
+</p>
 
 ## Model Zoo
 For all tables below, "GT-FT" refers to fine-tuning the pre-trained detector using ground-truth labels from the target domain. Results are reported at IoU=0.7 evaluated at 40 recall levels (R40). Refer to our paper for detailed results.
@@ -91,16 +90,6 @@ We provide models trained on source-domain data used in our experiments.
 **Lyft** pre-trained models can be downloaded [here](https://drive.google.com/drive/folders/12vVM6WtjG38SjUNhhkgy3ZvkZZDm2Edh?usp=share_link)
 
 For **Waymo**, please send me an email if you would like to download the source-trained models we used.
-## Qualitative Results
-<p align="center">
-  <img src="docs/media/lyft2waymo_qualitative.gif">
-</p>
-<p align="center">
-  <img src="docs/media/waymo2lyft_qualitative.gif">
-</p>
-<p align="center">
-  <img src="docs/media/waymo2nusc_qualitative.gif">
-</p>
 
 ## License
 
