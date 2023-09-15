@@ -23,7 +23,6 @@ model_zoo
 *.out
 *Trash*
 *.gif
-*.png
 *.jpg
 *.sh
 *.tar.xz
