@@ -15,10 +15,10 @@ Our MS3D framework has the following benefits:
 - Preserves **real-time inference** capability of detectors as we don't modify detector architecture. 
 <br/>
 <p align="center">
-  <img src="docs/media/ms3d++_qualitative_tgt_waymo_720p_10s.gif", width=600>
+  <img src="docs/media/ms3d++_qualitative_tgt_waymo_720p_10s.gif", width=625>
 </p>
 <p align="center">
-  <img src="docs/media/ms3d++_qualitative_tgt_nuscenes.gif", width=600>
+  <img src="docs/media/ms3d++_qualitative_tgt_nuscenes.gif", width=625>
 </p>
 
 Our **box fusion method, KBF,** can be used for detector ensembling in a supervised setting as well and can outperform [Weighted Box Fusion (WBF)](https://github.com/ZFTurbo/Weighted-Boxes-Fusion). See our first MS3D paper for comparison results and a simple demo [here](tools/demo/kbf_demo.ipynb).
