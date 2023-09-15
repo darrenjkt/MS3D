@@ -17,9 +17,10 @@ Our MS3D framework has the following benefits:
 <p align="center">
   <img src="docs/media/ms3d++_qualitative_tgt_waymo_720p_10s.gif", width=600>
 </p>
-<p align="center">  
+<p align="center">
   <img src="docs/media/ms3d++_qualitative_tgt_nuscenes.gif", width=600>
 </p>
+
 Our **box fusion method, KBF,** can be used for detector ensembling in a supervised setting as well and can outperform [Weighted Box Fusion (WBF)](https://github.com/ZFTurbo/Weighted-Boxes-Fusion). See our first MS3D paper for comparison results and a simple demo [here](tools/demo/kbf_demo.ipynb).
 
 Read our papers to find out more:
