@@ -9,27 +9,6 @@ DATA_CONFIG:
         src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
     }
 
-# DATA_CONFIG_TAR: 
-#     _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_da.yaml
-#     PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
-#     TARGET: True
-#     USE_TTA: False
-#     SAVE_PKL_IN_GROUND_FRAME: True    
-#     CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
-
-DATA_CONFIG_TAR: 
-    _BASE_CONFIG_: cfgs/dataset_configs/lyft_dataset_da.yaml
-    TARGET: True
-    MAX_SWEEPS: 1
-    CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
-    USE_TTA: False
-    SAVE_PKL_IN_GROUND_FRAME: True    
-    POINT_FEATURE_ENCODING: {
-        encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
-        src_feature_list: ['x', 'y', 'z','intensity','timestamp'],
-    }
-
 MODEL:
     NAME: PVRCNNPlusPlus
 

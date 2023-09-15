@@ -30,52 +30,7 @@ DATA_CONFIG:
             NUM_POINTS: {
                 'train': 98304,
                 'test': 98304
-                }
-
-DATA_CONFIG_TAR: 
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
-    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
-    TARGET: True
-    USE_TTA: False
-    SAVE_PKL_IN_GROUND_FRAME: True    
-    CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
-    SEQUENCE_CONFIG:
-        ENABLED: True
-        SAMPLE_OFFSET: [-3, 0]
-    DATA_PROCESSOR:
-        -   NAME: mask_points_and_boxes_outside_range
-            REMOVE_OUTSIDE_BOXES: True
-
-        -   NAME: shuffle_points
-            SHUFFLE_ENABLED: {
-                'train': True,
-                'test': False
-            }
-            
-        -   NAME: sample_points_by_voxels  # after the shuffle_points
-            SAMPLE_TYPE: 'raw'    # 'mean_vfe', 'raw' (default)
-            VOXEL_SIZE: [0.1, 0.1, 0.15]
-            MAX_POINTS_PER_VOXEL: 5 
-            PTS_NEAR_FLAG: 40          
-            MAX_NUMBER_OF_VOXELS: {
-                'train': 80000,
-                'test': 90000
-                }
-            NUM_POINTS: {
-                'train': 98304,
-                'test': 98304
-                }
-
-# DATA_CONFIG_TAR: 
-#     _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
-#     PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
-#     TARGET: True
-#     USE_TTA: False
-#     SAVE_PKL_IN_GROUND_FRAME: True    
-#     CLASS_NAMES: ['Vehicle','Vehicle','Vehicle','Cyclist','Cyclist','Pedestrian']
-#     SEQUENCE_CONFIG:
-#         ENABLED: True
-#         SAMPLE_OFFSET: [-3, 0]
+                }        
 
 MODEL:
     NAME: IASSD
