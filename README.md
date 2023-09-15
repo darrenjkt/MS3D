@@ -2,8 +2,6 @@
 
 MS3D is a simple auto-labeling framework for vehicles and pedestrians that generates high quality labels for training 3D detectors on a variety of lidar types, regardless of their point cloud density. 
 
-Models trained with our labels can obtain a comparable BEV detection performance to training with human-annotated labels.
-
 Learn more about MS3D with our [**video**](https://youtu.be/7o5F4AMaIWo) and provided [**tutorial**](tools/demo/ms3d_demo_tutorial.ipynb).
 <p align="center">
   <img src="docs/media/ms3d++_framework.png">
@@ -11,6 +9,7 @@ Learn more about MS3D with our [**video**](https://youtu.be/7o5F4AMaIWo) and pro
 
 Our MS3D framework has the following benefits:
 - Robust labeling of a **wide range of lidars**. 
+- **High performance** of models trained with MS3D labels, achieving BEV vehicle detection comparable to training with human-annotated labels.
 - **Tailor the ensemble** of pre-trained 3D detectors to obtain high quality labels on any lidar dataset (e.g. can use the predictions of multi-modal and multi-frame 3D detectors)
 - **Train any 3D detector with any data augmentation**. The final generated labels can replace human-annotated labels in supervised training of any 3D detector and data augmentation.
 - Preserves **real-time inference** capability of detectors as we don't modify detector architecture. 
