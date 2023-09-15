@@ -35,7 +35,7 @@ python visualize_3d.py --cfg_file cfgs/dataset_configs/nuscenes_dataset_da.yaml 
 python visualize_3d.py --cfg_file ../model_zoo/target_nuscenes/voxel_rcnn_anchorhead_10xyzt_vehped_ms3d++.yaml \
 --ckpt ../model_zoo/target_nuscenes/voxel_rcnn_anchorhead_10xyzt_vehped_ms3d++.pth 
 
-# Load a detector and visualize its detections, save each frame as a png
+# Load a detector, visualize its detections and save each frame as a png
 python visualize_3d.py --cfg_file ../model_zoo/target_nuscenes/voxel_rcnn_anchorhead_10xyzt_vehped_ms3d++.yaml \
 --ckpt ../model_zoo/target_nuscenes/voxel_rcnn_anchorhead_10xyzt_vehped_ms3d++.pth \
 --custom_train_split --save_video --save_video_dir my_video_dir_name

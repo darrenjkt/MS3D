@@ -10,7 +10,7 @@ Learn more about MS3D with our [**explanation video**](https://youtu.be/7o5F4AMa
 Our MS3D framework has the following benefits:
 - Robust labeling of a **wide range of lidars**. 
 - **High performance** of 3D detectors trained with MS3D labels, achieving BEV vehicle detection comparable to training with human-annotated labels.
-- **Tailor the ensemble** of pre-trained 3D detectors to obtain high quality labels on any lidar dataset.
+- **Tailor the ensemble** with any pre-trained 3D detectors to obtain high quality labels on any lidar dataset.
 - **Train any 3D detector with any data augmentation**. The final generated labels can replace human-annotated labels in supervised training of any 3D detector and data augmentation.
 - Preserves **real-time inference** capability of detectors as we don't modify detector architecture. 
 <br/>
@@ -130,7 +130,7 @@ Lyft was auto-labeled using an ensemble of Waymo and nuScenes pre-trained detect
 
 
 ### More qualitative results 
-Take a look at more visualizations for [MS3D++ qualitative](https://www.youtube.com/watch?v=FhTpUOpm7d8) and [MS3D qualitative](https://www.youtube.com/watch?v=H7SvDm3iBgQ).
+Take a look at more of our visualizations for [MS3D++ qualitative](https://www.youtube.com/watch?v=FhTpUOpm7d8) and [MS3D qualitative](https://www.youtube.com/watch?v=H7SvDm3iBgQ).
 
 ## License
 
