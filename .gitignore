@@ -27,7 +27,6 @@ model_zoo
 *.jpg
 *.sh
 *.tar.xz
-*.txt
 demo_data
 *.csv
 ps_labels

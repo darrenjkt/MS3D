@@ -1,0 +1,8 @@
+/MS3D/output/target_nuscenes/ms3d_waymo_voxel_rcnn_anchorhead/10f_xyzt_vehped_rnd2/eval/epoch_30/val/nusc10xyzt_notta/result.pkl
+/MS3D/output/target_nuscenes/ms3d_waymo_voxel_rcnn_anchorhead/10f_xyzt_vehped_rnd2/eval/epoch_30/val/nusc10xyzt_rwf/result.pkl
+/MS3D/output/target_nuscenes/ms3d_waymo_voxel_rcnn_anchorhead/10f_xyzt_vehped_rnd2/eval/epoch_30/val/nusc10xyzt_rwf_rwr/result.pkl
+/MS3D/output/target_nuscenes/ms3d_waymo_voxel_rcnn_anchorhead/10f_xyzt_vehped_rnd2/eval/epoch_30/val/nusc10xyzt_rwr/result.pkl
+/MS3D/output/target_nuscenes/ms3d_waymo_voxel_rcnn_centerhead/10f_xyzt_vehped_rnd2/eval/epoch_30/val/nusc10xyzt_notta/result.pkl
+/MS3D/output/target_nuscenes/ms3d_waymo_voxel_rcnn_centerhead/10f_xyzt_vehped_rnd2/eval/epoch_30/val/nusc10xyzt_rwf/result.pkl
+/MS3D/output/target_nuscenes/ms3d_waymo_voxel_rcnn_centerhead/10f_xyzt_vehped_rnd2/eval/epoch_30/val/nusc10xyzt_rwf_rwr/result.pkl
+/MS3D/output/target_nuscenes/ms3d_waymo_voxel_rcnn_centerhead/10f_xyzt_vehped_rnd2/eval/epoch_30/val/nusc10xyzt_rwr/result.pkl
