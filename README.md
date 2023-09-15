@@ -13,15 +13,13 @@ Our MS3D framework has the following benefits:
 - **Tailor the ensemble** of pre-trained 3D detectors to obtain high quality labels on any lidar dataset.
 - **Train any 3D detector with any data augmentation**. The final generated labels can replace human-annotated labels in supervised training of any 3D detector and data augmentation.
 - Preserves **real-time inference** capability of detectors as we don't modify detector architecture. 
-<br/><br/>
+<br/>
 <p align="center">
   <img src="docs/media/ms3d++_qualitative_tgt_waymo_720p_10s.gif", width=600>
 </p>
-<p align="center">
+<p align="center">  
   <img src="docs/media/ms3d++_qualitative_tgt_nuscenes.gif", width=600>
 </p>
-
-
 Our **box fusion method, KBF,** can be used for detector ensembling in a supervised setting as well and can outperform [Weighted Box Fusion (WBF)](https://github.com/ZFTurbo/Weighted-Boxes-Fusion). See our first MS3D paper for comparison results and a simple demo [here](tools/demo/kbf_demo.ipynb).
 
 Read our papers to find out more:
