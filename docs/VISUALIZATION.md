@@ -1,26 +1,26 @@
 
 
-# VISUALIZATION / DEMO
+# Visualization Tools
 
 We provide two visualization tools for MS3D: [visualize_bev.py](../tools/visualize_bev.py) and [visualize_3d.py](../tools/visualize_3d.py)
 
-## Visualize BEV
-This script visualizes the detections in BEV. We provide an interface to go to the next/previous frames, and to also jump +50 frames ahead or back. This is the primary visual assessment tool we use, alongside with camera images for cross-checking.
+## `visualize_bev.py`
+This script visualizes the detections in BEV. We provide an interface to go to the next/previous frames, and to also jump +50 frames ahead or back. This is the primary visual assessment tool we use alongside with camera images for cross-checking.
 
 ```shell
 # txt file containing pkl detections (same as above)
 python visualize_bev.py --cfg_file cfgs/dataset_configs/nuscenes_dataset_da.yaml \
                         --dets_txt /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/cfgs/ensemble_detections.txt
 
-# Or you can manually specify multiple pickle paths
+# show the initial_ps_labels.pkl or final_ps_labels.pkl
 python visualize_bev.py --cfg_file cfgs/dataset_configs/nuscenes_dataset_da.yaml \
-                        --dets_txt /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/ps_labels/final_ps_dict.pkl                                             
+                        --ps_pkl /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/ps_labels/final_ps_dict.pkl                                             
 ```
 <p align="center">
   <img src="media/vis_bev_example.png" width="%90">
 </p>
 
-## Visualize 3D
+##  `visualize_3d.py`
 
 We also provide a 3D visualization of point clouds together with pseudo-labels, and detection_sets. This also supports loading in a ckpt for inference. It opens up a visualization window. 
 
