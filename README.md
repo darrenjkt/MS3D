@@ -81,6 +81,8 @@ Reported 3D average precision is the **oracle** performance for the range breakd
 | Waymo | [VoxelRCNN (Anchor)](tools/cfgs/waymo_models/uda_voxel_rcnn_anchorhead.yaml) | 4 | 90.8 / 69.8 / 43.6 | 68.9 / 61.0 / 46.6 | - |
 | Waymo | [VoxelRCNN (Center)](tools/cfgs/waymo_models/uda_voxel_rcnn_centerhead.yaml) | 4 | 91.1 / 71.7 / 45.5 | 78.5 / 71.7 / 60.3 | - |
 
+If you would like to contribute to this table with different models/trained on different datasets using OpenPCDet, please email me with the cfgs/model and I can add it in. Note that the models should be trained with `SHIFT_COOR` for better cross-domain performance.
+
 We do not provide links to Waymo models due to the [Waymo Dataset License Agreement](https://waymo.com/open/terms/). If you would like to have the Waymo pre-trained models, please send me an email at darrenjktsai@gmail.com with your name, institute, a screenshot of the Waymo dataset registration confirmation mail and your intended usage. Note that we are not allowed to share the model with you if it will use for any profit-oriented activities.
 
 ## UDA Model Zoo
