@@ -12,11 +12,11 @@ DATA_SPLIT: {
 }
 CLASS_NAMES: ['car','truck','bus','motorcycle','bicycle','pedestrian']
 CLASS_MAPPING: {'car': 'car',                
-                'truck': 'car',
-                'bus': 'car',
+                'truck': 'truck',
+                'bus': 'bus',
                 'Vehicle': 'car',
                 'bicycle': 'bicycle',
-                'motorcycle': 'bicycle',
+                'motorcycle': 'motorcycle',
                 'Cyclist': 'bicycle',
                 'pedestrian': 'pedestrian',
                 'Pedestrian': 'pedestrian'}

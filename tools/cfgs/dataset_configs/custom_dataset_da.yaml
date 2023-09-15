@@ -1,13 +1,13 @@
 DATASET: 'CustomDataset'
-DATA_PATH: '../data/custom'
-
+DATA_PATH: '../data/sydney_ouster'
+SHIFT_COOR: [0.0, 0.0, 1.8] # change this according to your lidar height above ground
 POINT_CLOUD_RANGE: [-75.2, -75.2, -2, 75.2, 75.2, 4]
+MAX_SWEEPS: 1
 
 DATA_SPLIT: {
     'train': train,
     'test': val
 }
-SHIFT_COOR: [0.0, 0.0, 1.8]
 INFO_PATH: {
     'train': [custom_infos_train.pkl],
     'test': [custom_infos_val.pkl],
@@ -18,7 +18,16 @@ POINT_FEATURE_ENCODING: {
     used_feature_list: ['x', 'y', 'z','timestamp'],
     src_feature_list: ['x', 'y', 'z','timestamp'],
 }
-
+CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
+CLASS_MAPPING: {'car': 'Vehicle',
+                'truck': 'Vehicle',
+                'bus': 'Vehicle',
+                'Vehicle': 'Vehicle',
+                'motorcycle': 'Cyclist',
+                'bicycle': 'Cyclist',
+                'Cyclist': 'Cyclist',
+                'pedestrian': 'Pedestrian',
+                'Pedestrian': 'Pedestrian'}
 DATA_AUGMENTOR: 
     DISABLE_AUG_LIST: ['placeholder']
     AUG_CONFIG_LIST:

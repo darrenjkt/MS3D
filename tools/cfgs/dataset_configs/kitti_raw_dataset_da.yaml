@@ -7,7 +7,17 @@ DATA_SPLIT: {
     'train': train,
     'test': val
 }
-
+CLASS_NAMES: ['Car', 'Pedestrian', 'Cyclist']
+CLASS_MAPPING: {'Car': 'Car',
+                'car': 'Car',                                
+                'truck': 'Car',
+                'bus': 'Car',
+                'Vehicle': 'Car',
+                'bicycle': 'Cyclist',
+                'motorcycle': 'Cyclist',
+                'Cyclist': 'Cyclist',
+                'pedestrian': 'Pedestrian',
+                'Pedestrian': 'Pedestrian'}
 INFO_PATH: {
     'train': [kitti_infos_train.pkl],
     'test': [kitti_infos_val.pkl],
@@ -18,7 +28,10 @@ FOV_POINTS_ONLY: False
 
 SEQUENCE_CONFIG:
     ENABLED: False
-    SAMPLE_OFFSET: [-15,0]
+    SAMPLE_OFFSET: [-3,0]
+
+SAVE_PKL_IN_GROUND_FRAME: True
+SHIFT_COOR: [0.0, 0.0, 1.6]
 
 DATA_AUGMENTOR:
     DISABLE_AUG_LIST: ['placeholder']
@@ -36,8 +49,8 @@ DATA_AUGMENTOR:
 
 POINT_FEATURE_ENCODING: {
     encoding_type: absolute_coordinates_encoding,
-    used_feature_list: ['x', 'y', 'z', 'intensity'],
-    src_feature_list: ['x', 'y', 'z', 'intensity'],
+    used_feature_list: ['x', 'y', 'z','timestamp'],
+    src_feature_list: ['x', 'y', 'z', 'intensity','timestamp'],
 }
 
 DATA_PROCESSOR:

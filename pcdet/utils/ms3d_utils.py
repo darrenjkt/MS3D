@@ -21,7 +21,7 @@ from pcdet.datasets.augmentor.augmentor_utils import get_points_in_box
 # ======== Temporal and final label refinement key functions ========
 
 def update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped=None, 
-              veh_pos_th=0.6, veh_nms_th=0.05, ped_nms_th=0.5, 
+              veh_pos_th=0.6, veh_nms_th=0.05, ped_nms_th=0.5, min_num_pts=1,
               frame2box_key_static='frameid_to_propboxes', frame2box_key='frameid_to_box', frame_ids=None):
     """
     Add everything to the frame and use NMS to filter out by score. 
@@ -30,12 +30,11 @@ def update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped=No
     final_ps_dict = {}
     if frame_ids is not None:
         for frame_id in ps_dict.keys():        
-            # 16f is 2Hz whilst 1f is 5Hz. We could interpolate the box for 5Hz but for now we train at 2Hz for faster research iteration
             if frame_id not in frame_ids:
                 continue
-            final_ps_dict[frame_id] = ps_dict[frame_id]
+            final_ps_dict[frame_id] = copy.deepcopy(ps_dict[frame_id])
     else:
-        final_ps_dict.update(ps_dict)
+        final_ps_dict = copy.deepcopy(ps_dict)
     
     for idx, (frame_id, ps) in enumerate(tqdm(final_ps_dict.items(), total=len(final_ps_dict.keys()), desc='update_ps')):        
 
@@ -99,8 +98,8 @@ def update_ps(dataset, ps_dict, tracks_veh_all, tracks_veh_static, tracks_ped=No
             box_points, _ = get_points_in_box(points_1frame, box)
             num_pts.append(len(box_points))
         num_pts = np.array(num_pts)
-        final_ps_dict[frame_id]['gt_boxes'] = new_boxes[num_pts > 1]
-        final_ps_dict[frame_id]['num_pts'] = num_pts[num_pts > 1] 
+        final_ps_dict[frame_id]['gt_boxes'] = new_boxes[num_pts > min_num_pts]
+        final_ps_dict[frame_id]['num_pts'] = num_pts[num_pts > min_num_pts] 
         final_ps_dict[frame_id]['memory_counter'] = np.zeros(final_ps_dict[frame_id]['gt_boxes'].shape[0])
 
     # Remove boxes at the ego-vehicle position due to lidar hitting the roof/racks
@@ -161,14 +160,17 @@ def refine_veh_labels(dataset, frame_ids,
         save_data(tracks_veh_static, save_dir, name="tracks_world_veh_static_refined_prop_boxes.pkl")
     return tracks_veh_all, tracks_veh_static
 
-def refine_ped_labels(tracks_ped, ped_pos_th, track_filtering_cfg):
+def refine_ped_labels(tracks_ped, ped_pos_th, track_filtering_cfg, s2e_th=2):
     """
     Refine pedestrian labels    
+
+    s2e_th: threshold for the distance of first track to the last track. Above s2e_th is counted as a dynamic pedestrian 
+
     """
     # Classify if track is static or dynamic
     delete_tracks(tracks_ped, min_score=ped_pos_th, num_boxes_abv_score=track_filtering_cfg['MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_PED'])                   
     for trk_id in tracks_ped.keys():
-        tracks_ped[trk_id]['motion_state'] = get_motion_state(tracks_ped[trk_id]['boxes'], s2e_th=2) 
+        tracks_ped[trk_id]['motion_state'] = get_motion_state(tracks_ped[trk_id]['boxes'], s2e_th=s2e_th) 
 
     # Delete tracks if less than N tracks
     delete_tracks(tracks_ped, min_score=0.0, num_boxes_abv_score=track_filtering_cfg['MIN_NUM_PED_TRACKS'])    
@@ -493,7 +495,7 @@ def load_dataset(cfg, split):
     cfg.DATA_SPLIT.test = split
     if cfg.get('SAMPLED_INTERVAL', False):
         cfg.SAMPLED_INTERVAL.test = 1
-    logger = common_utils.create_logger('unused_log.txt', rank=cfg.LOCAL_RANK) # TODO: remove the need to generate txt logger
+    logger = common_utils.create_logger()
     target_set, _, _ = build_dataloader(
                 dataset_cfg=cfg,
                 class_names=cfg.CLASS_NAMES,

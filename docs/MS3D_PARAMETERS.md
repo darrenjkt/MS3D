@@ -6,7 +6,8 @@ MS3D configuration for each round of self-training on the given target dataset i
 Here is an explanation the parameters.
 
 ```yaml
-EXP_NAME: W_L_VMFI_TTA_PA_PC_VA_VC_64  # all files will be saved/searched with this prefix
+# all files will be saved/searched with this prefix
+EXP_NAME: W_L_VMFI_TTA_PA_PC_VA_VC_64  
 
 DETS_TXT: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/cfgs/W_L_VMFI_TTA_PA_PC_VA_VC_64.txt  # pre-trained predictions
 SAVE_DIR: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/ps_labels 
@@ -14,20 +15,16 @@ DATA_CONFIG: /MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml   # targe
 
 # PS_SCORE_TH and ENSEMBLE_KBF params are given as: [veh_th, ped_th, cyc_th]. Cyclist is not currently supported in MS3D.
 PS_SCORE_TH: 
-  POS_TH: [0.7,0.6,0.5] # labels with score above this are used as pseudo-labels
-  NEG_TH: [0.2,0.1,0.3] # labels with score under this are removed
+  POS_TH: [0.7,0.6,0.5] # box score above this -> use as pseudo-labels
+  NEG_TH: [0.2,0.1,0.3] # box score below this -> remove in KBF step
 
-## MS3D Step 1: Ensemble pre-trained detectors from different sources
+## MS3D Step 1: Ensemble pre-trained detectors
 ENSEMBLE_KBF:
-  DISCARD: [4, 4, 4] # if less than N predictions overlapping, we do not fuse the box
-  RADIUS: [1.5, 0.3, 0.2] # find all centroids within a radius as fusion candidates
+  DISCARD: [4, 4, 4] # discard if less than N predictions overlapping
+  RADIUS: [1.5, 0.3, 0.2] # select fusion candidates by radius
   NMS: [0.1, 0.3, 0.1]
 
-## MS3D Step 2: Tracking with SimpleTrack
-# giou as proposed by SimpleTrack is similar to iou if in range [0,1]
-# RUNNING: use detection box as tracked box, and update kalman filter state
-# REDUNDANCY: use kalman filter predicted box as tracked box
-# running asso_th is (1-asso_th), redundancy asso_th is (asso_th) [see SimpleTrack github]
+## MS3D Step 2: Tracking with SimpleTrack (explained below)
 TRACKING:
   VEH_ALL:
     RUNNING:
@@ -68,30 +65,54 @@ TEMPORAL_REFINEMENT:
 
   # Retroactive Object Labeling
   TRACK_FILTERING: 
-    # Number of confident detections required such that we consider the track as a pseudo-label
-    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_ALL: 7
-    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_STATIC: 3
-    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_PED: 1
-    
     # Use object tracks only if there's enough tracks
     MIN_NUM_STATIC_VEH_TRACKS: 7
     MIN_NUM_PED_TRACKS: 7
+    
+    # Number of confident detections required for each track
+    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_ALL: 7
+    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_STATIC: 3
+    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_PED: 1      
 
-    # After a few self-training rounds, static peds may be good to use as well
+    # May be able to use static after a few self-training rounds
     USE_STATIC_PED_TRACKS: false
   
-  # Refine static vehicle position for each frame with ROLLING_KDE_WINDOW historical predictions
-  # The score of the final refined box is max(MIN_STATIC_SCORE, fused_box_score)
+  # Refine vehicle position with ROLLING_KDE_WINDOW historical predictions
+  # Final refined box score is max(MIN_STATIC_SCORE, fused_box_score)
   ROLLING_KBF:
     MIN_STATIC_SCORE: 0.8
     ROLLING_KDE_WINDOW: 10
 
-  # Propagate the refined static box to the previous N_EXTRA_FRAMES and future N_EXTRA_FRAMES
+  # Propagate refined static box N_EXTRA_FRAMES in the past/future
   PROPAGATE_BOXES:
-    MIN_STATIC_TRACKS: 10 # make sure there are at least MIN_STATIC_TRACKS boxes that are above POS_TH for each static vehicle 
-    N_EXTRA_FRAMES: 40 # number of frames to propagate temporally
-    DEGRADE_FACTOR: 0.98 # score of propagated boxes = DEGRADE_FACTOR*score
+    MIN_STATIC_TRACKS: 10 
+    N_EXTRA_FRAMES: 40 # too high can lead to more false positives
+    DEGRADE_FACTOR: 0.98 # propagated box score = DEGRADE_FACTOR*orig_score
     MIN_SCORE_CLIP: 0.3 # unused at the moment
 ```        
 
-Final pseudo-labels are given in the format: (x,y,z,dx,dy,dz,heading,class_id,score). Only positive class_ids are used for training.
+**Final pseudo-labels** are given in the format: (x,y,z,dx,dy,dz,heading,class_id,score). Only positive class_ids are used for training.
+
+### Tracker details
+We use SimpleTrack for the tracker with `giou` and `iou_2d` for association and Kalman Filter (KF) as the motion model.
+
+Generalized IOU `giou` as proposed by SimpleTrack is similar to IOU if in range [0,1], but also allows association if the two boxes are not overlapping.
+
+Below we provide a quick overview of the tracker configs:
+```yaml
+RUNNING: # use detection box as tracked box, update KF state
+    SCORE_TH: 0.5 # boxes above 0.5 are counted as valid detection box
+    MAX_AGE_SINCE_UPDATE: 2 # end track if no boxes > 0.5 for 2 time steps
+    MIN_HITS_TO_BIRTH: 2 # start track only if 2 consecutive boxes > 0.5
+    ASSO: iou_2d
+    ASSO_TH: 0.7 
+REDUNDANCY: # no detection box, so we use KF prediction as tracked box
+    SCORE_TH: 0.1 # boxes above 0.1 prolongs the track lifespan
+    MAX_REDUNDANCY_AGE: 3 # end if no running boxes after 3 redundancy boxes
+    ASSO_TH: 0.3
+```
+With `ASSO_TH`, the running asso_th refers to (1-asso_th) and redundancy asso_th is (asso_th). For example:
+- RUNNING `iou_2d=0.7` means the track is associated if the boxes IOU > 0.3 overlap. 
+- REDUNDANCY `iou_2d=0.3` means boxes are associated if IOU > 0.3. 
+
+It's an odd implementation quirk in SimpleTrack. Refer to this issue in their [github](https://github.com/tusen-ai/SimpleTrack/issues/29).

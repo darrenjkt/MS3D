@@ -152,11 +152,11 @@ def load_src_paths_txt(src_paths_txt):
             if not Path(pkl_pth).is_absolute():
                 pkl_pth = Path(pkl_pth).resolve()     
             
-            label_str = [str(pkl_pth).split('/')[5]]
-            label_str.append(str(pkl_pth).split('/')[-2])
-            label = '.'.join(label_str) # source_detector_nframe.vmfi
-            det_annos[label] = pkl.load(f)
-            det_annos['det_cls_weights'][label] = det_cls_weights
+            # label_str = [str(pkl_pth).split('/')[5]]
+            # label_str.append(str(pkl_pth).split('/')[-2])
+            # label = '.'.join(label_str) 
+            det_annos[pkl_pth] = pkl.load(f)
+            det_annos['det_cls_weights'][pkl_pth] = det_cls_weights
     return det_annos
 
 def get_detection_sets(det_annos, score_th=0.1):
@@ -359,7 +359,7 @@ def get_initial_pseudo_labels(detection_sets, cls_kbf_config):
     """
     ps_dict = {}
 
-    for frame_boxes in tqdm(detection_sets, total=len(detection_sets), desc='get initial label set'):
+    for frame_boxes in tqdm(detection_sets, total=len(detection_sets), desc='get initial ps labels'):
 
         boxes_lidar = np.hstack([frame_boxes['boxes_lidar'],
                                  frame_boxes['class_ids'][...,np.newaxis],

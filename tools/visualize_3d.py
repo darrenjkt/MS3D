@@ -54,6 +54,7 @@ def main():
     parser.add_argument('--bev_vis', action='store_true', default=False)
     parser.add_argument('--use_linemesh', action='store_true', default=False, help='Visualize with larger boxes but very slow render time')
     parser.add_argument('--use_class_colors', action='store_true', default=False)    
+    parser.add_argument('--pointcloud_only', action='store_true', default=False)    
     args = parser.parse_args()
     
     if args.bev_vis:
@@ -224,12 +225,16 @@ def main():
    
                 if args.save_video:
                     
-                    geom = V.get_geometries(
+                    
+                    if args.pointcloud_only:
+                        geom = V.get_geometries(
+                                    points=data_dict['points'][:, 1:])
+                    else:
+                        geom = V.get_geometries(
                                 points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=pred_dicts[0]['pred_boxes'], 
                                 ref_scores=pred_dicts[0]['pred_scores'], ref_labels=pred_dicts[0]['pred_labels'], use_linemesh=args.use_linemesh
                             )
-                    # geom = V.get_geometries(
-                    #             points=data_dict['points'][:, 1:])
+                        
                     vis.clear_geometries()
                     for g in geom:                
                         vis.add_geometry(g)
@@ -271,8 +276,8 @@ def main():
                     # ctr.set_up([0.53322341149418129, 0.044870204273302128, 0.84478367538854582 ])
                     # ctr.set_zoom(0.15999999999999994)
                     # vis.get_render_option().point_size = 4.0    
-                    # vis.update_renderer()         
-                    # vis.poll_events()
+                    vis.update_renderer()         
+                    vis.poll_events()
 
                     Path(f'demo_data/{args.save_video_dir}').mkdir(parents=True, exist_ok=True)
                     vis.capture_screen_image(f'demo_data/{args.save_video_dir}/frame-{idx}.jpg', do_render=True)

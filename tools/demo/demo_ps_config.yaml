@@ -1,13 +1,13 @@
-DETS_TXT: /MS3D/tools/cfgs/target_waymo/label_generation/round1/cfgs/ensemble_detections.txt
-SAVE_DIR: /MS3D/tools/cfgs/target_waymo/label_generation/round1/ps_labels
-DATA_CONFIG_PATH: /MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml
+DETS_TXT: None
+SAVE_DIR: /MS3D/tools/demo/ps_labels
+DATA_CONFIG_PATH: /MS3D/tools/cfgs/dataset_configs/custom_dataset_da.yaml
 
-PS_SCORE_TH: # veh,ped,cyc
-  POS_TH: [0.7,0.6,0.5]
+PS_SCORE_TH: # veh,ped,cyc; cyclist not supported at the moment
+  POS_TH: [0.7,0.5,0.5]
   NEG_TH: [0.3,0.2,0.2]
 
 ENSEMBLE_KBF:
-  DISCARD: [4, 4, 4]
+  DISCARD: [2, 2, 2]
   RADIUS: [1.5, 0.3, 0.2]
   NMS: [0.1, 0.3, 0.1]
 
@@ -49,16 +49,16 @@ TRACKING:
 TEMPORAL_REFINEMENT:
   TRACK_FILTERING:
     MIN_NUM_STATIC_VEH_TRACKS: 10
-    MIN_NUM_PED_TRACKS: 10  
-    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_ALL: 4
+    MIN_NUM_PED_TRACKS: 10
+    MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_ALL: 12
     MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_VEH_STATIC: 2
     MIN_DETS_ABOVE_POS_TH_FOR_TRACKS_PED: 2
-    USE_STATIC_PED_TRACKS: false
+    USE_STATIC_PED_TRACKS: false    
   ROLLING_KBF:
     MIN_STATIC_SCORE: 0.75
     ROLLING_KDE_WINDOW: 16
   PROPAGATE_BOXES:
     MIN_STATIC_TRACKS: 24
     N_EXTRA_FRAMES: 100
-    DEGRADE_FACTOR: 0.98
-    MIN_SCORE_CLIP: 0.5
+    DEGRADE_FACTOR: 0.97
+    MIN_SCORE_CLIP: 0.1

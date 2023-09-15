@@ -52,7 +52,7 @@ def parse_config():
 
     cfg_from_yaml_file(args.cfg_file, cfg)
     if args.target_dataset is not None:
-        get_target_domain_cfg(cfg, args.target_dataset, args.sweeps, custom_target_scenes=args.custom_target_scenes, use_tta=args.use_tta)
+        _ = get_target_domain_cfg(cfg, args.target_dataset, args.sweeps, custom_target_scenes=args.custom_target_scenes, use_tta=args.use_tta)
         
     cfg.TAG = Path(args.cfg_file).stem
     cfg.EXP_GROUP_PATH = '/'.join(args.cfg_file.split('/')[1:-1])  # remove 'cfgs' and 'xxxx.yaml'

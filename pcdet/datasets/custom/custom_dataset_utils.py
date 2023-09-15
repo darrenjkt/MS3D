@@ -70,4 +70,4 @@ def convert_to_o3dpcd(points):
     else:
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points[:,:3])
-        return 
+        return pcd    
