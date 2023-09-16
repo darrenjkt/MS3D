@@ -12,6 +12,9 @@ import argparse
 import pickle
 from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.utils import box_fusion_utils
+from pcdet.utils import compatibility_utils as compat
+import numpy as np
+import time
 """
 # Examples
 python visualize_3d.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml  \
@@ -25,13 +28,15 @@ python visualize_3d.py --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
 
 def main():
     parser = argparse.ArgumentParser(description='arg parser')
-    parser.add_argument('--cfg_file', type=str, default=None, required=True,
-                        help='specify the config for demo')
+    parser.add_argument('--cfg_file', type=str, default='/MS3D/tools/cfgs/dataset_configs/waymo_dataset_da.yaml',
+                        help='just use the target dataset cfg file')
     parser.add_argument('--ckpt', type=str, default=None,
                         help='specify the model ckpt path')    
     parser.add_argument('--det_pkl', type=str, required=False,
                         help='These are the result.pkl files from test.py')
     parser.add_argument('--ps_pkl', type=str, required=False,
+                        help='These are the ps_dict_*, ps_label_e*.pkl files generated from MS3D')
+    parser.add_argument('--ps_pkl2', type=str, required=False, default=None,
                         help='These are the ps_dict_*, ps_label_e*.pkl files generated from MS3D')
     parser.add_argument('--dets_txt', type=str, default=None, required=False,
                         help='det_*f_paths.txt file containing detector pkl paths')                        
@@ -39,33 +44,73 @@ def main():
                         help='If you wish to only display a certain frame index')
     parser.add_argument('--split', type=str, default='train',
                         help='Specify train or test split')    
-    parser.add_argument('--sampled_interval', type=int, default=1,
+    parser.add_argument('--sampled_interval', type=int, default=None,
                         help='same as SAMPLED_INTERVAL config parameter')        
+    parser.add_argument('--save_video_dir', type=str, required=False, default='save_frames')
     parser.add_argument('--custom_train_split', action='store_true', default=False)
     parser.add_argument('--save_video', action='store_true', default=False)
     parser.add_argument('--show_gt', action='store_true', default=False)
+    parser.add_argument('--sweeps', type=int, default=None)
+    parser.add_argument('--bev_vis', action='store_true', default=False)
+    parser.add_argument('--use_linemesh', action='store_true', default=False, help='Visualize with larger boxes but very slow render time')
+    parser.add_argument('--use_class_colors', action='store_true', default=False)    
+    parser.add_argument('--pointcloud_only', action='store_true', default=False)    
     args = parser.parse_args()
+    
+    if args.bev_vis:
+        from visualize_bev import plot_boxes
+        import matplotlib.pyplot as plt
 
+    # Load dataset or model+dataset
     cfg_from_yaml_file(args.cfg_file, cfg)
-    if cfg.get('DATA_CONFIG_TAR', None):
-        data_config = cfg.DATA_CONFIG_TAR
-        cls_names = cfg.DATA_CONFIG_TAR.CLASS_NAMES
+    if 'dataset_configs' in args.cfg_file:
+        data_config = cfg      
     else:
-        data_config = cfg.DATA_CONFIG
-        cls_names = cfg.CLASS_NAMES
+        if cfg.get('DATA_CONFIG_TAR', None):
+            data_config = cfg.DATA_CONFIG_TAR
+        else:
+            data_config = cfg.DATA_CONFIG
 
+    cls_names = data_config.CLASS_NAMES
     data_config.DATA_SPLIT.test = args.split
-    if data_config.get('SAMPLED_INTERVAL', None):        
+    data_config.USE_TTA = False
+    if args.sampled_interval is not None:          
         data_config.SAMPLED_INTERVAL.test = args.sampled_interval
     data_config.USE_CUSTOM_TRAIN_SCENES = args.custom_train_split
     logger = common_utils.create_logger('temp.txt', rank=cfg.LOCAL_RANK)
+
+    if data_config.get('MAX_SWEEPS',False):
+        if args.sweeps is not None:
+            data_config.MAX_SWEEPS = args.sweeps
+
+    if data_config.get('SEQUENCE_CONFIG',False):
+        if data_config.SEQUENCE_CONFIG.ENABLED:
+            if args.sweeps is not None:
+                data_config.SEQUENCE_CONFIG.SAMPLE_OFFSET = [-(args.sweeps-1),0]
+
+            # data_config.POINT_FEATURE_ENCODING.src_feature_list=['x','y','z','intensity','timestamp']
+            data_config.POINT_FEATURE_ENCODING.src_feature_list=['x', 'y', 'z', 'intensity', 'elongation', 'timestamp']
+            data_config.POINT_FEATURE_ENCODING.used_feature_list=['x','y','z','timestamp']        
+
     target_set, target_loader, _ = build_dataloader(
-                dataset_cfg=data_config,
-                class_names=cls_names,
-                batch_size=1, logger=logger, training=False, dist=False, workers=1
-            )
-    frameid_to_idx = target_set.frameid_to_idx    
-    idx_to_frameid = {v: k for k, v in frameid_to_idx.items()}
+            dataset_cfg=data_config,
+            class_names=cls_names,
+            batch_size=1, logger=logger, training=False, dist=False, workers=1
+        )          
+
+    idx_to_frameid = {v: k for k, v in target_set.frameid_to_idx.items()}
+
+    # If no pkl file, just show point cloud and gt boxes (optional)
+    if (args.det_pkl is None) and (args.ps_pkl is None) and (args.dets_txt is None) and (args.ckpt is None):    
+        for idx, data_dict in enumerate(target_loader):
+            if idx < args.idx:
+                print(f'Skipping {idx}/{args.idx}')
+                continue
+            V.draw_scenes(points=data_dict['points'][:, 1:], 
+                          gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None,                           
+                          draw_origin=False, use_linemesh=args.use_linemesh, ref_labels=list(data_dict['gt_boxes'][0][:,7].astype(int)))
+
+    # Visualize pkls
     if (args.det_pkl is not None) or (args.ps_pkl is not None) or (args.dets_txt is not None):    
 
         # Load detection pickle
@@ -73,20 +118,37 @@ def main():
             with open(args.det_pkl,'rb') as f:
                 det_annos = pickle.load(f)
 
-            eval_det_annos = copy.deepcopy(det_annos)   
-            for idx, data_dict in enumerate(target_loader):
+            # eval_det_annos = copy.deepcopy(det_annos)   
+            for idx, det_anno in enumerate(det_annos):
                 if idx < args.idx:
-                    print(f'Skipping {idx}/{args.idx}')
+                    print(f'Skipping {idx}/{args.idx} out of {len(det_annos)} total samples')
                     continue
-                V.draw_scenes(points=data_dict['points'][:, 1:], 
-                                        ref_boxes=eval_det_annos[idx]['boxes_lidar'][eval_det_annos[idx]['score'] > 0.6],                         
-                                        ref_scores=eval_det_annos[idx]['score'][eval_det_annos[idx]['score'] > 0.6], 
-                                        ref_labels=[1 for i in range(len(eval_det_annos[idx]['boxes_lidar'][eval_det_annos[idx]['score'] > 0.6]))],
-                                        gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
-                                        draw_origin=False)
+                frame_id = det_anno['frame_id']
+                if frame_id not in target_set.frameid_to_idx.keys():
+                    print(f"{frame_id} not found in frameid_to_idx, skipping frame")
+                    continue
+                print(f'Visualizing frame idx: {idx}, frame_id: {frame_id}')
+                pts = target_set[target_set.frameid_to_idx[frame_id]]['points']
+                gt_boxes = target_set[target_set.frameid_to_idx[frame_id]]['gt_boxes']
+                # class_mask = np.isin(compat.get_gt_names(target_set, frame_id), ['Vehicle','car','truck','bus'])
+
+            # for idx, data_dict in enumerate(target_loader):
+            #     if idx < args.idx:
+            #         print(f'Skipping {idx}/{args.idx}')
+            #         continue
+                V.draw_scenes(points=pts, 
+                                ref_boxes=det_anno['boxes_lidar'][det_anno['score'] > 0.2],                         
+                                ref_scores=det_anno['score'][det_anno['score'] > 0.2], 
+                                ref_labels=[1 for i in range(len(det_anno['boxes_lidar'][det_anno['score'] > 0.2]))],
+                                gt_boxes=gt_boxes if args.show_gt else None, use_class_colors=args.use_class_colors,
+                                draw_origin=False, use_linemesh=args.use_linemesh)
         if args.ps_pkl is not None:
             with open(args.ps_pkl,'rb') as f:
                 ps_dict = pickle.load(f)
+
+            if args.ps_pkl2 is not None:
+                with open(args.ps_pkl2,'rb') as f:
+                    ps_dict2 = pickle.load(f)
 
             for idx, data_dict in enumerate(target_loader):
                 if idx < args.idx:
@@ -94,28 +156,44 @@ def main():
                     continue
 
                 frame_id = idx_to_frameid[idx]
-                mask = ps_dict[frame_id]['gt_boxes'][:,8] > 0.4 #0.6 for ps_label, 0.4 for ps_dict_1f
+                if frame_id not in ps_dict.keys():
+                    print(f"{frame_id} not in ps_dict, skipping frame")
+                    continue
+                # mask = ps_dict[frame_id]['gt_boxes'][:,8] > 0.4 #0.6 for ps_label, 0.4 for ps_dict_1f
+                print(f'Visualizing frame idx: {idx}, frame_id: {frame_id}')
                 V.draw_scenes(points=data_dict['points'][:, 1:], 
-                                        ref_boxes=ps_dict[frame_id]['gt_boxes'][mask],                         
-                                        ref_scores=ps_dict[frame_id]['gt_boxes'][mask][:,8], 
-                                        ref_labels=[1 for i in range(len(ps_dict[frame_id]['gt_boxes'][mask]))],
-                                        gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
-                                        draw_origin=False)
+                                ref_boxes=ps_dict[frame_id]['gt_boxes'][:,:7][ps_dict[frame_id]['gt_boxes'][:,8] > 0.4],
+                                ref_boxes2=ps_dict2[frame_id]['gt_boxes'][:,:7] if args.ps_pkl2 is not None else None,                         
+                                ref_scores=ps_dict[frame_id]['gt_boxes'][:,8][ps_dict[frame_id]['gt_boxes'][:,8] > 0.4], 
+                                ref_labels=list(abs(ps_dict[frame_id]['gt_boxes'][:,7][ps_dict[frame_id]['gt_boxes'][:,8] > 0.4].astype(int))),
+                                gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None, 
+                                draw_origin=False, use_linemesh=args.use_linemesh, use_class_colors=args.use_class_colors,)
         else:                        
             det_annos = box_fusion_utils.load_src_paths_txt(args.dets_txt)
-            
-            for idx, data_dict in enumerate(target_loader):
+            src_keys = list(det_annos.keys())
+            src_keys.remove('det_cls_weights')
+            len_data = len(det_annos[src_keys[0]])
+
+            for idx in range(len_data):
                 if idx < args.idx:
                     print(f'Skipping {idx}/{args.idx}')
-                    continue                
+                    continue
+                frame_id = det_annos[src_keys[0]][idx]['frame_id']
+                if frame_id not in target_set.frameid_to_idx.keys():
+                    print(f"{frame_id} not found in frameid_to_idx, skipping frame")
+                    continue
+                print(f'Visualizing frame idx: {idx}, frame_id: {frame_id}')
+                pts = target_set[target_set.frameid_to_idx[frame_id]]['points']
+                gt_boxes = target_set[target_set.frameid_to_idx[frame_id]]['gt_boxes']        
                 
-                geom = V.draw_scenes_msda(points=data_dict['points'][:, 1:], 
+                geom = V.draw_scenes_msda(points=pts, 
                                           idx=idx,
                                           det_annos=det_annos,                                        
-                                          gt_boxes=data_dict['gt_boxes'][0] if args.show_gt else None)
+                                          gt_boxes=gt_boxes if args.show_gt else None,
+                                          use_linemesh=args.use_linemesh)
             
     else:
-
+        # Load trained model for inference
         model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=target_set)
         model.load_params_from_file(filename=args.ckpt, logger=logger, to_cpu=True)
         model.cuda()
@@ -137,31 +215,72 @@ def main():
                 pred_dicts, _ = model.forward(data_dict)   
                 if 'gt_boxes' in data_dict.keys():
                     gt_boxes = data_dict['gt_boxes'][0]
+
+                    # For filtering out gt boxes with 0 pts in waymo scenes
+                    # class_mask = np.in1d(target_set.infos[idx]['annos']['name'], target_set.class_names)
+                    # class_num_pts = target_set.infos[idx]['annos']['num_points_in_gt'][class_mask]
+                    # gt_boxes = gt_boxes[class_num_pts > 0]
                 else:
                     gt_boxes = None
    
                 if args.save_video:
-                    geom = V.get_geometries(
+                    
+                    
+                    if args.pointcloud_only:
+                        geom = V.get_geometries(
+                                    points=data_dict['points'][:, 1:])
+                    else:
+                        geom = V.get_geometries(
                                 points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=pred_dicts[0]['pred_boxes'], 
-                                ref_scores=pred_dicts[0]['pred_scores'], ref_labels=pred_dicts[0]['pred_labels']
+                                ref_scores=pred_dicts[0]['pred_scores'], ref_labels=pred_dicts[0]['pred_labels'], use_linemesh=args.use_linemesh
                             )
+                        
                     vis.clear_geometries()
                     for g in geom:                
                         vis.add_geometry(g)
                         
                     ctr = vis.get_view_control()    
-                    vis.get_render_option().point_size = 2.0
+                    # vis.get_render_option().point_size = 1.0
 
-                    ctr.set_front([ -0.63703010546300987, 0.031621802576535914, 0.77019004559627835 ])
-                    ctr.set_lookat([ 24.513087638782164, 2.8039754478129324, -1.0959739482593087 ])
-                    ctr.set_up([ 0.77082292993229895, 0.019695916704257327, 0.63674491089899199 ])
-                    ctr.set_zoom(0.16)
-                    
+                    # ctr.set_front([ -0.63703010546300987, 0.031621802576535914, 0.77019004559627835 ])
+                    # ctr.set_lookat([ 24.513087638782164, 2.8039754478129324, -1.0959739482593087 ])
+                    # ctr.set_up([ 0.77082292993229895, 0.019695916704257327, 0.63674491089899199 ])
+                    # ctr.set_zoom(0.16)
+
+                    # MS3D++ tgt_waymo qualitative
+                    ctr.set_front([ -0.79490788243448329, 0.01495959113947927, 0.60654568589387037 ])
+                    ctr.set_lookat([ 15.417785290867977, -1.6179187751048014, -8.5173845851153143 ])
+                    ctr.set_up([0.60625059182523544, -0.020154889264250107, 0.79501823900480273])
+                    ctr.set_zoom(0.17999999999999994)
+                    vis.get_render_option().point_size = 1.0       
+
+                    # MS3D++ tgt_lyft qualitative
+                    # ctr.set_front([  0.79570141514638959, -0.092133463771410615, 0.59864069589989899 ])
+                    # ctr.set_lookat([ -12.990834711399467, 2.6371120128719636, -9.8107556449013416 ])
+                    # ctr.set_up([-0.59940629219165342, 0.022207236266390835, 0.80013682301120415])
+                    # ctr.set_zoom(0.17999999999999994)
+                    # vis.get_render_option().point_size = 2.0          
+
+                    # MS3D++ tgt_nusc qualitative
+                    # ctr.set_front([ 0.0087264629048255243, -0.75327240405054774, 0.65765076913288811 ])
+                    # ctr.set_lookat([ -1.8461993414538382, 24.009932413395173, -19.054164307594132 ])
+                    # ctr.set_up([0.012925990806422497, 0.65770583609822197, 0.75316396085049842])
+                    # ctr.set_zoom(0.2599999999999999)
+                    # vis.get_render_option().point_size = 2.0       
+                    # vis.update_renderer()         
+                    # vis.poll_events()
+
+                    # MS3D++ tgt_nusc qualitative (retroactivelabel)
+                    # ctr.set_front([ -0.83664444730658971, -0.1199288729786602, 0.53445592354947258 ])
+                    # ctr.set_lookat([ 29.967540865562142, 4.7417471161548566, -16.906388849566994 ])
+                    # ctr.set_up([0.53322341149418129, 0.044870204273302128, 0.84478367538854582 ])
+                    # ctr.set_zoom(0.15999999999999994)
+                    # vis.get_render_option().point_size = 4.0    
                     vis.update_renderer()         
                     vis.poll_events()
-                    
-                    Path('demo_data/save_frames').mkdir(parents=True, exist_ok=True)
-                    vis.capture_screen_image(f'demo_data/save_frames/frame-{idx}.jpg')
+
+                    Path(f'demo_data/{args.save_video_dir}').mkdir(parents=True, exist_ok=True)
+                    vis.capture_screen_image(f'demo_data/{args.save_video_dir}/frame-{idx}.jpg', do_render=True)
 
                 else:
 
@@ -169,12 +288,38 @@ def main():
                     ref_labels = pred_dicts[0]['pred_labels']
                     ref_scores = pred_dicts[0]['pred_scores']
 
+                    print('Frame ID: ', data_dict['frame_id'])
                     print('Predicted: ', int(ref_boxes.shape[0]))
                     print('Ground truth: ', int(gt_boxes.shape[0]))
-                    V.draw_scenes(
-                        points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=ref_boxes, 
-                        ref_scores=ref_scores, ref_labels=ref_labels
-                    )
+                    if args.bev_vis:
+
+                        pts = data_dict['points'][:, 1:].cpu().numpy()
+                        fig = plt.figure(figsize=(20,20))
+                        ax = plt.subplot(111)
+                        fig.subplots_adjust(right=0.7)
+                        if (args.sweeps is not None) and (args.sweeps > 1):
+                            ax.scatter(pts[:,0],pts[:,1],s=0.1, c='black', marker='o')
+                        else:
+                            ax.scatter(pts[:,0],pts[:,1],s=0.5, c='black', marker='o')
+
+                        plot_boxes(ax, ref_boxes.cpu().numpy(), 
+                            scores=ref_scores.cpu().numpy(),
+                            source_labels=ref_labels.cpu().numpy(),
+                            limit_range=[-80, -80, -5.0, 80, 80, 3.0], color=[0,1,0])
+                        
+                        if args.show_gt:
+                            plot_boxes(ax, gt_boxes.cpu().numpy(), 
+                                        scores=None,
+                                        source_labels=None,
+                                        limit_range=[-80, -80, -5.0, 80, 80, 3.0], color=[0,0,1])
+
+                        ax.set_aspect('equal')
+                        plt.show(block=True)
+                    else:
+                        V.draw_scenes(
+                            points=data_dict['points'][:, 1:], gt_boxes=gt_boxes if args.show_gt else None, ref_boxes=ref_boxes, 
+                            ref_scores=ref_scores, ref_labels=ref_labels, use_linemesh=args.use_linemesh, use_class_colors=args.use_class_colors
+                        )
 
 
 if __name__ == '__main__':

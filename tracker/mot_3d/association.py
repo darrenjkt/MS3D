@@ -39,6 +39,8 @@ def associate_dets_to_tracks(dets, tracks, mode, asso,
 def bipartite_matcher(dets, tracks, asso, dist_threshold, trk_innovation_matrix):
     if asso == 'iou':
         dist_matrix = compute_iou_distance(dets, tracks, asso)
+    if asso == 'iou_2d':
+        dist_matrix = compute_iou_distance(dets, tracks, asso)
     elif asso == 'giou':
         dist_matrix = compute_iou_distance(dets, tracks, asso)
     elif asso == 'm_dis':
@@ -62,6 +64,8 @@ def greedy_matcher(dets, tracks, asso, dist_threshold, trk_innovation_matrix):
     elif asso == 'euler':
         distance_matrix = compute_m_distance(dets, tracks, None)
     elif asso == 'iou':
+        distance_matrix = compute_iou_distance(dets, tracks, asso)
+    elif asso == 'iou_2d':
         distance_matrix = compute_iou_distance(dets, tracks, asso)
     elif asso == 'giou':
         distance_matrix = compute_iou_distance(dets, tracks, asso)
@@ -114,6 +118,8 @@ def compute_iou_distance(dets, tracks, asso='iou'):
         for t, trk in enumerate(tracks):
             if asso == 'iou':
                 iou_matrix[d, t] = utils.iou3d(det, trk)[1]
+            if asso == 'iou_2d':
+                iou_matrix[d, t] = utils.iou2d(det, trk)
             elif asso == 'giou':
                 iou_matrix[d, t] = utils.giou3d(det, trk)
     dist_matrix = 1 - iou_matrix

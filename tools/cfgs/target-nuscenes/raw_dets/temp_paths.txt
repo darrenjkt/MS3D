@@ -1,4 +1,0 @@
-/MS3D/model_zoo/waymo_to_nusc/nuscenes_customtrain_1f_no_tta/result.pkl
-/MS3D/model_zoo/waymo_to_nusc/nuscenes_customtrain_1f_tta-rwf/result.pkl
-/MS3D/model_zoo/waymo_to_nusc/nuscenes_customtrain_1f_tta-rwr/result.pkl
-/MS3D/model_zoo/waymo_to_nusc/nuscenes_customtrain_1f_tta-rwf-rwr/result.pkl

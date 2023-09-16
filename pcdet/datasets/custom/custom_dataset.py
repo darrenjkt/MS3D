@@ -15,18 +15,20 @@ class CustomDataset(DatasetTemplate):
         super().__init__(
             dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
         )
-        self.data_path = self.root_path / self.dataset_cfg.PROCESSED_DATA_TAG
-
-        split_dir = self.root_path / 'ImageSets' / 'test.txt'
+        self.data_path = self.root_path / 'sequences'
+        self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
+        split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
         self.sample_sequence_list = [x.strip() for x in open(split_dir).readlines()]
         self.infos = []                
-        self.seq_name_to_infos = self.include_data(self.mode)
+        self.frameid_to_idx = {}
+        self.seq_name_to_len = {}
+        self.seq_name_to_infos = self.include_data()
 
-    def include_data(self, mode):
+    def include_data(self):
         if self.logger is not None:
             self.logger.info('Loading CustomDataset dataset')
         custom_infos = []
-        seq_name_to_infos = {}
+        seq_name_to_infos = {}        
 
         for k in range(len(self.sample_sequence_list)):
             sequence_name = self.sample_sequence_list[k]
@@ -36,8 +38,11 @@ class CustomDataset(DatasetTemplate):
                 custom_infos.extend(infos)
 
             seq_name_to_infos[infos[0]['point_cloud']['lidar_sequence']] = infos
+            self.seq_name_to_len[infos[0]['point_cloud']['lidar_sequence']] = len(infos)
 
         self.infos.extend(custom_infos)
+        for idx, data in enumerate(self.infos):
+            self.frameid_to_idx[data['frame_id']] = idx
 
         if self.logger is not None:
             self.logger.info('Total samples for CustomDataset dataset: %d' % (len(self.infos)))
@@ -47,132 +52,45 @@ class CustomDataset(DatasetTemplate):
             seq_name_to_infos = None 
         return seq_name_to_infos
 
-    def get_lidar(self, sequence_name, sample_idx):
-        lidar_file = self.data_path / sequence_name / 'pcd' / ('%06d.pcd' % sample_idx)
-        assert lidar_file.exists(), f'No file found at {str(lidar_file)}'
-        pcd = o3d.io.read_point_cloud(str(lidar_file))
-        return np.asarray(pcd.points, dtype=np.float32)
-
-    def get_sequence_data(self, info, points, sequence_name, sample_idx, sequence_cfg, load_pred_boxes=False):
+    def get_lidar(self, index):
+        lidar_path = self.infos[index]['lidar_path']
+        points = np.asarray(o3d.io.read_point_cloud(lidar_path).points) # only loads (N,3)          
+        return points
+    
+    def get_sequence_data(self, points, sample_idx, max_sweeps):
         """
-        Args:
-            info:
-            points:
-            sequence_name:
-            sample_idx:
-            sequence_cfg:
-        Returns:
+        Transform historical frames to current frame with odometry and concatenate them
         """
-
-        def remove_ego_points(points, center_radius=1.0):
-            mask = ~((np.abs(points[:, 0]) < center_radius) & (np.abs(points[:, 1]) < center_radius))
-            return points[mask]
-
-        def load_pred_boxes_from_dict(sequence_name, sample_idx):
-            """
-            boxes: (N, 11)  [x, y, z, dx, dy, dn, raw, vx, vy, score, label]
-            """
-            sequence_name = sequence_name.replace('training_', '').replace('validation_', '')
-            load_boxes = self.pred_boxes_dict[sequence_name][sample_idx]
-            assert load_boxes.shape[-1] == 11
-            load_boxes[:, 7:9] = -0.1 * load_boxes[:, 7:9]  # transfer speed to negtive motion from t to t-1
-            return load_boxes
-
-
-        pose_cur = info['pose'].reshape((4, 4)) 
-        num_pts_cur = points.shape[0]
-        sample_idx_pre_list = np.clip(sample_idx + np.arange(sequence_cfg.SAMPLE_OFFSET[0], sequence_cfg.SAMPLE_OFFSET[1]), 0, 0x7FFFFFFF)
+        sample_idx_pre_list = np.clip(sample_idx + np.arange(-int(max_sweeps-1), 0), 0, 0x7FFFFFFF)
         sample_idx_pre_list = sample_idx_pre_list[::-1]
         
-        if sequence_cfg.get('ONEHOT_TIMESTAMP', False):
-            onehot_cur = np.zeros((points.shape[0], len(sample_idx_pre_list) + 1)).astype(points.dtype)
-            onehot_cur[:, 0] = 1
-            points = np.hstack([points, onehot_cur])
-        else:
-            points = np.hstack([points, np.zeros((points.shape[0], 1)).astype(points.dtype)])
-        
+        points = np.hstack([points, np.zeros((points.shape[0], 1)).astype(points.dtype)])        
         points_pre_all = []
-        num_points_pre = []
-
+        pose_cur = self.infos[sample_idx]['pose']
         pose_all = [pose_cur]
-        pred_boxes_all = []
-        if load_pred_boxes:
-            pred_boxes = load_pred_boxes_from_dict(sequence_name, sample_idx)
-            pred_boxes_all.append(pred_boxes)
 
-        sequence_info = self.seq_name_to_infos[sequence_name]
-
-        for idx, sample_idx_pre in enumerate(sample_idx_pre_list):
-
-            points_pre = self.get_lidar(sequence_name, sample_idx_pre)
-            pose_pre = sequence_info[sample_idx_pre]['pose'].reshape((4, 4))
+        for sample_idx_pre in sample_idx_pre_list:
+            pcd = o3d.io.read_point_cloud(self.infos[sample_idx_pre]['lidar_path'])
+            # print('loading sweeps: ', self.sample_file_list[sample_idx_pre])
+            points_pre = np.asarray(pcd.points)
+            pose_pre = self.infos[sample_idx_pre]['pose'].reshape((4, 4))
             expand_points_pre = np.concatenate([points_pre[:, :3], np.ones((points_pre.shape[0], 1))], axis=-1)
             points_pre_global = np.dot(expand_points_pre, pose_pre.T)[:, :3]
             expand_points_pre_global = np.concatenate([points_pre_global, np.ones((points_pre_global.shape[0], 1))], axis=-1)
             points_pre2cur = np.dot(expand_points_pre_global, np.linalg.inv(pose_cur.T))[:, :3]
             points_pre = np.concatenate([points_pre2cur, points_pre[:, 3:]], axis=-1)
-            if sequence_cfg.get('ONEHOT_TIMESTAMP', False):
-                onehot_vector = np.zeros((points_pre.shape[0], len(sample_idx_pre_list) + 1))
-                onehot_vector[:, idx + 1] = 1
-                points_pre = np.hstack([points_pre, onehot_vector])
-            else:
-                # Append relative timestamp (each frame is 0.1s apart - 10Hz lidar)
-                points_pre = np.hstack([points_pre, 0.1 * (sample_idx - sample_idx_pre) * np.ones((points_pre.shape[0], 1)).astype(points_pre.dtype)])  # one frame 0.1s
             
-            points_pre = remove_ego_points(points_pre, 1.0)
+            # Append relative timestamp (each frame is 0.1s apart for 10Hz lidar)
+            points_pre = np.hstack([points_pre, 0.1 * (sample_idx - sample_idx_pre) * np.ones((points_pre.shape[0], 1)).astype(points_pre.dtype)])  # one frame 0.1s
+            
+            points_pre = self.remove_ego_points(points_pre, 1.5)
             points_pre_all.append(points_pre)
-            num_points_pre.append(points_pre.shape[0])
             pose_all.append(pose_pre)
-
-            if load_pred_boxes:
-                pose_pre = sequence_info[sample_idx_pre]['pose'].reshape((4, 4))
-                pred_boxes = load_pred_boxes_from_dict(sequence_name, sample_idx_pre)
-                pred_boxes = self.transform_prebox_to_current(pred_boxes, pose_pre, pose_cur)
-                pred_boxes_all.append(pred_boxes)
-
+            
         points = np.concatenate([points] + points_pre_all, axis=0).astype(np.float32)
-        num_points_all = np.array([num_pts_cur] + num_points_pre).astype(np.int32)
         poses = np.concatenate(pose_all, axis=0).astype(np.float32)
 
-        if load_pred_boxes:
-            temp_pred_boxes = self.reorder_rois_for_refining(pred_boxes_all)
-            pred_boxes = temp_pred_boxes[:, :, 0:9]
-            pred_scores = temp_pred_boxes[:, :, 9]
-            pred_labels = temp_pred_boxes[:, :, 10]
-        else:
-            pred_boxes = pred_scores = pred_labels = None
-
-        return points, num_points_all, sample_idx_pre_list, poses, pred_boxes, pred_scores, pred_labels
-
-    def evaluation(self, det_annos, class_names, **kwargs):
-        if 'annos' not in self.infos[0].keys():
-            return 'No ground-truth boxes for evaluation', {}
-
-        def kitti_eval(eval_det_annos, eval_gt_annos, map_name_to_kitti):
-            from ..kitti.kitti_object_eval_python import eval as kitti_eval
-            from ..kitti import kitti_utils
-
-            kitti_utils.transform_annotations_to_kitti_format(eval_det_annos, map_name_to_kitti=map_name_to_kitti)
-            kitti_utils.transform_annotations_to_kitti_format(
-                eval_gt_annos, map_name_to_kitti=map_name_to_kitti,
-                info_with_fakelidar=self.dataset_cfg.get('INFO_WITH_FAKELIDAR', False)
-            )
-            kitti_class_names = [map_name_to_kitti[x] for x in class_names]
-            ap_result_str, ap_dict = kitti_eval.get_official_eval_result(
-                gt_annos=eval_gt_annos, dt_annos=eval_det_annos, current_classes=kitti_class_names
-            )
-            return ap_result_str, ap_dict
-
-        eval_det_annos = copy.deepcopy(det_annos)
-        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.infos]
-
-        if kwargs['eval_metric'] == 'kitti':
-            self.map_class_to_kitti = self.dataset_cfg.MAP_CLASS_TO_KITTI        
-            ap_result_str, ap_dict = kitti_eval(eval_det_annos, eval_gt_annos, self.map_class_to_kitti)
-        else:
-            raise NotImplementedError
-
-        return ap_result_str, ap_dict
+        return points, poses
 
     def __len__(self):
         if self._merge_all_iters_to_one_epoch:
@@ -188,43 +106,79 @@ class CustomDataset(DatasetTemplate):
 
         info = copy.deepcopy(self.infos[index])
 
+        # sample_idx is the point cloud index within the sequence [0,199]
         sample_idx = int(info['point_cloud']['sample_idx'])
-        sequence_name = info['point_cloud']['lidar_sequence']
-        get_item_list = self.dataset_cfg.get('GET_ITEM_LIST', ['points'])
+        points = self.get_lidar(sample_idx)
+        points, _ = self.get_sequence_data(points, index, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
+
+        if self.dataset_cfg.get('SHIFT_COOR', None):
+            points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR, dtype=np.float32)        
 
         input_dict = {
             'frame_id': sample_idx,
-        }        
-
-        points = self.get_lidar(sequence_name, sample_idx)
-
-
-        if self.dataset_cfg.get('SEQUENCE_CONFIG', None) is not None and self.dataset_cfg.SEQUENCE_CONFIG.ENABLED:
-            points, num_points_all, sample_idx_pre_list, poses, pred_boxes, pred_scores, pred_labels = self.get_sequence_data(
-                info, points, sequence_name, sample_idx, self.dataset_cfg.SEQUENCE_CONFIG,
-                load_pred_boxes=self.dataset_cfg.get('USE_PREDBOX', False)
-            )
-
-        if self.dataset_cfg.get('SHIFT_COOR', None):
-            points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR, dtype=np.float32)
-        
-        if 'annos' in info:
-            annos = info['annos']
-            gt_boxes_lidar = annos['gt_boxes_lidar']
-            num_points_in_gt = annos['num_points_in_gt']
-            if self.dataset_cfg.get('SHIFT_COOR', None):
-                gt_boxes_lidar[:, 0:3] += self.dataset_cfg.SHIFT_COOR
+            'points': points,
+            'frame_id': info['frame_id'],
+        }
+        if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:
+            # Remap indices from pseudo-label 1-3 to order of det head classes; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist
+            # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)
             
-            input_dict.update({
-                'gt_names': annos['name'],
-                'gt_boxes': gt_boxes_lidar[:,:7],
-                'num_points_in_gt': annos.get('num_points_in_gt', None)
-
-            })
-            if "gt_boxes2d" in get_item_list:
-                input_dict['gt_boxes2d'] = annos["bbox"]
-
-        input_dict.update({'points': points,})
+            psid2clsid = {}
+            if 'Vehicle' in self.class_names:
+                psid2clsid[1] = self.class_names.index('Vehicle') + 1
+            if 'Pedestrian' in self.class_names:
+                psid2clsid[2] = self.class_names.index('Pedestrian') + 1
+            if 'Cyclist' in self.class_names:
+                psid2clsid[3] = self.class_names.index('Cyclist') + 1
+            self.fill_pseudo_labels(input_dict, psid2clsid)
+                        
         data_dict = self.prepare_data(data_dict=input_dict)
-        data_dict.pop('num_points_in_gt', None)
+
         return data_dict
+
+
+def create_infos(data_path):
+    """
+    Assumes the folder structure and file naming convention
+
+    data_path
+    |   |--- sequences
+    |   |   |--- sequence_0
+    |   |   |   |--- lidar
+    |   |   |   |   |--- 123456_12324.pcd # extension does not matter for this function
+    |   |   |   |--- lidar_odom.npy # generate with kiss_icp for each sequence
+    |   |   |--- sequence_999
+    """
+    seq_dir = data_path / 'sequences'
+    sample_sequences = list(seq_dir.glob('*'))
+    seq_names = [seq.stem for seq in sample_sequences]
+    
+    for seq_idx, seq_name in enumerate(seq_names):
+        seq_info = []
+        sample_file_list = sorted(list((seq_dir / seq_name / 'lidar').glob('*')))
+        seq_lidar_odom = np.load(str(seq_dir / seq_name / 'lidar_odom.npy'))
+        for frame_idx, fname in enumerate(sample_file_list):
+            lidar_timestamp = np.int64(''.join(fname.stem.split('_')))                        
+            frame_info = {}
+            frame_info['frame_id'] = str(lidar_timestamp)
+            frame_info['timestamp'] = lidar_timestamp
+            frame_info['point_cloud'] = {}
+            frame_info['point_cloud']['lidar_sequence'] = seq_name
+            frame_info['point_cloud']['sample_idx'] = frame_idx
+            frame_info['point_cloud']['num_features'] = 3 # just xyz for each point cloud
+            frame_info['lidar_path'] = str(fname)
+            frame_info['pose'] = seq_lidar_odom[frame_idx]
+            seq_info.append(frame_info)
+
+        save_fname = str(seq_dir / seq_name / f'{seq_name}.pkl')
+        with open(save_fname, 'wb') as f:
+            pickle.dump(seq_info, f)
+            print(f'{seq_idx+1}/{len(seq_names)} Saved: {save_fname}')
+
+if __name__ == '__main__':
+    import sys
+
+    # python -m pcdet.datasets.custom.custom_dataset create_infos /MS3D/data/sydney_ouster
+    from pathlib import Path
+    absolute_data_path = sys.argv[2]
+    create_infos(data_path=Path(absolute_data_path))

@@ -1,50 +1,10 @@
 CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset.yaml
-    PROCESSED_DATA_TAG: 'waymo_processed_data_v0_5_0'
-    TRAIN_WITH_SPEED: False
-    SAMPLED_INTERVAL: {
-        'train': 20,
-        'test': 10
-    }
-    POINT_CLOUD_RANGE: [-75.2, -75.2, -2, 75.2, 75.2, 4]
-    POINT_FEATURE_ENCODING: {
-        encoding_type: absolute_coordinates_encoding,
-        used_feature_list: ['x', 'y', 'z'],
-        src_feature_list: ['x', 'y', 'z', 'intensity', 'elongation'],
-    }
-    DATA_AUGMENTOR: 
-        DISABLE_AUG_LIST: ['placeholder']
-        AUG_CONFIG_LIST:
-
-            - NAME: random_world_flip
-              ALONG_AXIS_LIST: [ 'x', 'y' ]
-
-            - NAME: random_world_rotation
-              WORLD_ROT_ANGLE: [ -0.78539816, 0.78539816 ]
-
-            - NAME: random_world_scaling
-              WORLD_SCALE_RANGE: [ 0.95, 1.05 ]
-
-    DATA_PROCESSOR:
-        - NAME: mask_points_and_boxes_outside_range
-          REMOVE_OUTSIDE_BOXES: True
-
-        - NAME: shuffle_points
-          SHUFFLE_ENABLED: {
-            'train': True,
-            'test': False
-          }
-
-        - NAME: transform_points_to_voxels
-          VOXEL_SIZE: [0.1, 0.1, 0.15]
-          MAX_POINTS_PER_VOXEL: 5
-          MAX_NUMBER_OF_VOXELS: {
-              'train': 80000,
-              'test': 90000
-          }
-
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
+    SEQUENCE_CONFIG:
+        ENABLED: True
+        SAMPLE_OFFSET: [-3, 0]
 
 MODEL:
     NAME: PVRCNNPlusPlus
@@ -122,6 +82,7 @@ MODEL:
             SAMPLE_RADIUS_WITH_ROI: 1.6
 
         FEATURES_SOURCE: ['bev', 'x_conv3', 'x_conv4', 'raw_points']
+        COVER_FEAT: True # Using coverfeat performs similarly on car/ped and slightly worse on cyc
         SA_LAYER:
             raw_points:
                 NAME: VectorPoolAggregationModuleMSG
@@ -284,7 +245,7 @@ MODEL:
 
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
-        SCORE_THRESH: 0.3
+        SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
         EVAL_METRIC: waymo
@@ -292,7 +253,7 @@ MODEL:
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.1
+            NMS_THRESH: 0.7
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 

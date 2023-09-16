@@ -33,6 +33,12 @@ class DatasetTemplate(torch_data.Dataset):
         self.data_augmentor = DataAugmentor(
             self.root_path, self.dataset_cfg.DATA_AUGMENTOR, self.class_names, logger=self.logger
         ) if self.training or self.dataset_cfg.get('USE_TTA', False) else None
+        if self.dataset_cfg.get('USE_TTA',False):
+            for aug in self.dataset_cfg.DATA_AUGMENTOR.AUG_CONFIG_LIST:
+                if aug['NAME'] not in ['random_world_flip','random_world_rotation']:
+                    print(f'ERROR: {aug["NAME"]} not supported for TTA\n')
+                    raise NotImplementedError            
+
         self.data_processor = DataProcessor(
             self.dataset_cfg.DATA_PROCESSOR, point_cloud_range=self.point_cloud_range,
             training=self.training, num_point_features=self.point_feature_encoder.num_point_features
@@ -129,24 +135,39 @@ class DatasetTemplate(torch_data.Dataset):
 
         return annos
 
-    def fill_pseudo_labels(self, input_dict):
+    def fill_pseudo_labels(self, input_dict, psid2clsid):
+        """
+        All labels are loaded with the index: class as 1:Vehicle, 2:Pedestrian.
+        Each target dataset.py should have a re-mapping in their __getitem__
+        """
+        
         gt_boxes = self_training_utils.load_ps_label(input_dict['frame_id'])                
-
+        
+        class_of_interest = np.isin(gt_boxes[:, 7], list(psid2clsid.keys()))
+        gt_boxes = gt_boxes[class_of_interest]
         gt_scores = gt_boxes[:, 8]
         gt_classes = gt_boxes[:, 7]
+
+        remapped_classes = []
+        for cls_id in gt_classes:
+            if cls_id < 0:
+                remapped_id = -psid2clsid[abs(cls_id)]
+            else:
+                remapped_id = psid2clsid[cls_id]
+            remapped_classes.append(remapped_id)    
+        remapped_classes = np.array(remapped_classes)
         gt_boxes = gt_boxes[:, :7]
-        # only suitable for only one classes, generating gt_names for prepare data
-        gt_names = np.array(self.class_names)[np.abs(gt_classes.astype(np.int32)) - 1]
+        gt_names = np.array(self.class_names)[np.abs(remapped_classes.astype(np.int32)) - 1]
 
         input_dict['gt_boxes'] = gt_boxes
         input_dict['gt_names'] = gt_names
-        input_dict['gt_classes'] = gt_classes
+        input_dict['gt_classes'] = remapped_classes
         input_dict['gt_scores'] = gt_scores
         input_dict['pos_ps_bbox'] = np.zeros((len(self.class_names)), dtype=np.float32)
         input_dict['ign_ps_bbox'] = np.zeros((len(self.class_names)), dtype=np.float32)
         for i in range(len(self.class_names)):
-            num_total_boxes = (np.abs(gt_classes) == (i+1)).sum()
-            num_ps_bbox = (gt_classes == (i+1)).sum()
+            num_total_boxes = (np.abs(remapped_classes) == (i+1)).sum()
+            num_ps_bbox = (remapped_classes == (i+1)).sum()
             input_dict['pos_ps_bbox'][i] = num_ps_bbox
             input_dict['ign_ps_bbox'][i] = num_total_boxes - num_ps_bbox
         
@@ -256,6 +277,7 @@ class DatasetTemplate(torch_data.Dataset):
         )
 
         if self.training and len(data_dict['gt_boxes']) == 0:
+            # If gt boxes are constantly empty, this will end up looping endlessly, leading to large CPU RAM consumption!
             new_index = np.random.randint(self.__len__())
             return self.__getitem__(new_index)
 

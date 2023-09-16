@@ -2,7 +2,7 @@
 The dataset configs are located within [tools/cfgs/dataset_configs](../tools/cfgs/dataset_configs), 
 and the model configs are located within [tools/cfgs](../tools/cfgs) for different datasets. 
 
-**Note:** Even if you already have generated infos from OpenPCDet, you need to re-generate the infos for nuScenes and Lyft (gt database not required) because we updated infos to include sequence metadata and we use 16 sweeps.
+**Note:** Even if you already have generated infos from OpenPCDet, you need to re-generate the infos for nuScenes and Lyft (gt database not required) because we updated infos to include sequence metadata.
 
 ### NuScenes Dataset
 * Please download the official [NuScenes 3D object detection dataset](https://www.nuscenes.org/download) and 
@@ -79,6 +79,8 @@ Note that you do not need to install `waymo-open-dataset` if you have already pr
 
 
 ### Lyft Dataset
+**Note**: Last I checked (15 September 2023) it seems like the Lyft Level5 perception dataset has been discontinued so the link below is not active. I'll still keep this section here for reference.
+
 * Please download the official [Lyft Level5 perception dataset](https://level-5.global/data/perception) and 
 organize the downloaded files as follows: 
 ```

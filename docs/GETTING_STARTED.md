@@ -1,100 +1,125 @@
 
 
-# Usage
+# MS3D Usage
 
-## Demo
-We provide a [demo](VISUALIZATION.md) to visualize the detections of the trained detectors in this repository.
+## Preliminary
+Even if you already have generated infos from OpenPCDet, you need to re-generate the infos for nuScenes and Lyft (gt database not required) because we modified the infos to include sequence metadata.
 
-## Pseudo-label generation and fine-tuning
+If you'd like to train a separate detector to the ones we've provided, you can use the same config files as OpenPCDet, just make sure to include the `DATA_CONFIG._BASE_CONFIG_` as our provided `nuscenes_dataset_da.yaml` or `waymo_dataset_da.yaml`. You can see [nuScenes VoxelRCNN (Anchor)](../tools/cfgs/nuscenes_models/uda_voxel_rcnn_anchorhead.yaml) for reference. 
 
-### Preliminary
+Now let's go through how to use MS3D! We also provide a simple [tutorial](../tools/demo/ms3d_demo_tutorial.ipynb) which steps through the functions used in MS3D.
 
-Even if you already have generated infos from OpenPCDet, you need to re-generate the infos for nuScenes and Lyft (gt database not required) because we updated infos to include sequence metadata and we use 16 sweeps.
+## Overview
+For MS3D you only need to modify 3 files: `generate_ensemble_preds.sh`, `ensemble_detections.txt` and `ps_config.yaml`. 
 
-If you'd like to train a separate detector to the ones we've provided, you can follow [nuScenes SECOND-IoU](../tools/cfgs/nuscenes_models/uda_secondiou_vehicle.yaml) for reference. 
+The first two are for generating the ensemble and `ps_config.yaml` sets the configs for MS3D, which we run with `bash run_ms3d.sh`
 
-### 1. Generate predictions on unlabelled target domain
 
-First we generate predictions with TTA on the unlabelled data with multiple detectors with 1-frame and 16-frame detection. Here is an example of how we can generate detections with one detector. We provide the TTA predictions of waymo/lyft secondiou/centerpoint for [target-nuscenes](https://drive.google.com/drive/folders/1KAFrrE9oNG6rRrbII_Myzdz5bcCXA69t?usp=share_link) if you'd like to skip this section and move on to the rest of the pipeline.
+We've organised each target domain to follow the structure as shown below.
 
-```shell
-
-# 1-frame
-python test.py --cfg_file cfgs/target-nuscenes/waymo_centerpoint.yaml \
-                --ckpt ../model_zoo/waymo_centerpoint.pth \
-                --extra_tag ms3d --eval_tag train_1f_tta-rwf-rwr \
-                --set DATA_CONFIG_TAR.MAX_SWEEPS 1 \
-                DATA_CONFIG_TAR.DATA_SPLIT.test train \
-                DATA_CONFIG_TAR.DATA_AUGMENTOR.DISABLE_AUG_LIST placeholder  
-
-# 16-frame
-python test.py --cfg_file cfgs/target-nuscenes/waymo_centerpoint.yaml \
-                --ckpt ../model_zoo/waymo_centerpoint.pth \
-                --extra_tag msda --eval_tag train_16f_tta-rwf-rwr \
-                --set DATA_CONFIG_TAR.MAX_SWEEPS 16 DATA_CONFIG_TAR.DATA_SPLIT.test train DATA_CONFIG_TAR.DATA_AUGMENTOR.DISABLE_AUG_LIST placeholder                
 ```
-We train MS3D with lidar data at 5Hz (except nuScenes). For 1-frame detections, we get predictions at 5Hz but for 16-frame detections we get predictions at 1.67Hz. For pseudo-label generation, we interpolate 16-frame detections to 5Hz.
+MS3D
+├── data
+├── pcdet
+├── tools
+|   ├── cfgs
+|   |   ├── target_nuscenes
+|   |   |   ├── label_generation
+|   |   |   |   ├── round1
+|   |   |   |   |   ├── cfgs
+|   |   |   |   |   |   ├── ps_config.yaml
+|   |   |   |   |   |   ├── ensemble_detections.txt
+|   |   |   |   |   ├── scripts
+|   |   |   |   |   |   ├── generate_ensemble_preds.sh
+|   |   |   |   |   |   ├── run_ms3d.sh
+|   |   |   |   ├── round2
+|   |   |   |   ├── ...
+|   |   ├── target_waymo
+|   |   ├── ...
+```
+We now explain each of the files.
+
+## 1. Generate predictions on unlabelled target domain
+
+In this step we simply need to download the pre-trained models provided and generate predictions for our unlabeled point clouds. We use test-time augmentation and VMFI to generate multiple detection sets for each pre-trained model.
+
+**Generate Detections**: We provide a script to run this in each target domain's script folder. Simply run it with:
+```bash
+bash generate_ensemble_preds.sh
+```
+You can reference how we generate detections for nuScenes as the target domain [here](../tools/cfgs/target_nuscenes/label_generation/round1/scripts/pretrained/). Modify the pre-trained model's ckpt and cfg file to the location of your downloaded files.
+
+**Specify Detection Paths**: After generating all detections, put the absolute file paths of the result.pkl in a text file e.g. refer to [nuScenes' ensemble_detections.txt](../tools/cfgs/target_nuscenes/label_generation/round1/cfgs/ensemble_detections.txt)
+
+Now that we have a lot of detection sets, we can feed them into our MS3D++ framework! 
+
+### Additional Comments
+For our paper's results, we train detectors with lidar data at 5Hz (except nuScenes, which is at 2Hz). 
 
 Every dataset has different key frame rates. To downsample the frame rate for the above, we set `DATA_CONFIG_TAR.SAMPLED_INTERVAL.test` at different intervals.
-1. Waymo (10Hz): 1-frame (skip 2), 16-frame (skip 6)
+1. Waymo (10Hz): skip 2
 2. nuScenes (2Hz): no downsampling, both at 2Hz, and we train at 2 Hz
-3. Lyft (5Hz): 1-frame (skip 0), 16-frame (skip 3)
+3. Lyft (5Hz): skip 0
 
-We provide a script for each target domain which you can reference for how we generated detections for our experiments for 1-frame (e.g. [waymo script](../tools/cfgs/target-waymo/raw_dets/generate_dets_1f.sh)) and 16-frame (e.g. [waymo script](../tools/cfgs/target-waymo/raw_dets/generate_dets_16f.sh)). Our reference script assumes the file structure:
+If you have the compute, we recommend higher sampling rates to reduce tracking errors for better pseudo-label quality. 
+
+We follow OpenPCDet's format for detector predictions which should make it easy if you wish to load in detection sets from another repo rather than use our scripts above. 
+
+**Important Note:** Pre-trained detectors for the UDA setting should be trained with point clouds and labels in the ground plane for better cross-domain performance. I.e. the ground plane of the point cloud should be roughly at `z=0`. This means measuring (approximately) the lidar mounting height and adding `SHIFT_COOR=[0,0,lidar_height]` to the point cloud points. For context, this is also the same coordinate frame used in the Waymo dataset's point clouds. 
+
+**Tip**: Experiment with including different pre-trained detectors in the ensemble. Here are some ideas.
+- Multi-modal: images can help distinguish many smaller object classes like pedestrians, or far-range objects.
+- Multi-frame: any state-of-the-art multi-frame models (e.g. MPPNet) can be used to generate detections.
+- Transformer-based: better performance than many voxel/point-based methods, maybe it has better domain generalisation too.
+- Class-specific: 3D detectors trained solely for a specific class may have better performance
+- Varying voxel sizes: ensembling voxel-based detectors with different voxel sizes may be able to have better generalization to different lidar scan patterns.
+
+## 2. Auto-labeling with MS3D++
+Our framework is contained in 3 files in `/MS3D/tools` that load in our auto-labeling configurations from `label_generation/round1/cfgs/ps_config.yaml`.
+1. `ensemble_kbf.py`  fuses the detection_sets specified in `ensemble_detections.txt` to give us our initial pseudo-label set.
+2. `generate_tracks.py`  uses SimpleTrack to generate tracks for the initial pseudo-labels. We use this to generate 3 sets of tracks (veh_all, veh_static, ped). 
+3. `temporal_refinement.py` refines the pseudo-labels with temporal information and object characteristics. This file gives us our final pseudo-labels. 
+
+These can all be run with `run_ms3d.sh` in their respective target_domain folders. This will give you a set of labels for each point cloud frame stored in `label_generation/round1/ps_labels/final_ps_dict.pkl`.
 ```bash
-MS3D
-├── tools
-├── ├── cfgs
-│   │   ├── target-waymo
-│   │   │   │── nuscenes_centerpoint.yaml # source-trained detector
-│   │   │   │── nuscenes_secondiou.yaml 
-│   │   │   │── lyft_centerpoint.yaml
-│   │   │   │── lyft_secondiou.yaml
-│   │   │   │── ft_nuscenes_secondiou.yaml # pre-trained detector you want to fine-tune
-    - ...
+bash run_ms3d.sh
 ```
 
-After generating all detections, place their result.pkl paths in a file. Specify the file path in the config ACCUM1.PATH and ACCUM16.PATH. You can reference this file: [waymo paths](../tools/cfgs/target-waymo/raw_dets/det_16f_paths.txt).
+`ps_config.yaml` is already pre-set for each target domain to achieve the results reported in our MS3D++ paper. If you wish to tweak it, we explain how to do so in [MS3D_PARAMETERS.md](../docs/MS3D_PARAMETERS.md).
+
+If you wish to use MS3D++ for your own point cloud data, refer to [CUSTOM_DATASET_TUTORIAL.md](../docs/CUSTOM_DATASET_TUTORIAL.md).
+
+That's it for the auto-labeling! 
+
+## 3. Training a model with MS3D labels
+To train a model, simply specify the pseudo-label path in the detector config file with the following format e.g.
+```yaml
+SELF_TRAIN:
+    INIT_PS: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/ps_labels/final_ps_dict.pkl
 ```
-MS_DETECTOR_PS:
-    FUSION: kde_fusion
-    ACCUM1:
-        PATH: '/MS3D/tools/cfgs/target-nuscenes/raw_dets/det_1f_paths.txt'
-        DISCARD: 4
-        RADIUS: 2.0
-    ACCUM16:
-        PATH: '/MS3D/tools/cfgs/target-nuscenes/raw_dets/det_16f_paths.txt'
-        DISCARD: 3
-        RADIUS: 1.0
+Take a look at [nuScenes' VoxelRCNN (Anchor)](tools/cfgs/target_nuscenes/ms3d_waymo_voxel_rcnn_anchorhead.yaml) config file for reference.
+
+Following this, we just train the model like in OpenPCDet. Sometimes it helps to initialize from an existing pre-trained model. 
+```bash
+python train.py --cfg_file ${CONFIG_FILE} --extra_tag ${EXTRA_TAG} --pretrained_model ${EXTRA_TAG}
+
+# Example
+python train.py --cfg_file cfgs/target_nuscenes/ms3d_waymo_voxel_rcnn_anchorhead.yaml --extra_tag 10xyzt_vehped --pretrained_model ../model_zoo/waymo_voxel_rcnn_anchorhead.pth
 ```
+You can change parameters of the config file with `--set` for both `train.py` and `test.py`.
 
+## 4. Multi-stage self-training
+To do multiple rounds of self-training for iterative label refinement, you can follow our scripts and configs provided in each target domain which runs the same functions as steps 1-2 above for label generation. 
 
-### 2. Self-training: Generate pseudo-labels and fine-tune detector
-Run the following command to:
-1. Fuse detections, generate tracks, refine static objects, then generate pseudo-labels
-2. Fine-tune the given pre-trained detector
+The main idea is to use our trained models from the 1st round to re-generate the label set for the same data. The trained models should have improved label quality and be able to detect objects that were not initially labeled. 
 
-```shell
-python train.py \
-        --cfg_file ${CONFIG_FILE} \
-        --pretrained_model ${MODEL_PTH} \
-        --extra_tag ${EXPERIMENT_NAME}
+In our paper, we only used MS3D++ trained models for the current round to form the ensemble for the next round. Feel free to experiment with other ensemble combinations such as:
+- including the trained models in the initial pre-trained ensemble with detector weighting.
+- training different detector types for the ensemble (e.g. multi-modal, transformer-based, etc) 
 
-# here is an example of fine-tuning the waymo secondiou detector to the nuscenes domain with our pseudo-labels
-python train.py \
-        --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
-        --pretrained_model ../model_zoo/waymo_secondiou.pth  \
-        --extra_tag exp_name
-```
-That's it!
+**Tip**: Try to use strict ps_config settings for earlier rounds to reduce false positives. It's very hard to get rid of false positives in later rounds. 
 
-If you have 3D bounding box detections from another detection repository, you can start at this self-training step. You would first need to convert them to the OpenPCDet format however (you can download and inspect our pkl files [here](https://drive.google.com/drive/folders/1KAFrrE9oNG6rRrbII_Myzdz5bcCXA69t?usp=share_link) for reference).
-
-**Note**
-- Make sure "used_feature_list" is the same between source and target domain configs
-- If pre-trained model was trained with "timestamp" channel, then test with "timestamp" channel for optimal performance even if we only use 1-frame for detection on target domain.
-
-## General OpenPCDet Train/Test usage
+# General OpenPCDet Train/Test usage
 
 ### Test and evaluate the pretrained models
 * Test with a pretrained model: 
@@ -143,22 +168,4 @@ sh scripts/slurm_train.sh ${PARTITION} ${JOB_NAME} ${NUM_GPUS} --cfg_file ${CONF
 * Train with a single GPU:
 ```shell script
 python train.py --cfg_file ${CONFIG_FILE}
-```
-
-### Self-training with MS3D
-This is basically the same as training a model, but we use our pseudo-labels to fine-tune an existing pre-trained detector. Testing is the same as above.
-
-```shell
-python train.py \
-        --cfg_file ${CONFIG_FILE} \
-        --pretrained_model ${CKPT_FILE}  \
-        --extra_tag ${EXPERIMENT_NAME}
-```
-
-You can change parameters of the config file with `--set`. For example:
-```shell
-python train.py \
-        --cfg_file cfgs/target-nuscenes/ft_waymo_secondiou.yaml \
-        --pretrained_model ../model_zoo/nuscenes_secondiou_vehicle.pth  \
-        --extra_tag 10sweep --set DATA_CONFIG_TAR.MAX_SWEEPS 10
 ```

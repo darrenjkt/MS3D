@@ -20,14 +20,15 @@ class AnchorGenerator(object):
         num_anchors_per_location = []
         for grid_size, anchor_size, anchor_rotation, anchor_height, align_center in zip(
                 grid_sizes, self.anchor_sizes, self.anchor_rotations, self.anchor_heights, self.align_center):
-
-            num_anchors_per_location.append(len(anchor_rotation) * len(anchor_size) * len(anchor_height))
+            
+            # For vehicle e.g. rot=[0,1.57], size=[4.7,2.1,1.7], height=[0]; total = 2 x 1 x 1 = 2 anchor per location
+            num_anchors_per_location.append(len(anchor_rotation) * len(anchor_size) * len(anchor_height)) 
             if align_center:
                 x_stride = (self.anchor_range[3] - self.anchor_range[0]) / grid_size[0]
                 y_stride = (self.anchor_range[4] - self.anchor_range[1]) / grid_size[1]
                 x_offset, y_offset = x_stride / 2, y_stride / 2
             else:
-                x_stride = (self.anchor_range[3] - self.anchor_range[0]) / (grid_size[0] - 1)
+                x_stride = (self.anchor_range[3] - self.anchor_range[0]) / (grid_size[0] - 1)                 # anchor range is same as pc range
                 y_stride = (self.anchor_range[4] - self.anchor_range[1]) / (grid_size[1] - 1)
                 x_offset, y_offset = 0, 0
 
@@ -66,7 +67,7 @@ if __name__ == '__main__':
         EasyDict({
             'anchor_sizes': [[2.1, 4.7, 1.7], [0.86, 0.91, 1.73], [0.84, 1.78, 1.78]],
             'anchor_rotations': [0, 1.57],
-            'anchor_heights': [0, 0.5]
+            'anchor_bottom_heights': [0]
         })
     ]
 

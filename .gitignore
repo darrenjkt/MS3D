@@ -25,3 +25,11 @@ model_zoo
 *.gif
 *.png
 *.jpg
+*.sh
+*.tar.xz
+*.txt
+demo_data
+*.csv
+ps_labels
+target_sydney_ouster
+target_sydney_baraja

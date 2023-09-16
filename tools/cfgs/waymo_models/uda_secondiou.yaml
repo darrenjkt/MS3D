@@ -1,14 +1,13 @@
-CLASS_NAMES: ['Vehicle']
+CLASS_NAMES: ['Vehicle', 'Pedestrian','Cyclist']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_da.yaml    
-    SAMPLED_INTERVAL: {
-        'train': 20,
-        'test': 10
-    }       
-          
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_multiframe_da.yaml
+    SEQUENCE_CONFIG:
+        ENABLED: True
+        SAMPLE_OFFSET: [-3, 0]
+
 MODEL:
-    NAME: SECONDNetIoU
+    NAME: SECONDNet
 
     VFE:
         NAME: MeanVFE
@@ -37,7 +36,7 @@ MODEL:
         DIR_OFFSET: 0.78539
         DIR_LIMIT_OFFSET: 0.0
         NUM_DIR_BINS: 2
-        
+
         ANCHOR_GENERATOR_CONFIG: [
             {
                 'class_name': 'Vehicle',
@@ -48,6 +47,26 @@ MODEL:
                 'feature_map_stride': 8,
                 'matched_threshold': 0.55,
                 'unmatched_threshold': 0.4
+            },
+            {
+                'class_name': 'Pedestrian',
+                'anchor_sizes': [[0.91, 0.86, 1.73]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.5,
+                'unmatched_threshold': 0.35
+            },
+            {
+                'class_name': 'Cyclist',
+                'anchor_sizes': [[1.78, 0.84, 1.78]],
+                'anchor_rotations': [0, 1.57],
+                'anchor_bottom_heights': [0],
+                'align_center': False,
+                'feature_map_stride': 8,
+                'matched_threshold': 0.5,
+                'unmatched_threshold': 0.35
             }
         ]
 
@@ -67,61 +86,12 @@ MODEL:
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
 
-    ROI_HEAD:
-        NAME: SECONDHead
-        CLASS_AGNOSTIC: True
-
-        SHARED_FC: [256, 256]
-        IOU_FC: [256, 256]
-        DP_RATIO: 0.3
-
-        NMS_CONFIG:
-            TRAIN:
-                NMS_TYPE: nms_gpu
-                MULTI_CLASSES_NMS: False
-                NMS_PRE_MAXSIZE: 9000
-                NMS_POST_MAXSIZE: 512
-                NMS_THRESH: 0.8
-            TEST:
-                NMS_TYPE: nms_gpu
-                MULTI_CLASSES_NMS: False
-                NMS_PRE_MAXSIZE: 1024
-                NMS_POST_MAXSIZE: 100
-                NMS_THRESH: 0.7
-
-        ROI_GRID_POOL:
-            GRID_SIZE: 7
-            IN_CHANNEL: 512
-            DOWNSAMPLE_RATIO: 8
-
-        TARGET_CONFIG:
-            BOX_CODER: ResidualCoder
-            ROI_PER_IMAGE: 128
-            FG_RATIO: 0.5
-
-            SAMPLE_ROI_BY_EACH_CLASS: True
-            CLS_SCORE_TYPE: raw_roi_iou
-
-            CLS_FG_THRESH: 0.75
-            CLS_BG_THRESH: 0.25
-            CLS_BG_THRESH_LO: 0.1
-            HARD_BG_RATIO: 0.8
-
-            REG_FG_THRESH: 0.55
-
-        LOSS_CONFIG:
-            IOU_LOSS: BinaryCrossEntropy
-            LOSS_WEIGHTS: {
-                'rcnn_iou_weight': 1.0,
-                'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-            }
-
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: waymo
+        EVAL_METRIC: kitti
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
@@ -129,7 +99,6 @@ MODEL:
             NMS_THRESH: 0.7
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
-
 
 
 OPTIMIZATION:
@@ -144,7 +113,7 @@ OPTIMIZATION:
     MOMS: [0.95, 0.85]
     PCT_START: 0.4
     DIV_FACTOR: 10
-    DECAY_STEP_LIST: [5,10,15,20,25]
+    DECAY_STEP_LIST: [35, 45]
     LR_DECAY: 0.1
     LR_CLIP: 0.0000001
 

@@ -1,0 +1,19 @@
+running:
+  covariance: default
+  score_threshold: 0.3
+  max_age_since_update: 4
+  min_hits_to_birth: 1 # can filter in post by removing tracks with < 5 detections above pos_th
+  match_type: bipartite
+  asso: iou_2d
+  has_velo: false
+  motion_model: kf
+  asso_thres:
+    iou_2d: 0.7 # (1-threshold) Strict threshold because if it matches with a box really far away, it'll shift the KF prediction and the car will be "moving"
+
+redundancy:
+  mode: mm
+  max_redundancy_age: 4
+  det_score_threshold: 
+    iou_2d: 0.1
+  det_dist_threshold: 
+    iou_2d: 0.5 # threshold

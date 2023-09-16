@@ -21,7 +21,7 @@ class NuScenesDataset(DatasetTemplate):
         self.frameid_to_idx = {}
         self.custom_train_scenes = None
         if self.dataset_cfg.get('USE_CUSTOM_TRAIN_SCENES', False) and (self.split == 'train'):
-            custom_train_scenes = self.root_path / 'ImageSets' / 'custom_train_scenes.txt'
+            custom_train_scenes = self.root_path / 'ImageSets' / 'custom_train_scenes_193.txt'
             self.custom_train_scenes = [x.strip() for x in open(custom_train_scenes).readlines()]
 
         self.seq_name_to_infos = self.include_nuscenes_data()
@@ -77,7 +77,7 @@ class NuScenesDataset(DatasetTemplate):
                 seq_name_to_infos[seq_id] += 1
 
             if self.logger is not None:
-                self.logger.info('Total sampled samples for Waymo dataset: %d' % len(self.infos))        
+                self.logger.info('Total sampled samples for NuScenes dataset: %d' % len(self.infos))        
 
         self.seq_name_to_len = seq_name_to_len
         return seq_name_to_infos
@@ -150,6 +150,7 @@ class NuScenesDataset(DatasetTemplate):
             points_sweep, times_sweep = self.get_sweep(info['sweeps'][k])
             sweep_points_list.append(points_sweep)
             sweep_times_list.append(times_sweep)
+            # sweep_times_list.append(np.zeros((points_sweep.shape[0], 1))) # when accumulating more than the time lag it was trained on
 
         points = np.concatenate(sweep_points_list, axis=0)
         times = np.concatenate(sweep_times_list, axis=0).astype(points.dtype)
@@ -195,7 +196,15 @@ class NuScenesDataset(DatasetTemplate):
                 input_dict['gt_boxes'] = None
 
         if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:
-            self.fill_pseudo_labels(input_dict)
+            # Remap indices from pseudo-label 1-3 to order of det head classes; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist
+            # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)
+            
+            psid2clsid = {}
+            if 'car' in self.class_names:
+                psid2clsid[1] = self.class_names.index('car') + 1
+            if 'pedestrian' in self.class_names:
+                psid2clsid[2] = self.class_names.index('pedestrian') + 1                
+            self.fill_pseudo_labels(input_dict, psid2clsid)
 
         if self.dataset_cfg.get('SET_NAN_VELOCITY_TO_ZEROS', False) and not self.dataset_cfg.get('USE_PSEUDO_LABEL', None):
             gt_boxes = input_dict['gt_boxes']
@@ -226,8 +235,11 @@ class NuScenesDataset(DatasetTemplate):
 
         map_name_to_kitti = {
             'car': 'Car',
-            'pedestrian': 'Pedestrian',
-            'truck': 'Truck',
+            'truck': 'Car',
+            'bus': 'Car',
+            'motorcycle': 'Cyclist',
+            'bicycle': 'Cyclist',
+            'pedestrian': 'Pedestrian'
         }
         
         def transform_to_kitti_format(annos, info_with_fakelidar=False, is_gt=False):

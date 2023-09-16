@@ -206,6 +206,15 @@ def iou3d(box_a, box_b):
 
     return iou_2d, iou_3d
 
+def iou2d(box_a, box_b):
+    boxa_corners = np.array(BBox.box2corners2d(box_a))
+    boxb_corners = np.array(BBox.box2corners2d(box_b))[:, :2]
+    reca, recb = Polygon(boxa_corners), Polygon(boxb_corners)
+    overlap_area = reca.intersection(recb).area
+    iou_2d = overlap_area / (reca.area + recb.area - overlap_area)
+    
+    return iou_2d
+
 
 def pc2world(ego_matrix, pcs):
     new_pcs = np.concatenate((pcs,

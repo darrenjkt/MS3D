@@ -11,11 +11,16 @@ def transform_annotations_to_kitti_format(annos, map_name_to_kitti=None, info_wi
     Returns:
 
     """
-    for anno in annos:
+    for anno in annos:        
+
         # For lyft and nuscenes, different anno key in info
         if 'name' not in anno:
             anno['name'] = anno['gt_names']
             anno.pop('gt_names')
+
+        # Filter out classes we are not interested in
+        cls_mask = np.isin(anno['name'], list(map_name_to_kitti.keys()))
+        anno['name'] = anno['name'][cls_mask]
 
         for k in range(anno['name'].shape[0]):
             anno['name'][k] = map_name_to_kitti[anno['name'][k]]
@@ -29,7 +34,8 @@ def transform_annotations_to_kitti_format(annos, map_name_to_kitti=None, info_wi
         elif 'gt_boxes' in anno:
             gt_boxes_lidar = anno['gt_boxes'].copy()
         else:
-            gt_boxes_lidar = anno['gt_boxes_lidar'].copy()
+            gt_boxes_lidar = anno['gt_boxes_lidar'].copy()        
+        gt_boxes_lidar = gt_boxes_lidar[cls_mask]
 
         if len(gt_boxes_lidar) > 0:
             if info_with_fakelidar:

@@ -1,0 +1,19 @@
+running:
+  covariance: default
+  score_threshold: 0.7
+  max_age_since_update: 2
+  min_hits_to_birth: 2
+  match_type: bipartite
+  asso: giou
+  has_velo: false
+  motion_model: kf
+  asso_thres:
+    giou: 1.3 # giou is ~ same as iou if in range [0,1]. Here it is (1-threshold) 
+
+redundancy:
+  mode: mm
+  max_redundancy_age: 3
+  det_score_threshold: 
+    giou: 0.1
+  det_dist_threshold: 
+    giou: -0.3 # Here it is threshold (not 1-threshold!!)

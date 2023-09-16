@@ -16,6 +16,7 @@ from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_f
 from pcdet.datasets import build_dataloader
 from pcdet.models import build_network
 from pcdet.utils import common_utils
+from pcdet.utils.compatibility_utils import get_target_domain_cfg
 
 
 def parse_config():
@@ -41,9 +42,18 @@ def parse_config():
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
     parser.add_argument('--infer_time', action='store_true', default=False, help='calculate inference latency')
 
+    # Load in target dataset with additional cfgs
+    parser.add_argument('--target_dataset', type=str, default=None, help='select from: nuscenes, waymo_single, waymo_multi, lyft or custom')
+    parser.add_argument('--custom_target_scenes', action='store_true', help='use ms3d custom target domain dataset')    
+    parser.add_argument('--sweeps', type=int, default=1, help='number of accumulated frames including current frame')
+    parser.add_argument('--use_tta', type=int, default=0, help='select test-time augmentation -> 0: no_tta, 1: rwf, 2: rwr, 3: rwr+rwf')
+
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_file, cfg)
+    if args.target_dataset is not None:
+        _ = get_target_domain_cfg(cfg, args.target_dataset, args.sweeps, custom_target_scenes=args.custom_target_scenes, use_tta=args.use_tta)
+        
     cfg.TAG = Path(args.cfg_file).stem
     cfg.EXP_GROUP_PATH = '/'.join(args.cfg_file.split('/')[1:-1])  # remove 'cfgs' and 'xxxx.yaml'
 
@@ -190,6 +200,8 @@ def main():
     ckpt_dir = args.ckpt_dir if args.ckpt_dir is not None else output_dir / 'ckpt'
 
     if cfg.get('DATA_CONFIG_TAR', None) and cfg.DATA_CONFIG_TAR.TARGET:
+        if args.custom_target_scenes:
+            cfg.DATA_CONFIG_TAR.USE_CUSTOM_TRAIN_SCENES = True
 
         test_set, test_loader, sampler = build_dataloader(
             dataset_cfg=cfg.DATA_CONFIG_TAR,
