@@ -1,5 +1,9 @@
-# MS3D
+# MS3D and MS3D++
+This is the official code release for
+- [**MS3D**: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection](https://arxiv.org/abs/2304.02431)
+- [**MS3D++**: Ensemble of Experts for Multi-Source Unsupervised Domain Adaptation in 3D Object Detection](https://arxiv.org/abs/2308.05988)
 
+## Introduction
 MS3D is a simple **auto-labeling** framework for vehicles and pedestrians that generates high quality labels for training 3D detectors on different lidar types, regardless of their scan pattern or point cloud density. 
 
 Learn more about MS3D with our [**explanation video**](https://youtu.be/7o5F4AMaIWo) and provided [**tutorial notebook**](tools/demo/ms3d_demo_tutorial.ipynb).
@@ -23,11 +27,7 @@ Our MS3D framework has the following benefits:
 
 Our **box fusion method, KBF,** can be used for detector ensembling in a supervised setting as well and can outperform [Weighted Box Fusion (WBF)](https://github.com/ZFTurbo/Weighted-Boxes-Fusion). See our first MS3D paper for comparison results and a simple demo [here](tools/demo/kbf_demo.ipynb).
 
-Read our papers to find out more:
-- [**MS3D**: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection](https://arxiv.org/abs/2304.02431)
-- [**MS3D++**: Ensemble of Experts for Multi-Source Unsupervised Domain Adaption in 3D Object Detection](https://arxiv.org/abs/2308.05988)
-
-This main branch is the official release for MS3D++ and is built upon OpenPCDet v0.6.0. If you wish to use the previous MS3D code, please refer to the MS3D branch
+This main branch is the official release for MS3D++ and is built upon OpenPCDet v0.6.0. If you wish to use our previous MS3D code, please refer to the MS3D branch
 
 ## Overview
 1. [Installation](#installation)
