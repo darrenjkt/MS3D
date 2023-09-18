@@ -2,6 +2,7 @@
 **build**
 **egg-info**
 **dist**
+data/
 *.pyc
 venv/
 *.idea/
@@ -22,7 +23,9 @@ model_zoo
 *.out
 *Trash*
 *.gif
+*.png
 *.jpg
+*.sh
 *.tar.xz
 *.txt
 demo_data
