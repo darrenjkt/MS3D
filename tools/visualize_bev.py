@@ -237,16 +237,6 @@ def main():
                 label='det pkl 2', color=[0.6,0.4,0],
                 limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True)
         
-    if args.ps_pkl is not None:
-        combined_mask = ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][:,8] >= args.conf_th
-        if args.above_pos_th:
-            above_pos_mask = ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][:,7] > 0
-            combined_mask = np.logical_and(combined_mask, above_pos_mask)
-        plot_boxes(ax, ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][combined_mask], 
-                scores=ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][combined_mask][:,8],
-                label='ps labels', color=[0,0.8,0], fontsize=14, linewidth=1.5,
-                limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True)
-        
     if args.ps_pkl2 is not None:
         combined_mask = ps_dict2[ps_frame_ids[start_idx]]['gt_boxes'][:,8] >= args.conf_th
         if args.above_pos_th:
@@ -257,6 +247,16 @@ def main():
                 label='ps labels 2', color=[1,0,0],
                 limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True) 
         
+    if args.ps_pkl is not None:
+        combined_mask = ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][:,8] >= args.conf_th
+        if args.above_pos_th:
+            above_pos_mask = ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][:,7] > 0
+            combined_mask = np.logical_and(combined_mask, above_pos_mask)
+        plot_boxes(ax, ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][combined_mask], 
+                scores=ps_dict[ps_frame_ids[start_idx]]['gt_boxes'][combined_mask][:,8],
+                label='ps labels', color=[0,0.8,0], fontsize=14, linewidth=1.5,
+                limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True)
+
     if args.tracks_pkl is not None:     
         from pcdet.utils.transform_utils import world_to_ego   
         from pcdet.utils.tracker_utils import get_frame_track_boxes
@@ -351,17 +351,7 @@ def main():
                 plot_boxes(ax, det2[det_frame_idx]['boxes_lidar'][conf_mask], 
                     scores=det2[det_frame_idx]['score'][conf_mask],
                     label='det pkl 2', color=[0.6,0.4,0],
-                    limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True)
-             
-        if args.ps_pkl is not None:
-            combined_mask = ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][:,8] >= args.conf_th
-            if args.above_pos_th:
-                above_pos_mask = ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][:,7] > 0
-                combined_mask = np.logical_and(combined_mask, above_pos_mask)
-            plot_boxes(ax, ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][combined_mask], 
-                scores=ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][combined_mask][:,8],
-                label='ps labels', color=[0,0.8,0], fontsize=14, linewidth=1.5,
-                limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True) 
+                    limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True)            
             
         if args.ps_pkl2 is not None:
             combined_mask = ps_dict2[ps_frame_ids[frame_idx]]['gt_boxes'][:,8] >= args.conf_th
@@ -373,6 +363,16 @@ def main():
                 label='ps labels 2', color=[1,0,0],
                 limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True) 
             
+        if args.ps_pkl is not None:
+            combined_mask = ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][:,8] >= args.conf_th
+            if args.above_pos_th:
+                above_pos_mask = ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][:,7] > 0
+                combined_mask = np.logical_and(combined_mask, above_pos_mask)
+            plot_boxes(ax, ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][combined_mask], 
+                scores=ps_dict[ps_frame_ids[frame_idx]]['gt_boxes'][combined_mask][:,8],
+                label='ps labels', color=[0,0.8,0], fontsize=14, linewidth=1.5,
+                limit_range=limit_range, alpha=1, show_score=False if args.hide_score else True)             
+
         if args.tracks_pkl is not None:
             track_boxes = get_frame_track_boxes(tracks, frame_id, frame2box_key=args.frame2box_key, nhistory=0)
             pose = compat.get_pose(target_set, frame_id)

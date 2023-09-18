@@ -34,7 +34,7 @@ c. Within the container, install `pcdet` and the tracker with the following comm
 python setup.py develop
 cd tracker && pip install -e . --user
 ```
-Note that if you want to use dynamic voxelization (e.g. Voxel-RCNN), you need to install torch-scatter with the following commands:
+Note that if you want to use dynamic voxelization (e.g. Voxel-RCNN), you need torch-scatter. This should already be pre-installed in our docker image but you can install with the following commands if need be.
 ```shell
 pip install torch==1.8.1 torchvision==0.9.1
 pip install torch-scatter -f https://data.pyg.org/whl/torch-1.8.1+cu111.html

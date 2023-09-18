@@ -11,7 +11,7 @@ ENVS="  --env=NVIDIA_VISIBLE_DEVICES=$GPU_ID
 
 VOLUMES="       --volume=$DATA_PATH:/MS3D/data"
 
-# Setup environmetns for pop-up visualization of point cloud 
+# Setup environmetns for pop-up visualization of point cloud (open3d)
 VISUAL="        --env=DISPLAY
                 --env=QT_X11_NO_MITSHM=1
                 --volume=/tmp/.X11-unix:/tmp/.X11-unix"
@@ -21,7 +21,6 @@ echo "Running the docker image [GPUS: ${GPU_ID}]"
 docker_image="darrenjkt/openpcdet:v0.6.0"
 
 # Start docker image
-# I added --ipc for better visualizaton (so it doesn't crash on remote. Remove if security risk)
 docker  run -d -it --rm \
 $VOLUMES \
 $ENVS \

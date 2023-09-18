@@ -37,7 +37,9 @@ class DemoDataset(DatasetTemplate):
         return len(self.sample_file_list)
     
     def get_infos(self):
-        # Prepare a dict for each frame with metadata
+        """
+        Prepare a dict for each frame with metadata
+        """
         infos = []
         for idx, fname in enumerate(self.sample_file_list):
             lidar_timestamp = np.int64(''.join(Path(fname).stem.split('_')))                        
@@ -50,6 +52,12 @@ class DemoDataset(DatasetTemplate):
             frame_info['point_cloud']['num_features'] = 3 # just xyz for each point cloud
             frame_info['lidar_path'] = fname
             frame_info['pose'] = self.lidar_odom[lidar_timestamp]
+            
+            # Placeholder gt annotations. If you have gt labels, include them here
+            frame_info['annos'] = {}
+            frame_info['annos']['name'] = []
+            frame_info['annos']['gt_boxes_lidar'] = np.empty((0,7))
+            
             infos.append(frame_info)
 
             self.frameid_to_idx[frame_info['frame_id']] = idx
@@ -82,7 +90,6 @@ class DemoDataset(DatasetTemplate):
 
         for sample_idx_pre in sample_idx_pre_list:
             pcd = o3d.io.read_point_cloud(self.infos[sample_idx_pre]['lidar_path'])
-            # print('loading sweeps: ', self.sample_file_list[sample_idx_pre])
             points_pre = np.asarray(pcd.points)
             pose_pre = self.infos[sample_idx_pre]['pose'].reshape((4, 4))
             expand_points_pre = np.concatenate([points_pre[:, :3], np.ones((points_pre.shape[0], 1))], axis=-1)
@@ -103,9 +110,8 @@ class DemoDataset(DatasetTemplate):
 
         return points, poses
 
-    def get_lidar(self, index):
-        """We only use x,y,z lidar channels cause intensity/elongation/etc adds another layer to the domain gap"""
-        lidar_path = self.infos[index]['lidar_path']
+    def get_lidar(self, lidar_path):
+        """We only use x,y,z lidar channels cause intensity/elongation/etc adds another layer to the domain gap"""        
         if self.ext == '.bin':
             points = np.fromfile(lidar_path, dtype=np.float32).reshape(-1, 4)[:,:3]
         elif self.ext == '.npy':
@@ -117,7 +123,8 @@ class DemoDataset(DatasetTemplate):
         return points # (N,3)
 
     def __getitem__(self, index):
-        points = self.get_lidar(index)
+        lidar_path = self.infos[index]['lidar_path']
+        points = self.get_lidar(lidar_path)
         points = self.remove_ego_points(points, 1.5)
         accum_points, _ = self.get_sequence_data(points, index)
         if self.dataset_cfg.get('SHIFT_COOR', None):
@@ -133,46 +140,3 @@ class DemoDataset(DatasetTemplate):
         data_dict = self.prepare_data(data_dict=input_dict)
         return data_dict
     
-
-
-
-
-    # def load_odom(self, fname):
-    #     rows = []
-    #     with open(fname, 'r') as f:
-    #         csv_reader = csv.reader(f, delimiter=',')
-    #         for row in csv_reader:
-    #             rows.append(row)
-
-    #     odom_timestamps = [np.int64(row[0]) for row in rows[1:]]
-    #     trans = [np.array(row[5:8], dtype=np.float64) for row in rows[1:]]
-    #     quats = [Quaternion(row[11],row[8],row[9],row[10]) for row in rows[1:]]
-    #     poses = {}
-    #     for timestamp, tmat, quat in zip(odom_timestamps, trans, quats):
-    #         poses[timestamp] = {}
-    #         poses[timestamp]['trans'] = tmat
-    #         poses[timestamp]['quat'] = quat      
-    #         poses[timestamp]['transform'] = np.zeros((4,4))
-    #         poses[timestamp]['transform'][:3,:3] = quat.rotation_matrix
-    #         poses[timestamp]['transform'][:3,3] = tmat
-    #         poses[timestamp]['transform'][3,3] = 1
-    #     return poses
-    
-    # def interp_odom(self, lidar_timestamps, odom_timestamps):
-    #     odom_timestamps = np.array(odom_timestamps)
-    #     lidar_interp_odom = {}
-    #     for timestamp in lidar_timestamps:
-    #         next_odom_timestamp = odom_timestamps[odom_timestamps > timestamp].min()
-    #         prev_odom_timestamp = odom_timestamps[odom_timestamps <= timestamp].max()
-    #         next_pose = self.odom_unsynced[next_odom_timestamp]
-    #         prev_pose = self.odom_unsynced[prev_odom_timestamp]
-    #         interp_trans = np.array([
-    #                         np.interp(0.5, np.array([0,1]), np.array([prev_pose['trans'][0], next_pose['trans'][0]])),
-    #                         np.interp(0.5, np.array([0,1]), np.array([prev_pose['trans'][1], next_pose['trans'][1]])),
-    #                         np.interp(0.5, np.array([0,1]), np.array([prev_pose['trans'][2], next_pose['trans'][2]]))])
-    #         interp_rmat = Quaternion.slerp(prev_pose['quat'], next_pose['quat']).rotation_matrix
-    #         lidar_interp_odom[timestamp] = np.zeros((4,4))
-    #         lidar_interp_odom[timestamp][:3,:3] = interp_rmat
-    #         lidar_interp_odom[timestamp][:3,3] = interp_trans
-    #         lidar_interp_odom[timestamp][3,3] = 1
-    #     return lidar_interp_odom    

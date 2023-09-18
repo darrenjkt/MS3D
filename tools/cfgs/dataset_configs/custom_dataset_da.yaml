@@ -2,12 +2,16 @@ DATASET: 'CustomDataset'
 DATA_PATH: '../data/sydney_ouster'
 SHIFT_COOR: [0.0, 0.0, 1.8] # change this according to your lidar height above ground
 POINT_CLOUD_RANGE: [-75.2, -75.2, -2, 75.2, 75.2, 4]
-MAX_SWEEPS: 1
+MAX_SWEEPS: 4
 
 DATA_SPLIT: {
     'train': train,
     'test': val
 }
+SAMPLED_INTERVAL: {
+    'train': 1,
+    'test': 1
+}                
 INFO_PATH: {
     'train': [custom_infos_train.pkl],
     'test': [custom_infos_val.pkl],

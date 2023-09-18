@@ -38,7 +38,7 @@ def get_lidar(dataset, frame_id):
         sample_idx = get_sample_idx(dataset, frame_id)
         return dataset.get_lidar(sequence_name, sample_idx)
     elif dataset.dataset_cfg.DATASET == 'CustomDataset':
-        return dataset.get_lidar(infos_idx)    
+        return dataset.get_lidar(dataset.infos[infos_idx]['lidar_path'])    
     else:
         raise NotImplementedError
 
@@ -110,7 +110,7 @@ def get_gt_boxes(dataset, frame_id):
         return dataset.infos[infos_idx]['annos']['gt_boxes_lidar']
     elif dataset.dataset_cfg.DATASET in ['NuScenesDataset','LyftDataset']:
         return dataset.infos[infos_idx]['gt_boxes']
-    elif dataset.dataset_cfg.DATASET == 'WaymoDataset':
+    elif dataset.dataset_cfg.DATASET in ['WaymoDataset','CustomDataset']:
         return dataset.infos[infos_idx]['annos']['gt_boxes_lidar']
     else:
         raise NotImplementedError
@@ -123,7 +123,7 @@ def get_gt_names(dataset, frame_id):
         return dataset.infos[infos_idx]['annos']['name']
     elif dataset.dataset_cfg.DATASET in ['NuScenesDataset','LyftDataset']:
         return dataset.infos[infos_idx]['gt_names']
-    elif dataset.dataset_cfg.DATASET == 'WaymoDataset':
+    elif dataset.dataset_cfg.DATASET in ['WaymoDataset','CustomDataset']:
         return dataset.infos[infos_idx]['annos']['name']
     else:
         raise NotImplementedError        

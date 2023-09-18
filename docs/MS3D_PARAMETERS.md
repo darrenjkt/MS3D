@@ -16,13 +16,13 @@ DATA_CONFIG: /MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml   # targe
 # PS_SCORE_TH and ENSEMBLE_KBF params are given as: [veh_th, ped_th, cyc_th]. Cyclist is not currently supported in MS3D.
 PS_SCORE_TH: 
   POS_TH: [0.7,0.6,0.5] # box score above this -> use as pseudo-labels
-  NEG_TH: [0.2,0.1,0.3] # box score below this -> remove in KBF step
+  NEG_TH: [0.2,0.2,0.3] # box score below this -> remove in KBF step
 
 ## MS3D Step 1: Ensemble pre-trained detectors
 ENSEMBLE_KBF:
   DISCARD: [4, 4, 4] # discard if less than N predictions overlapping
   RADIUS: [1.5, 0.3, 0.2] # select fusion candidates by radius
-  NMS: [0.1, 0.3, 0.1]
+  NMS: [0.1, 0.3, 0.1] # after KBF, remove overlapping boxes with NMS 
 
 ## MS3D Step 2: Tracking with SimpleTrack (explained below)
 TRACKING:
@@ -85,7 +85,7 @@ TEMPORAL_REFINEMENT:
 
   # Propagate refined static box N_EXTRA_FRAMES in the past/future
   PROPAGATE_BOXES:
-    MIN_STATIC_TRACKS: 10 
+    MIN_STATIC_TRACKS: 10 # min tracks to assume vehicle is "parked"
     N_EXTRA_FRAMES: 40 # too high can lead to more false positives
     DEGRADE_FACTOR: 0.98 # propagated box score = DEGRADE_FACTOR*orig_score
     MIN_SCORE_CLIP: 0.3 # unused at the moment

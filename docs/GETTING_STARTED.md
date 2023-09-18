@@ -2,6 +2,9 @@
 
 # MS3D Usage
 
+## Problem Definition
+Our MS3D framework falls in the category of Unsupervised Domain Adaptation (UDA) works, where the task is to adapt the off-the-shelf model(s) to a new domain that it has not seen during its training. In the UDA setting, we assume that no labels are present in the target domain (i.e. unsupervised) for the adaptation process. 
+
 ## Preliminary
 Even if you already have generated infos from OpenPCDet, you need to re-generate the infos for nuScenes and Lyft (gt database not required) because we modified the infos to include sequence metadata.
 
@@ -12,8 +15,7 @@ Now let's go through how to use MS3D! We also provide a simple [tutorial](../too
 ## Overview
 For MS3D you only need to modify 3 files: `generate_ensemble_preds.sh`, `ensemble_detections.txt` and `ps_config.yaml`. 
 
-The first two are for generating the ensemble and `ps_config.yaml` sets the configs for MS3D, which we run with `bash run_ms3d.sh`
-
+The first two are for generating the ensemble and `ps_config.yaml` sets the configs for MS3D, which we run with `bash run_ms3d.sh`. All bash scripts should be run from the `/MS3D/tools` folder.
 
 We've organised each target domain to follow the structure as shown below.
 
@@ -45,7 +47,7 @@ In this step we simply need to download the pre-trained models provided and gene
 
 **Generate Detections**: We provide a script to run this in each target domain's script folder. Simply run it with:
 ```bash
-bash generate_ensemble_preds.sh
+cd /MS3D/tools && bash cfgs/target_dataset/label_generation/roundN/scripts/generate_ensemble_preds.sh
 ```
 You can reference how we generate detections for nuScenes as the target domain [here](../tools/cfgs/target_nuscenes/label_generation/round1/scripts/pretrained/). Modify the pre-trained model's ckpt and cfg file to the location of your downloaded files.
 
@@ -82,7 +84,7 @@ Our framework is contained in 3 files in `/MS3D/tools` that load in our auto-lab
 
 These can all be run with `run_ms3d.sh` in their respective target_domain folders. This will give you a set of labels for each point cloud frame stored in `label_generation/round1/ps_labels/final_ps_dict.pkl`.
 ```bash
-bash run_ms3d.sh
+cd /MS3D/tools && bash cfgs/target_dataset/label_generation/roundN/scripts/run_ms3d.sh
 ```
 
 `ps_config.yaml` is already pre-set for each target domain to achieve the results reported in our MS3D++ paper. If you wish to tweak it, we explain how to do so in [MS3D_PARAMETERS.md](../docs/MS3D_PARAMETERS.md).

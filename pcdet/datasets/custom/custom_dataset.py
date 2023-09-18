@@ -41,39 +41,62 @@ class CustomDataset(DatasetTemplate):
             self.seq_name_to_len[infos[0]['point_cloud']['lidar_sequence']] = len(infos)
 
         self.infos.extend(custom_infos)
+
+        if self.dataset_cfg.SAMPLED_INTERVAL[self.mode] > 1:
+            sampled_infos = []
+            for k in range(0, len(self.infos), self.dataset_cfg.SAMPLED_INTERVAL[self.mode]):
+                sampled_infos.append(self.infos[k])
+            self.infos = sampled_infos
+
+            seq_name_to_len = {}
+            for info in self.infos:
+                if info['point_cloud']['lidar_sequence'] not in seq_name_to_len.keys():
+                    seq_name_to_len[info['point_cloud']['lidar_sequence']] = 0
+                seq_name_to_len[info['point_cloud']['lidar_sequence']] += 1
+            
+            if self.logger is not None:
+                self.logger.info('Total sampled samples for Custom dataset: %d' % len(self.infos))
+
         for idx, data in enumerate(self.infos):
             self.frameid_to_idx[data['frame_id']] = idx
 
         if self.logger is not None:
             self.logger.info('Total samples for CustomDataset dataset: %d' % (len(self.infos)))
 
-        use_sequence_data = self.dataset_cfg.get('SEQUENCE_CONFIG', None) is not None and self.dataset_cfg.SEQUENCE_CONFIG.ENABLED
-        if not use_sequence_data:
-            seq_name_to_infos = None 
         return seq_name_to_infos
 
-    def get_lidar(self, index):
-        lidar_path = self.infos[index]['lidar_path']
+    def __len__(self):
+        if self._merge_all_iters_to_one_epoch:
+            return len(self.infos) * self.total_epochs
+
+        return len(self.infos)
+
+    def get_lidar(self, lidar_path):
         points = np.asarray(o3d.io.read_point_cloud(lidar_path).points) # only loads (N,3)          
         return points
     
-    def get_sequence_data(self, points, sample_idx, max_sweeps):
+    def remove_ego_points(self, points, center_radius=1.0):
+        mask = ~((np.abs(points[:, 0]) < center_radius) & (np.abs(points[:, 1]) < center_radius))
+        return points[mask]  
+    
+    def get_sequence_data(self, info, points, sequence_name, sample_idx, max_sweeps):
         """
         Transform historical frames to current frame with odometry and concatenate them
-        """
-        sample_idx_pre_list = np.clip(sample_idx + np.arange(-int(max_sweeps-1), 0), 0, 0x7FFFFFFF)
-        sample_idx_pre_list = sample_idx_pre_list[::-1]
-        
+        """    
+        points = self.remove_ego_points(points, center_radius=1.5)
         points = np.hstack([points, np.zeros((points.shape[0], 1)).astype(points.dtype)])        
-        points_pre_all = []
-        pose_cur = self.infos[sample_idx]['pose']
+        
+        pose_cur = info['pose']
         pose_all = [pose_cur]
 
+        sample_idx_pre_list = np.clip(sample_idx + np.arange(-int(max_sweeps-1), 0), 0, 0x7FFFFFFF)
+        sample_idx_pre_list = sample_idx_pre_list[::-1]
+
+        points_pre_all = []
+        sequence_info = self.seq_name_to_infos[sequence_name]
         for sample_idx_pre in sample_idx_pre_list:
-            pcd = o3d.io.read_point_cloud(self.infos[sample_idx_pre]['lidar_path'])
-            # print('loading sweeps: ', self.sample_file_list[sample_idx_pre])
-            points_pre = np.asarray(pcd.points)
-            pose_pre = self.infos[sample_idx_pre]['pose'].reshape((4, 4))
+            points_pre = self.get_lidar(sequence_info[sample_idx_pre]['lidar_path'])
+            pose_pre = sequence_info[sample_idx_pre]['pose'].reshape((4, 4))
             expand_points_pre = np.concatenate([points_pre[:, :3], np.ones((points_pre.shape[0], 1))], axis=-1)
             points_pre_global = np.dot(expand_points_pre, pose_pre.T)[:, :3]
             expand_points_pre_global = np.concatenate([points_pre_global, np.ones((points_pre_global.shape[0], 1))], axis=-1)
@@ -92,12 +115,6 @@ class CustomDataset(DatasetTemplate):
 
         return points, poses
 
-    def __len__(self):
-        if self._merge_all_iters_to_one_epoch:
-            return len(self.infos) * self.total_epochs
-
-        return len(self.infos)
-
 
     def __getitem__(self, index):
 
@@ -105,20 +122,25 @@ class CustomDataset(DatasetTemplate):
             index = index % len(self.infos)
 
         info = copy.deepcopy(self.infos[index])
+        pc_info = info['point_cloud']
+        sequence_name = pc_info['lidar_sequence']
+        sample_idx = pc_info['sample_idx']
 
         # sample_idx is the point cloud index within the sequence [0,199]
-        sample_idx = int(info['point_cloud']['sample_idx'])
-        points = self.get_lidar(sample_idx)
-        points, _ = self.get_sequence_data(points, index, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
+        points = self.get_lidar(info['lidar_path'])
+        points, _ = self.get_sequence_data(info, points, sequence_name, sample_idx, max_sweeps=self.dataset_cfg.MAX_SWEEPS)
 
         if self.dataset_cfg.get('SHIFT_COOR', None):
             points[:, 0:3] += np.array(self.dataset_cfg.SHIFT_COOR, dtype=np.float32)        
 
+        # empty gt_boxes when testing for compatibility with tta data_aug functions
         input_dict = {
-            'frame_id': sample_idx,
             'points': points,
             'frame_id': info['frame_id'],
-        }
+            'sample_idx': sample_idx,
+            'gt_boxes': None if self.training else np.empty((0,7)),
+            'gt_names': np.empty((0))
+        } 
         if self.dataset_cfg.get('USE_PSEUDO_LABEL', None) and self.training:
             # Remap indices from pseudo-label 1-3 to order of det head classes; pseudo-labels ids are always 1:Vehicle, 2:Pedestrian, 3:Cyclist
             # Make sure DATA_CONFIG_TAR.CLASS_NAMES is same order/length as DATA_CONFIG.CLASS_NAMES (i.e. the pretrained class indices)
@@ -130,12 +152,26 @@ class CustomDataset(DatasetTemplate):
                 psid2clsid[2] = self.class_names.index('Pedestrian') + 1
             if 'Cyclist' in self.class_names:
                 psid2clsid[3] = self.class_names.index('Cyclist') + 1
+
+            # Populate input_dict['gt_boxes]
             self.fill_pseudo_labels(input_dict, psid2clsid)
                         
         data_dict = self.prepare_data(data_dict=input_dict)
 
         return data_dict
 
+    def evaluation(self, det_annos, class_names, **kwargs):
+
+        if 'annos' not in self.infos[0].keys():
+            return None, {}
+
+        from .kitti_object_eval_python import eval as kitti_eval
+
+        eval_det_annos = copy.deepcopy(det_annos)
+        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.infos]
+        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+
+        return ap_result_str, ap_dict
 
 def create_infos(data_path):
     """
@@ -148,6 +184,7 @@ def create_infos(data_path):
     |   |   |   |   |--- 123456_12324.pcd # extension does not matter for this function
     |   |   |   |--- lidar_odom.npy # generate with kiss_icp for each sequence
     |   |   |--- sequence_999
+    |--- ImageSets
     """
     seq_dir = data_path / 'sequences'
     sample_sequences = list(seq_dir.glob('*'))
@@ -168,6 +205,12 @@ def create_infos(data_path):
             frame_info['point_cloud']['num_features'] = 3 # just xyz for each point cloud
             frame_info['lidar_path'] = str(fname)
             frame_info['pose'] = seq_lidar_odom[frame_idx]
+
+            # Placeholder gt annotations. If you have gt labels, include them here
+            frame_info['annos'] = {}
+            frame_info['annos']['name'] = []
+            frame_info['annos']['gt_boxes_lidar'] = np.empty((0,7))
+
             seq_info.append(frame_info)
 
         save_fname = str(seq_dir / seq_name / f'{seq_name}.pkl')
@@ -178,7 +221,7 @@ def create_infos(data_path):
 if __name__ == '__main__':
     import sys
 
-    # python -m pcdet.datasets.custom.custom_dataset create_infos /MS3D/data/sydney_ouster
+    # cd /MS3D && python -m pcdet.datasets.custom.custom_dataset create_infos /MS3D/data/sydney_ouster
     from pathlib import Path
     absolute_data_path = sys.argv[2]
     create_infos(data_path=Path(absolute_data_path))

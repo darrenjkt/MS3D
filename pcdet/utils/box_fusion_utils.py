@@ -317,6 +317,10 @@ def kbf(boxes, box_weights, bw_c=1.0, bw_dim=2.0, bw_ry=0.1, bw_cls=0.5, bw_scor
 def label_fusion(boxes_lidar, discard, radius, nms_thresh=0.05, use_box_weights=False):
     """
     boxes_lidar (N,9): array of box proposals from src detectors
+
+    If box_weights are False or set to [1,1,1], the default weights for KBF is to use the box score.
+    This helps because there are often a lot more lower scoring boxes than higher scoring ones, 
+    which tend to skew the KDE towards a less optimal result. 
     
     return: 
         fused_boxes (N,9): fused box proposals

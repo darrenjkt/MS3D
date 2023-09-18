@@ -1,0 +1,8 @@
+/MS3D/output/target_custom/ms3d_waymo_voxel_rcnn_anchorhead/4f_xyzt_vehped_rnd1/eval/epoch_30/val/custom4xyzt_notta/result.pkl
+/MS3D/output/target_custom/ms3d_waymo_voxel_rcnn_anchorhead/4f_xyzt_vehped_rnd1/eval/epoch_30/val/custom4xyzt_rwf/result.pkl
+/MS3D/output/target_custom/ms3d_waymo_voxel_rcnn_anchorhead/4f_xyzt_vehped_rnd1/eval/epoch_30/val/custom4xyzt_rwf_rwr/result.pkl
+/MS3D/output/target_custom/ms3d_waymo_voxel_rcnn_anchorhead/4f_xyzt_vehped_rnd1/eval/epoch_30/val/custom4xyzt_rwr/result.pkl
+/MS3D/output/target_custom/ms3d_waymo_voxel_rcnn_centerhead/4f_xyzt_vehped_rnd1/eval/epoch_30/val/custom4xyzt_notta/result.pkl
+/MS3D/output/target_custom/ms3d_waymo_voxel_rcnn_centerhead/4f_xyzt_vehped_rnd1/eval/epoch_30/val/custom4xyzt_rwf/result.pkl
+/MS3D/output/target_custom/ms3d_waymo_voxel_rcnn_centerhead/4f_xyzt_vehped_rnd1/eval/epoch_30/val/custom4xyzt_rwf_rwr/result.pkl
+/MS3D/output/target_custom/ms3d_waymo_voxel_rcnn_centerhead/4f_xyzt_vehped_rnd1/eval/epoch_30/val/custom4xyzt_rwr/result.pkl
