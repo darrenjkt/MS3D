@@ -6,10 +6,7 @@ MS3D configuration for each round of self-training on the given target dataset i
 Here is an explanation the parameters.
 
 ```yaml
-# all files will be saved/searched with this prefix
-EXP_NAME: W_L_VMFI_TTA_PA_PC_VA_VC_64  
-
-DETS_TXT: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/cfgs/W_L_VMFI_TTA_PA_PC_VA_VC_64.txt  # pre-trained predictions
+DETS_TXT: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/cfgs/W_L_VMFI_TTA_PA_PC_VA_VC_64.txt  # pre-trained predictions result.pkl paths
 SAVE_DIR: /MS3D/tools/cfgs/target_nuscenes/label_generation/round1/ps_labels 
 DATA_CONFIG: /MS3D/tools/cfgs/dataset_configs/nuscenes_dataset_da.yaml   # target dataset uda config
 
