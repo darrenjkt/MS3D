@@ -2,12 +2,8 @@ import copy
 import pickle
 
 import numpy as np
-from skimage import io
 import open3d as o3d
-import json
 
-from ...ops.roiaware_pool3d import roiaware_pool3d_utils
-from ...utils import box_utils, calibration_kitti, common_utils, object3d_kitti
 from ..dataset import DatasetTemplate
 
 class CustomDataset(DatasetTemplate):
@@ -41,6 +37,8 @@ class CustomDataset(DatasetTemplate):
             self.seq_name_to_len[infos[0]['point_cloud']['lidar_sequence']] = len(infos)
 
         self.infos.extend(custom_infos)
+        if self.logger is not None:
+            self.logger.info('Total samples for CustomDataset dataset: %d' % (len(self.infos)))        
 
         if self.dataset_cfg.SAMPLED_INTERVAL[self.mode] > 1:
             sampled_infos = []
@@ -59,9 +57,6 @@ class CustomDataset(DatasetTemplate):
 
         for idx, data in enumerate(self.infos):
             self.frameid_to_idx[data['frame_id']] = idx
-
-        if self.logger is not None:
-            self.logger.info('Total samples for CustomDataset dataset: %d' % (len(self.infos)))
 
         return seq_name_to_infos
 
