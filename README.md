@@ -1,7 +1,7 @@
 # MS3D and MS3D++
 This is the official code release for
-- [**MS3D**: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection](https://arxiv.org/abs/2304.02431)
-- [**MS3D++**: Ensemble of Experts for Multi-Source Unsupervised Domain Adaptation in 3D Object Detection](https://arxiv.org/abs/2308.05988)
+- **MS3D**: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection [[paper](https://arxiv.org/abs/2304.02431)]
+- **MS3D++**: Ensemble of Experts for Multi-Source Unsupervised Domain Adaptation in 3D Object Detection [[paper](https://arxiv.org/abs/2308.05988)] [[presentation](https://youtu.be/gjOgirSks8I?si=i0SMDmqcOrIB2Y49)]
 
 ## Introduction
 MS3D is a simple **auto-labeling** framework for vehicles and pedestrians that generates high quality labels for training 3D detectors on different lidar types, regardless of their scan pattern or point cloud density. 
