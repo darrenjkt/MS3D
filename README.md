@@ -31,7 +31,7 @@ Our MS3D framework has the following benefits:
 
 Our **box fusion method, KBF,** can be used for detector ensembling in a supervised setting as well and can outperform [Weighted Box Fusion (WBF)](https://github.com/ZFTurbo/Weighted-Boxes-Fusion). See our first MS3D paper for comparison results and a simple demo [here](tools/demo/kbf_demo.ipynb).
 
-This main branch is the official release for MS3D++ and is built upon OpenPCDet v0.6.0. If you wish to use our previous MS3D code, please refer to the MS3D branch
+This main branch is the official release for MS3D++ and is built upon OpenPCDet v0.6.0. If you wish to use our previous MS3D code, please refer to the [MS3D branch](https://github.com/darrenjkt/MS3D/tree/ms3d).
 
 ## Overview
 1. [Installation](#installation)
