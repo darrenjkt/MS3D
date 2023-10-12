@@ -6,7 +6,11 @@ This is the official code release for
 ## Introduction
 MS3D is a simple **auto-labeling** framework for vehicles and pedestrians that generates high quality labels for training 3D detectors on different lidar types, regardless of their scan pattern or point cloud density. 
 
-Learn more about MS3D with our [**explanation video**](https://youtu.be/7o5F4AMaIWo) and provided [**tutorial notebook**](tools/demo/ms3d_demo_tutorial.ipynb).
+To auto-label your own point cloud data, see our [**guide**](docs/AUTO_LABEL_YOUR_DATA.md). 
+
+Get a quick understanding of MS3D with our [**explanation video**](https://youtu.be/7o5F4AMaIWo) and [**tutorial notebook**](tools/demo/ms3d_demo_tutorial.ipynb).
+
+
 <p align="center">
   <img src="docs/media/ms3d++_framework.png">
 </p>
@@ -41,14 +45,14 @@ This main branch is the official release for MS3D++ and is built upon OpenPCDet 
 Please refer to [INSTALL.md](docs/INSTALL.md) for the installation of MS3D.
 
 ## Usage: Auto-labeling
-We provide a detailed [tutorial](tools/demo/ms3d_demo_tutorial.ipynb) to show how we can generate labels for a folder of point clouds. 
 
-To reproduce our results or use MS3D for your own data, refer to the guides below:
-- [DATASET_PREPARATION.md](docs/DATASET_PREPARATION.md) to prepare the datasets. 
-- [GETTING_STARTED.md](docs/GETTING_STARTED.md) to learn how to use MS3D. 
-- [PARAMETERS.md](docs/MS3D_PARAMETERS.md) on a guide of how to tune MS3D parameters.
-- [VISUALIZATION.md](docs/VISUALIZATION.md) to learn how to use our visualization tools for label assessment.
-- [CUSTOM_DATASET_TUTORIAL.md](docs/CUSTOM_DATASET_TUTORIAL.md) to learn how to use MS3D for your own point cloud data.
+We provide the following guides to learn how to use MS3D.
+- [GETTING_STARTED.md](docs/GETTING_STARTED.md) to reproduce our paper results. 
+- [AUTO_LABEL_YOUR_DATA.md](docs/AUTO_LABEL_YOUR_DATA.md) to auto-label your own point cloud data.
+- [PARAMETERS.md](docs/MS3D_PARAMETERS.md) to tune MS3D config file parameters.
+- [VISUALIZATION.md](docs/VISUALIZATION.md) to use our visualization tools for label assessment.
+
+We provide a [tutorial](tools/demo/ms3d_demo_tutorial.ipynb) to demonstrate how MS3D auto-labels a folder of point clouds. 
 
 ## Pre-trained Model Zoo
 In this section, we provide a collection of pre-trained (aka. off-the-shelf) models that can be used to reproduce our results or label your own datasets. If you wish to download multiple detectors, we provide links to download the entire folder of detectors trained on [nuScenes](https://drive.google.com/drive/folders/1hCB5ODFUBqnwwjDO7hdpHq6qgQFaAG72?usp=sharing) and [Lyft](https://drive.google.com/drive/folders/12vVM6WtjG38SjUNhhkgy3ZvkZZDm2Edh?usp=sharing) to save some time.

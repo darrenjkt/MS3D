@@ -25,7 +25,7 @@ MS3D
 pip install nuscenes-devkit==1.0.5
 ```
 
-* Generate the data infos by running the following command. `gt_database` augmentation should be able to improve performance but for MS3D experiments we did not use it so feel free to comment that section out `nuscenes_dataset.py`.
+* Generate the data infos by running the following command. `gt_database` augmentation should be able to improve performance but for MS3D experiments we did not use it so feel free to comment that section out in `nuscenes_dataset.py`.
 
 ```python 
 python -m pcdet.datasets.nuscenes.nuscenes_dataset --func create_nuscenes_infos \
