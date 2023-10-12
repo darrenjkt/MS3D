@@ -66,8 +66,18 @@ class CustomDataset(DatasetTemplate):
 
         return len(self.infos)
 
-    def get_lidar(self, lidar_path):
-        points = np.asarray(o3d.io.read_point_cloud(lidar_path).points) # only loads (N,3)          
+    def get_lidar(self, lidar_path, ext='.pcd'):
+        """
+        Loads lidar with only x,y,z (N,3)
+        """
+        if ext == '.pcd':
+            points = np.asarray(o3d.io.read_point_cloud(lidar_path).points) # only loads (N,3)          
+        elif ext == '.bin':
+            points = np.fromfile(lidar_path, dtype=np.float32).reshape(-1, 4)[:,:3]
+        elif ext =='.npy':
+            points = np.load(lidar_path)[:,:3]
+        else:
+            raise NotImplementedError
         return points
     
     def remove_ego_points(self, points, center_radius=1.0):
@@ -157,14 +167,18 @@ class CustomDataset(DatasetTemplate):
 
     def evaluation(self, det_annos, class_names, **kwargs):
 
-        if 'annos' not in self.infos[0].keys():
+        if len(self.infos[0]['annos']['gt_boxes_lidar']) == 0:
+            self.logger.info('Skipping evaluation - no gt annotations provided for eval')
             return None, {}
 
-        from .kitti_object_eval_python import eval as kitti_eval
+        if kwargs['eval_metric'] == 'kitti':
+            from ..kitti.kitti_object_eval_python import eval as kitti_eval
 
-        eval_det_annos = copy.deepcopy(det_annos)
-        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.infos]
-        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+            eval_det_annos = copy.deepcopy(det_annos)
+            eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.infos]
+            ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+        else:
+            raise NotImplementedError
 
         return ap_result_str, ap_dict
 

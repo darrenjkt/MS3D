@@ -130,7 +130,7 @@ def eval_one_epoch(cfg, args, model, dataloader, epoch_id, logger, dist_test=Fal
                 anno['boxes_lidar'][:,:3] += dataset.dataset_cfg.SHIFT_COOR
 
     with open(result_dir / 'result.pkl', 'wb') as f:        
-        print('result.pkl saved to:', str(result_dir / 'result.pkl'))
+        logger.info('Predictions saved to: %s' % str(result_dir / 'result.pkl'))
         pickle.dump(export_det_annos, f)
 
     result_str, result_dict = dataset.evaluation(
@@ -139,7 +139,8 @@ def eval_one_epoch(cfg, args, model, dataloader, epoch_id, logger, dist_test=Fal
         output_path=final_output_dir
     )
 
-    logger.info(result_str)
+    if result_str is not None:
+        logger.info(result_str)
     ret_dict.update(result_dict)
 
     logger.info('Result is saved to %s' % result_dir)

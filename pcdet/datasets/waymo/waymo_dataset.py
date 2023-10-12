@@ -28,7 +28,7 @@ class WaymoDataset(DatasetTemplate):
         self.data_path = self.root_path / self.dataset_cfg.PROCESSED_DATA_TAG
         self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
         split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
-        self.sample_sequence_list = [x.strip() for x in open(split_dir).readlines()]
+        self.sample_sequence_list = [x.strip() for x in open(split_dir).readlines()] if split_dir.exists() else []
 
         self.infos = []
         self.frameid_to_idx = {}

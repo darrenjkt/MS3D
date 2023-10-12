@@ -172,8 +172,12 @@ def train_model_st(model, optimizer, source_loader, target_loader, model_func, l
                 merge_all_iters_to_one_epoch=False, use_amp=False, ema_model=None,
                 use_logger_to_record=True, logger=None, logger_iter_interval=None, ckpt_save_time_interval=None, show_gpu_stat=False):
     accumulated_iter = start_iter
-    source_reader = common_utils.DataReader(source_loader, source_sampler)
-    source_reader.construct_iter()
+
+    if cfg.SELF_TRAIN.get('SRC', None):
+        source_reader = common_utils.DataReader(source_loader, source_sampler)
+        source_reader.construct_iter()
+    else:
+        source_reader = None
 
     # load pseudo-label
     ps_pkl_path = self_training_utils.load_pseudo_label(ps_label_dir)
@@ -191,7 +195,8 @@ def train_model_st(model, optimizer, source_loader, target_loader, model_func, l
         for cur_epoch in tbar:
             if target_sampler is not None:
                 target_sampler.set_epoch(cur_epoch)
-                source_reader.set_cur_epoch(cur_epoch)
+                if cfg.SELF_TRAIN.get('SRC', None):
+                    source_reader.set_cur_epoch(cur_epoch)
                             
             # train one epoch
             if lr_warmup_scheduler is not None and cur_epoch < optim_cfg.WARMUP_EPOCH:
@@ -199,7 +204,7 @@ def train_model_st(model, optimizer, source_loader, target_loader, model_func, l
             else:
                 cur_scheduler = lr_scheduler            
             
-            # update pseudo label - we don't update pseudo-label in ms3d++
+            # update pseudo label - we don't update pseudo-label during training in ms3d
             # if (cur_epoch in cfg.SELF_TRAIN.UPDATE_PSEUDO_LABEL) or \
             #     ((cur_epoch % cfg.SELF_TRAIN.UPDATE_PSEUDO_LABEL_INTERVAL == 0)
             #          and cur_epoch != 0):
