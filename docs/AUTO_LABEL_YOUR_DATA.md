@@ -24,7 +24,7 @@ A few important things to note for your data:
 
 ## Data Preparation
 ### 1. Folder organisation
-Please organise your files into the following structure:
+Please organise your files into the following structure.
 ```
 MS3D
 ├── data
@@ -73,7 +73,7 @@ Our framework is contained in 3 files in `/MS3D/tools` that load in our auto-lab
 2. `generate_tracks.py`  uses SimpleTrack to generate tracks for the initial pseudo-labels. We use this to generate 3 sets of tracks (veh_all, veh_static, ped). 
 3. `temporal_refinement.py` refines the pseudo-labels with temporal information and object characteristics. This file gives us our final pseudo-labels. 
 
-You will primarily be working within the folder `target_custom`:
+You will primarily be working within the folder `target_custom`.
 ```bash
 MS3D
 ├── tools
@@ -124,17 +124,6 @@ For a more generalizable ensemble, use pre-trained detectors from different trai
 - Varying voxel sizes: ensembling voxel-based detectors with different voxel sizes may be able to have better generalization to different lidar scan patterns.
 
 ### 2. MS3D++ framework
-#### Setting [**`ps_config.yaml`**](../tools/cfgs/target_custom/label_generation/round1/cfgs/ps_config.yaml)
-We provided default settings in `ps_config.yaml` but you may need to further tweak the configs for your dataset. Refer to [`MS3D_PARAMETERS.md`](../docs/MS3D_PARAMETERS.md) for an explanation of our config file parameters. 
-- If you plan to run multiple rounds (recommended), set strict thresholds to minimise false positives (e.g. `POS_TH` and Tracking's `SCORE_TH`). False positive labels are very hard to get rid of with multiple self-training rounds. 
-- If you only wish to run a single round, you can loosen the thresholds a bit to increase overall model recall.
-
-Localization/odometry can drift over time. This affects the following params: `ROLLING_KBF.ROLLING_KDE_WINDOW`, `PROPAGATE_BOXES.N_EXTRA_FRAMES` and `PROPAGATE_BOXES.DEGRADE_FACTOR`. 
-
-- Due to ego-pose drift, we don't want to use too many past/future boxes to refine the current frame's box nor propagate the boxes too far in the past or future. Generally for a short 10s frames window, the localization remains pretty good. 
-- Propagating a static box label too far in the past/future may be detrimental for the following (or similar) scenario: stationary car at a traffic light but moves at the end of the sequence.
-
-**Tip:** If you have an accompanying camera feed, it is also helpful to check the corresponding image, or even better, project the 3D label into the image to cross-check.
 
 #### Running MS3D++
 Once you've set up the pseudo-label configs above, you can run our pipeline with the following command.
@@ -150,6 +139,23 @@ python visualize_bev.py --cfg_file cfgs/dataset_configs/custom_dataset_da.yaml \
                         --ps_pkl /MS3D/tools/cfgs/target_custom/label_generation/round1/ps_labels/initial_pseudo_labels.pkl                                             
 ```
 
+We have provided default parameters in our `ps_config.yaml` file but you may need to modify them for optimal auto-labeling of your dataset which we elabote on below. 
+
+#### Configuring [**`ps_config.yaml`**](../tools/cfgs/target_custom/label_generation/round1/cfgs/ps_config.yaml)
+We recommend setting `ps_configs.yaml` after visualizing the `initial_pseudo_labels.pkl` from `ensemble_kbf.py`. With visual assessment, try to set thresholds that minimise false positives as much as possible. Refer to [`MS3D_PARAMETERS.md`](../docs/MS3D_PARAMETERS.md) for an explanation of our config file parameters.
+ 
+- If you plan to run multiple rounds (recommended), set strict thresholds to minimise false positives (e.g. `POS_TH` and Tracking's `SCORE_TH`). False positive labels are very hard to get rid of with multiple self-training rounds. 
+- If you only wish to run a single round, you can loosen the thresholds a bit to increase overall model recall.
+
+Localization/odometry can drift over time. This affects the following params: `ROLLING_KBF.ROLLING_KDE_WINDOW`, `PROPAGATE_BOXES.N_EXTRA_FRAMES` and `PROPAGATE_BOXES.DEGRADE_FACTOR`. 
+
+- Due to ego-pose drift, we don't want to use too many past/future boxes to refine the current frame's box nor propagate the boxes too far in the past or future. Generally for a 10s window, localization remains pretty good. 
+- Propagating a static box label too far in the past/future may be detrimental for the following (or similar) scenario: stationary car at a traffic light but moves at the end of the sequence.
+
+
+**Tip:** If you have an accompanying camera feed, it is also helpful to check the corresponding image, or even better, project the 3D label into the image to cross-check.
+
+
 ## Training
 To train a model with the pseudo-labels, specify the pseudo-label absolute path in the detector config file in `/MS3D/tools/cfgs/target_custom` as follows:
 ```yaml
@@ -161,9 +167,12 @@ Following this, we just train the model like in OpenPCDet.
 ```bash
 python train.py --cfg_file ${CONFIG_FILE} --extra_tag ${EXTRA_TAG}
 ```
-Sometimes it helps to initialize from an existing pre-trained model. 
+Sometimes it helps to initialize from an existing pre-trained model.
 ```bash
 python train.py --cfg_file ${CONFIG_FILE} --extra_tag ${EXTRA_TAG} --pretrained_model ${EXTRA_TAG}
+
+# Example
+python train.py --cfg_file cfgs/target_custom/ms3d_waymo_voxel_rcnn_centerhead.yaml --extra_tag round1 --pretrained_model ../model_zoo/waymo_uda_voxel_rcnn_centerhead_4xyzt_allcls.pth
 ```
 
 ## Iterative Label Refinement
