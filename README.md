@@ -153,10 +153,12 @@ If you find this project useful in your research, please give us a star and cons
  journal={arXiv preprint arXiv:2308.05988},
  year={2023}
 }
-@article{tsai2023ms3d,
- title={MS3D: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection},
- author={Tsai, Darren and Berrio, Julie Stephany and Shan, Mao and Nebot, Eduardo and Worrall, Stewart},
- journal={arXiv preprint arXiv:2304.02431},
- year={2023}
+@inproceedings{tsai2023ms3d,
+  title={Ms3d: Leveraging multiple detectors for unsupervised domain adaptation in 3d object detection},
+  author={Tsai, Darren and Berrio, Julie Stephany and Shan, Mao and Nebot, Eduardo and Worrall, Stewart},
+  booktitle={2023 IEEE 26th International Conference on Intelligent Transportation Systems (ITSC)},
+  pages={140--147},
+  year={2023},
+  organization={IEEE}
 }
 ```
