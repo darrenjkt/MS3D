@@ -6,7 +6,7 @@ This is the official code release for
 ## Introduction
 MS3D is a simple **auto-labeling** framework for vehicles and pedestrians that generates high quality labels for training 3D detectors on different lidar types, regardless of their scan pattern or point cloud density. 
 
-To auto-label your own point cloud data, see our [**guide**](docs/AUTO_LABEL_YOUR_DATA.md). 
+To auto-label your own point cloud data, see our [**guide**](docs/AUTO_LABEL_YOUR_DATA.md). To obtain the best results, please use multi-sweep pre-trained models for auto-labeling. Use both dense and sparse lidar pre-trained models in the auto-labeling ensemble for the best chance of generalization.
 
 Get a quick understanding of MS3D with our [**explanation video**](https://youtu.be/7o5F4AMaIWo) and [**tutorial notebook**](tools/demo/ms3d_demo_tutorial.ipynb).
 
