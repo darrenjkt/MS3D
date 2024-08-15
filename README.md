@@ -147,20 +147,21 @@ MS3D is released under the [Apache 2.0 license](LICENSE).
 If you find this project useful in your research, please give us a star and consider citing:
 
 ```
-@ARTICLE{10633799,
+@article{tsai2024ms3d++,
   author={Tsai, Darren and Berrio, Julie Stephany and Shan, Mao and Nebot, Eduardo and Worrall, Stewart},
   journal={IEEE Transactions on Intelligent Vehicles}, 
   title={MS3D++: Ensemble of Experts for Multi-Source Unsupervised Domain Adaptation in 3D Object Detection}, 
   year={2024},
   pages={1-16},
-  doi={10.1109/TIV.2024.3441527}}
+  doi={10.1109/TIV.2024.3441527}
+}
 
-@INPROCEEDINGS{10421941,
+@inproceedings{tsai2023ms3d,
   author={Tsai, Darren and Berrio, Julie Stephany and Shan, Mao and Nebot, Eduardo and Worrall, Stewart},
   booktitle={2023 IEEE 26th International Conference on Intelligent Transportation Systems (ITSC)}, 
   title={MS3D: Leveraging Multiple Detectors for Unsupervised Domain Adaptation in 3D Object Detection}, 
   year={2023},
   pages={140-147},
-  doi={10.1109/ITSC57777.2023.10421941}}
-
+  doi={10.1109/ITSC57777.2023.10421941}
+}
 ```
